@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bmcszk/unimock/config"
 )
 
 // Helper function to create a request with timeout
@@ -27,7 +29,21 @@ func createRequest(t *testing.T, method, path string, body string) *http.Request
 func TestHandler_ExtractIDs(t *testing.T) {
 	storage := NewStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	handler := NewHandler(storage, nil /* TODO: add config */, logger)
+	cfg := &config.Config{
+		Sections: map[string]config.Section{
+			"users": {
+				PathPattern:  "/users/*",
+				HeaderIDName: "X-Resource-ID",
+				BodyIDPaths: []string{
+					"/id",         // Root level ID
+					"/data/id",    // Nested ID
+					"//id",        // Any ID anywhere
+					"/items/*/id", // Array of objects with IDs
+				},
+			},
+		},
+	}
+	handler := NewHandler(storage, cfg, logger)
 
 	tests := []struct {
 		name        string
@@ -40,7 +56,7 @@ func TestHandler_ExtractIDs(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:        "JSON with ID in body",
+			name:        "JSON with ID in root",
 			method:      http.MethodPost,
 			contentType: "application/json",
 			body:        `{"id": "123", "name": "test"}`,
@@ -48,13 +64,52 @@ func TestHandler_ExtractIDs(t *testing.T) {
 			expectedIDs: []string{"123"},
 		},
 		{
-			name:        "JSON with ID in header",
+			name:        "JSON with ID in nested object",
 			method:      http.MethodPost,
 			contentType: "application/json",
-			headerID:    "123",
-			body:        `{"name": "test"}`,
+			body:        `{"data": {"id": "123", "name": "test"}}`,
 			path:        "/users",
 			expectedIDs: []string{"123"},
+		},
+		{
+			name:        "JSON with IDs in array",
+			method:      http.MethodPost,
+			contentType: "application/json",
+			body:        `{"items": [{"id": "123"}, {"id": "456"}]}`,
+			path:        "/users",
+			expectedIDs: []string{"123", "456"},
+		},
+		{
+			name:        "JSON with ID anywhere",
+			method:      http.MethodPost,
+			contentType: "application/json",
+			body:        `{"user": {"profile": {"id": "123"}}}`,
+			path:        "/users",
+			expectedIDs: []string{"123"},
+		},
+		{
+			name:        "XML with ID in root",
+			method:      http.MethodPost,
+			contentType: "application/xml",
+			body:        `<root><id>123</id><name>test</name></root>`,
+			path:        "/users",
+			expectedIDs: []string{"123"},
+		},
+		{
+			name:        "XML with ID in nested element",
+			method:      http.MethodPost,
+			contentType: "application/xml",
+			body:        `<root><data><id>123</id><name>test</name></data></root>`,
+			path:        "/users",
+			expectedIDs: []string{"123"},
+		},
+		{
+			name:        "XML with IDs in multiple elements",
+			method:      http.MethodPost,
+			contentType: "application/xml",
+			body:        `<root><items><item><id>123</id></item><item><id>456</id></item></items></root>`,
+			path:        "/users",
+			expectedIDs: []string{"123", "456"},
 		},
 		{
 			name:        "JSON without ID",
@@ -155,6 +210,28 @@ func TestHandler_ExtractIDs(t *testing.T) {
 
 func TestHandler_HandleRequest(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	cfg := &config.Config{
+		Sections: map[string]config.Section{
+			"users": {
+				PathPattern:  "/users/*",
+				HeaderIDName: "X-Resource-ID",
+				BodyIDPaths: []string{
+					"/id",
+					"/data/id",
+					"//id",
+				},
+			},
+			"test": {
+				PathPattern:  "/test/*",
+				HeaderIDName: "X-Resource-ID",
+				BodyIDPaths: []string{
+					"/id",
+					"/data/id",
+					"//id",
+				},
+			},
+		},
+	}
 
 	tests := []struct {
 		name           string
@@ -511,7 +588,7 @@ func TestHandler_HandleRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new storage for each test case
 			storage := NewStorage()
-			handler := NewHandler(storage, nil /* TODO: add config */, logger)
+			handler := NewHandler(storage, cfg, logger)
 
 			// For tests that require existing data, set it up
 			if tt.needsSetup {
