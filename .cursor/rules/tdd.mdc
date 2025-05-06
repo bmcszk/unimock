@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description: Test-Driven Development practices and workflow
+globs: ["*_test.go"]
 alwaysApply: false
 ---
 # Test-Driven Development Workflow

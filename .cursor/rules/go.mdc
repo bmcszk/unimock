@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description: Standards and best practices for Go development
+globs: ["*.go"]
 alwaysApply: false
 ---
 # Go Development Standards
