@@ -11,6 +11,7 @@ import (
 // MockData represents the data to be stored
 type MockData struct {
 	Path        string
+	Location    string
 	ContentType string
 	Body        []byte
 }
@@ -76,6 +77,19 @@ func (s *storage) Create(ids []string, data *MockData) error {
 
 	// Generate a new storage ID
 	storageID := uuid.New().String()
+
+	// Ensure path doesn't have trailing slash
+	data.Path = strings.TrimRight(data.Path, "/")
+
+	// Set location based on path and first ID
+	if len(ids) > 0 {
+		data.Location = data.Path + "/" + ids[0]
+	} else {
+		// Generate UUID for path-based storage
+		generatedID := uuid.New().String()
+		data.Location = data.Path + "/" + generatedID
+		ids = []string{generatedID}
+	}
 
 	// Store the data
 	s.data[storageID] = data

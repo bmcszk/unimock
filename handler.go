@@ -6,7 +6,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"path"
 	"strings"
 	"time"
 
@@ -245,6 +244,7 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", data.ContentType)
+	w.Header().Set("Location", data.Location)
 	w.Write(data.Body)
 }
 
@@ -274,7 +274,7 @@ func (h *Handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := &MockData{
-		Path:        r.URL.Path,
+		Path:        strings.TrimRight(r.URL.Path, "/"),
 		ContentType: r.Header.Get("Content-Type"),
 		Body:        body,
 	}
@@ -288,7 +288,7 @@ func (h *Handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Location", path.Join(r.URL.Path, ids[0]))
+	w.Header().Set("Location", data.Location)
 	w.Header().Set("Content-Type", data.ContentType)
 	w.WriteHeader(http.StatusCreated)
 	w.Write(body)
@@ -315,7 +315,7 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) {
 
 	// Create mock data
 	data := &MockData{
-		Path:        r.URL.Path,
+		Path:        strings.TrimRight(r.URL.Path, "/"),
 		ContentType: r.Header.Get("Content-Type"),
 		Body:        body,
 	}
@@ -323,7 +323,7 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	// Check if we're updating an existing resource
 	if len(ids) > 0 {
 		// Check if the resource exists
-		_, err = h.storage.Get(ids[0])
+		existingData, err := h.storage.Get(ids[0])
 		if err != nil {
 			h.logger.Error("failed to get resource for update",
 				"error", err,
@@ -331,6 +331,8 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
+		// Preserve the Location from existing data
+		data.Location = existingData.Location
 		// Resource exists, update it
 		if err := h.storage.Update(ids[0], data); err != nil {
 			h.logger.Error("failed to update resource",
@@ -339,6 +341,7 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("Location", data.Location)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -361,7 +364,7 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 	// First try to delete by ID
 	if len(ids) > 0 {
 		// Check if the resource exists
-		_, err = h.storage.Get(ids[0])
+		data, err := h.storage.Get(ids[0])
 		if err == nil {
 			// Resource exists, delete it
 			if err := h.storage.Delete(ids[0]); err != nil {
@@ -371,6 +374,7 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+			w.Header().Set("Location", data.Location)
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -405,5 +409,9 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Use the Location from the first item for the response
+	if len(items) > 0 {
+		w.Header().Set("Location", items[0].Location)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
