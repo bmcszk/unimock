@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -67,6 +68,25 @@ func setupLogger(level string) *slog.Logger {
 	return slog.New(handler)
 }
 
+// routeHandler is a http.Handler that routes requests to the appropriate handler based on path prefix
+type routeHandler struct {
+	mainHandler http.Handler
+	techHandler http.Handler
+	logger      *slog.Logger
+}
+
+// ServeHTTP implements the http.Handler interface
+func (h *routeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/_uni/") {
+		h.logger.Debug("routing to technical handler", "path", r.URL.Path)
+		h.techHandler.ServeHTTP(w, r)
+		return
+	}
+
+	h.logger.Debug("routing to main handler", "path", r.URL.Path)
+	h.mainHandler.ServeHTTP(w, r)
+}
+
 func main() {
 	// Parse configuration
 	conf := parseConfig()
@@ -100,13 +120,24 @@ func main() {
 	// Create a new storage
 	storage := NewStorage()
 
-	// Create a new handler
-	handler := NewHandler(storage, config, logger)
+	// Create a new main handler
+	mainHandler := NewHandler(storage, config, logger)
+
+	// Create a new tech handler
+	startTime := time.Now()
+	techHandler := NewTechHandler(logger, startTime)
+
+	// Create a router handler
+	router := &routeHandler{
+		mainHandler: mainHandler,
+		techHandler: techHandler,
+		logger:      logger,
+	}
 
 	// Create server
 	srv := &http.Server{
 		Addr:         ":" + conf.port,
-		Handler:      handler,
+		Handler:      router,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,

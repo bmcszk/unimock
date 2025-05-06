@@ -27,6 +27,10 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
   - All HTTP methods (GET, POST, PUT, DELETE)
   - Custom content types
   - Proper status codes and headers
+- **Technical Endpoints**:
+  - Health check endpoint (`/_uni/health`)
+  - Metrics endpoint (`/_uni/metrics`)
+  - Secure path prefix for monitoring and operations
 
 ## Requirements
 
@@ -153,6 +157,43 @@ make run
 ```
 
 This will start the server on port 8080.
+
+## Technical Endpoints
+
+Unimock provides a set of technical endpoints for monitoring and operations under the `/_uni/` path prefix:
+
+### Health Check
+
+```bash
+curl -X GET http://localhost:8080/_uni/health
+```
+
+Response:
+```json
+{
+  "status": "ok",
+  "uptime": "1h23m45s"
+}
+```
+
+### Metrics
+
+```bash
+curl -X GET http://localhost:8080/_uni/metrics
+```
+
+Response:
+```json
+{
+  "request_count": 42,
+  "api_endpoints": {
+    "/_uni/health": 3,
+    "/_uni/metrics": 2,
+    "/api/users": 20,
+    "/api/users/123": 17
+  }
+}
+```
 
 ## Example Requests
 

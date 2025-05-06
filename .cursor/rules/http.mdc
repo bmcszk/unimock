@@ -1,6 +1,6 @@
 ---
 description: HTTP mock server requirements and standards
-globs: ["*.go","handler.go","storage.go"]
+globs: *.go
 alwaysApply: false
 ---
 # HTTP Mock Server Requirements
