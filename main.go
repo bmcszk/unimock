@@ -129,6 +129,9 @@ func main() {
 	// Create a new storage
 	store := storage.NewStorage()
 
+	// Create a new scenario storage
+	scenarioStore := storage.NewScenarioStorage()
+
 	// Create a new main handler
 	mainHandler := handler.NewHandler(store, cfg, logger)
 
@@ -136,8 +139,8 @@ func main() {
 	startTime := time.Now()
 	techHandler := handler.NewTechHandler(logger, startTime)
 
-	// Create a new scenario handler
-	scenarioHandler := handler.NewScenarioHandler(store, logger)
+	// Create a new scenario handler with dedicated scenario storage
+	scenarioHandler := handler.NewScenarioHandler(scenarioStore, logger)
 
 	// Create a router handler
 	router := &routeHandler{

@@ -16,12 +16,12 @@ import (
 // ScenarioHandler handles endpoints for managing scenarios
 type ScenarioHandler struct {
 	prefix  string
-	storage storage.Storage
+	storage storage.ScenarioStorage
 	logger  *slog.Logger
 }
 
 // NewScenarioHandler creates a new instance of ScenarioHandler
-func NewScenarioHandler(storage storage.Storage, logger *slog.Logger) *ScenarioHandler {
+func NewScenarioHandler(storage storage.ScenarioStorage, logger *slog.Logger) *ScenarioHandler {
 	return &ScenarioHandler{
 		prefix:  "/_uni/scenarios",
 		storage: storage,
@@ -64,51 +64,25 @@ func (h *ScenarioHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleList handles GET requests to list all scenarios
 func (h *ScenarioHandler) handleList(w http.ResponseWriter, r *http.Request) {
-	scenarios := []model.Scenario{}
-
-	err := h.storage.ForEach(func(id string, data *model.MockData) error {
-		// Only include data stored by this handler (path starting with our prefix)
-		if strings.HasPrefix(data.Path, h.prefix) {
-			var scenario model.Scenario
-			if err := json.Unmarshal(data.Body, &scenario); err != nil {
-				return err
-			}
-			scenarios = append(scenarios, scenario)
-		}
-		return nil
-	})
-
-	if err != nil {
-		h.logger.Error("failed to list scenarios", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
+	// Get all scenarios from storage
+	scenarios := h.storage.List()
 
 	// Write response
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(scenarios)
+	err := json.NewEncoder(w).Encode(scenarios)
 	if err != nil {
 		h.logger.Error("failed to encode scenarios", "error", err)
 	}
 }
 
-// handleGet handles GET requests to retrieve a specific scenario
+
 func (h *ScenarioHandler) handleGet(w http.ResponseWriter, r *http.Request, uuid string) {
 	// Get the scenario from storage
-	data, err := h.storage.Get(uuid)
+	scenario, err := h.storage.Get(uuid)
 	if err != nil {
 		h.logger.Error("failed to get scenario", "error", err, "uuid", uuid)
 		http.Error(w, "Scenario not found", http.StatusNotFound)
-		return
-	}
-
-	// Parse the scenario
-	var scenario model.Scenario
-	if err := json.Unmarshal(data.Body, &scenario); err != nil {
-		h.logger.Error("failed to unmarshal scenario", "error", err, "uuid", uuid)
-		http.Error(w, "Invalid scenario data", http.StatusInternalServerError)
 		return
 	}
 
@@ -120,7 +94,7 @@ func (h *ScenarioHandler) handleGet(w http.ResponseWriter, r *http.Request, uuid
 	}
 }
 
-// handleCreate handles POST requests to create a new scenario
+
 func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	// Read request body
 	body, err := io.ReadAll(r.Body)
@@ -148,24 +122,8 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		scenario.Location = h.prefix + "/" + scenario.UUID
 	}
 
-	// Convert scenario to JSON
-	scenarioJSON, err := json.Marshal(scenario)
-	if err != nil {
-		h.logger.Error("failed to marshal scenario", "error", err)
-		http.Error(w, "Failed to create scenario", http.StatusInternalServerError)
-		return
-	}
-
-	// Create mock data for storage
-	data := &model.MockData{
-		Path:        h.prefix,
-		Location:    scenario.Location,
-		ContentType: "application/json",
-		Body:        scenarioJSON,
-	}
-
 	// Store the scenario
-	if err := h.storage.Create([]string{scenario.UUID}, data); err != nil {
+	if err := h.storage.Create(scenario.UUID, &scenario); err != nil {
 		h.logger.Error("failed to create scenario", "error", err, "uuid", scenario.UUID)
 		http.Error(w, "Failed to create scenario", http.StatusConflict)
 		return
@@ -175,13 +133,20 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Location", scenario.Location)
 	w.WriteHeader(http.StatusCreated)
+
+	// Convert scenario to JSON and write response
+	scenarioJSON, err := json.Marshal(scenario)
+	if err != nil {
+		h.logger.Error("failed to marshal scenario", "error", err)
+		return
+	}
 	w.Write(scenarioJSON)
 }
 
-// handleUpdate handles PUT requests to update a scenario
+
 func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, uuid string) {
 	// Check if the scenario exists
-	existingData, err := h.storage.Get(uuid)
+	_, err := h.storage.Get(uuid)
 	if err != nil {
 		h.logger.Error("scenario not found", "error", err, "uuid", uuid)
 		http.Error(w, "Scenario not found", http.StatusNotFound)
@@ -212,20 +177,8 @@ func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, u
 		scenario.Location = h.prefix + "/" + scenario.UUID
 	}
 
-	// Convert scenario to JSON
-	scenarioJSON, err := json.Marshal(scenario)
-	if err != nil {
-		h.logger.Error("failed to marshal scenario", "error", err)
-		http.Error(w, "Failed to update scenario", http.StatusInternalServerError)
-		return
-	}
-
-	// Update mock data for storage
-	existingData.Body = scenarioJSON
-	existingData.Location = scenario.Location
-
 	// Update the scenario
-	if err := h.storage.Update(uuid, existingData); err != nil {
+	if err := h.storage.Update(uuid, &scenario); err != nil {
 		h.logger.Error("failed to update scenario", "error", err, "uuid", uuid)
 		http.Error(w, "Failed to update scenario", http.StatusInternalServerError)
 		return
@@ -233,10 +186,17 @@ func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, u
 
 	// Write response
 	w.Header().Set("Content-Type", "application/json")
+
+	// Convert scenario to JSON and write response
+	scenarioJSON, err := json.Marshal(scenario)
+	if err != nil {
+		h.logger.Error("failed to marshal scenario", "error", err)
+		return
+	}
 	w.Write(scenarioJSON)
 }
 
-// handleDelete handles DELETE requests to delete a scenario
+
 func (h *ScenarioHandler) handleDelete(w http.ResponseWriter, r *http.Request, uuid string) {
 	// Check if the scenario exists
 	_, err := h.storage.Get(uuid)

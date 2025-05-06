@@ -87,6 +87,7 @@ curl -X DELETE http://localhost:8080/users/123
 ## For Developers and Contributors
 
 - [Storage System (Internal)](docs/storage.md) - Internal storage implementation details
+- [Scenario System](docs/scenarios.md) - How to use and test with the scenario storage
 
 ## Use Cases
 

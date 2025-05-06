@@ -23,7 +23,7 @@ type Storage interface {
 
 // storage implements the Storage interface
 type storage struct {
-	mu      sync.RWMutex
+	mu      *sync.RWMutex
 	data    map[string]*model.MockData // storageID -> data
 	idMap   map[string]string          // externalID -> storageID
 	pathMap map[string][]string        // path -> []storageID
@@ -32,6 +32,7 @@ type storage struct {
 // NewStorage creates a new instance of storage
 func NewStorage() Storage {
 	return &storage{
+		mu:      &sync.RWMutex{},
 		data:    make(map[string]*model.MockData),
 		idMap:   make(map[string]string),
 		pathMap: make(map[string][]string),

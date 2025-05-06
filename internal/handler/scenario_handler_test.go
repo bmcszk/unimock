@@ -15,7 +15,7 @@ import (
 
 func TestScenarioHandler_Create(t *testing.T) {
 	// Create a new storage for testing
-	storage := storage.NewStorage()
+	storage := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
@@ -71,7 +71,7 @@ func TestScenarioHandler_Create(t *testing.T) {
 
 func TestScenarioHandler_Get(t *testing.T) {
 	// Create a new storage for testing
-	storage := storage.NewStorage()
+	storage := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
@@ -127,7 +127,7 @@ func TestScenarioHandler_Get(t *testing.T) {
 
 func TestScenarioHandler_List(t *testing.T) {
 	// Create a new storage for testing
-	storage := storage.NewStorage()
+	storage := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
@@ -171,7 +171,7 @@ func TestScenarioHandler_List(t *testing.T) {
 	}
 
 	// Check response
-	var response []model.Scenario
+	var response []*model.Scenario
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Could not unmarshal response: %v", err)
@@ -185,7 +185,7 @@ func TestScenarioHandler_List(t *testing.T) {
 
 func TestScenarioHandler_Update(t *testing.T) {
 	// Create a new storage for testing
-	storage := storage.NewStorage()
+	storage := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
@@ -260,7 +260,7 @@ func TestScenarioHandler_Update(t *testing.T) {
 
 func TestScenarioHandler_Delete(t *testing.T) {
 	// Create a new storage for testing
-	storage := storage.NewStorage()
+	storage := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
@@ -315,7 +315,7 @@ func TestScenarioHandler_Delete(t *testing.T) {
 
 func TestScenarioHandler_NotFound(t *testing.T) {
 	// Create a new storage for testing
-	storage := storage.NewStorage()
+	storage := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
@@ -336,7 +336,7 @@ func TestScenarioHandler_NotFound(t *testing.T) {
 
 func TestScenarioHandler_InvalidJSON(t *testing.T) {
 	// Create a new storage for testing
-	storage := storage.NewStorage()
+	storage := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
