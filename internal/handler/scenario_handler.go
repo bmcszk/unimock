@@ -29,6 +29,17 @@ func NewScenarioHandler(storage storage.ScenarioStorage, logger *slog.Logger) *S
 	}
 }
 
+// GetScenarioByPath returns a scenario matching the given path, or nil if not found
+func (h *ScenarioHandler) GetScenarioByPath(path string) *model.Scenario {
+	scenarios := h.storage.List()
+	for _, scenario := range scenarios {
+		if scenario.Path == path {
+			return scenario
+		}
+	}
+	return nil
+}
+
 // ServeHTTP implements the http.Handler interface
 func (h *ScenarioHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Log the request
@@ -76,7 +87,6 @@ func (h *ScenarioHandler) handleList(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 func (h *ScenarioHandler) handleGet(w http.ResponseWriter, r *http.Request, uuid string) {
 	// Get the scenario from storage
 	scenario, err := h.storage.Get(uuid)
@@ -93,7 +103,6 @@ func (h *ScenarioHandler) handleGet(w http.ResponseWriter, r *http.Request, uuid
 		h.logger.Error("failed to encode scenario", "error", err)
 	}
 }
-
 
 func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	// Read request body
@@ -142,7 +151,6 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write(scenarioJSON)
 }
-
 
 func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, uuid string) {
 	// Check if the scenario exists
@@ -195,7 +203,6 @@ func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, u
 	}
 	w.Write(scenarioJSON)
 }
-
 
 func (h *ScenarioHandler) handleDelete(w http.ResponseWriter, r *http.Request, uuid string) {
 	// Check if the scenario exists

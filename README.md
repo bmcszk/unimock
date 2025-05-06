@@ -13,6 +13,7 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 - **Thread-Safe Storage**: In-memory storage with mutex protection
 - **Full HTTP Support**: All HTTP methods (GET, POST, PUT, DELETE)
 - **Technical Endpoints**: Health check, metrics, and scenario management
+- **Scenario-Based Mocking**: Create predefined scenarios for paths that bypass regular mock behavior
 
 ## Installation
 
@@ -83,11 +84,11 @@ curl -X DELETE http://localhost:8080/users/123
 - [Configuration](docs/configuration.md) - How to configure the server
 - [Technical Endpoints](docs/technical_endpoints.md) - Special endpoints for management
 - [Usage Examples](docs/examples.md) - More detailed usage examples
+- [Scenario System](docs/scenarios.md) - How to use and test with the scenario storage, including path-based mocking
 
 ## For Developers and Contributors
 
 - [Storage System (Internal)](docs/storage.md) - Internal storage implementation details
-- [Scenario System](docs/scenarios.md) - How to use and test with the scenario storage
 
 ## Use Cases
 

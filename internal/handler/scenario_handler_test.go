@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -353,5 +354,82 @@ func TestScenarioHandler_InvalidJSON(t *testing.T) {
 	// Check the status code
 	if status := rr.Code; status != http.StatusBadRequest {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+}
+
+func TestGetScenarioByPath(t *testing.T) {
+	// Create a mock logger
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	// Create test scenarios
+	scenarios := []*model.Scenario{
+		{
+			UUID:        "123",
+			Path:        "/api/users",
+			StatusCode:  200,
+			ContentType: "application/json",
+			Data:        `[{"id": 1, "name": "John"}]`,
+		},
+		{
+			UUID:        "456",
+			Path:        "/api/products",
+			StatusCode:  200,
+			ContentType: "application/json",
+			Data:        `[{"id": 1, "name": "Product A"}]`,
+		},
+	}
+
+	// Create storage with test scenarios
+	store := storage.NewScenarioStorage()
+	for _, s := range scenarios {
+		_ = store.Create(s.UUID, s)
+	}
+
+	// Create scenario handler
+	handler := NewScenarioHandler(store, logger)
+
+	// Test cases
+	tests := []struct {
+		name     string
+		path     string
+		wantUUID string
+		wantNil  bool
+	}{
+		{
+			name:     "existing path",
+			path:     "/api/users",
+			wantUUID: "123",
+			wantNil:  false,
+		},
+		{
+			name:     "another existing path",
+			path:     "/api/products",
+			wantUUID: "456",
+			wantNil:  false,
+		},
+		{
+			name:     "non-existing path",
+			path:     "/api/nonexistent",
+			wantUUID: "",
+			wantNil:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scenario := handler.GetScenarioByPath(tt.path)
+
+			if tt.wantNil {
+				if scenario != nil {
+					t.Errorf("GetScenarioByPath(%q) = %v, want nil", tt.path, scenario)
+				}
+			} else {
+				if scenario == nil {
+					t.Errorf("GetScenarioByPath(%q) = nil, want scenario with UUID %q", tt.path, tt.wantUUID)
+				} else if scenario.UUID != tt.wantUUID {
+					t.Errorf("GetScenarioByPath(%q) = scenario with UUID %q, want scenario with UUID %q", tt.path, scenario.UUID, tt.wantUUID)
+				}
+			}
+		})
 	}
 }
