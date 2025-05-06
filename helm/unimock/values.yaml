@@ -1,0 +1,80 @@
+replicaCount: 1
+
+image:
+  repository: unimock
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  name: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: unimock.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+env:
+  UNIMOCK_PORT: "8080"
+  UNIMOCK_LOG_LEVEL: "info"
+
+config:
+  # Default mock configuration
+  yaml: |
+    # Configuration for different API endpoints and their ID extraction rules
+    
+    # Section for user-related endpoints
+    users:
+      path_pattern: "/api/users/*"
+      body_id_paths:
+        - "//id"
+        - "//@id"
+        - "//user/id"
+        - "//user/@id"
+      header_id_name: "X-User-ID"
+    
+    # Section for order-related endpoints
+    orders:
+      path_pattern: "/api/orders/*"
+      body_id_paths:
+        - "//id"
+        - "//@id"
+        - "//order/id"
+        - "//order/@id"
+      header_id_name: "X-Order-ID"
+
+nodeSelector: {}
+tolerations: []
+affinity: {} 

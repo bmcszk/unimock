@@ -1,0 +1,57 @@
+# Custom values for local development with Tilt
+
+# Use local registry for development
+image:
+  repository: unimock
+  tag: build
+  pullPolicy: Never
+
+# Set resource limits appropriate for local development
+resources:
+  limits:
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Ensure we're using the right port
+service:
+  type: ClusterIP
+  port: 8080
+
+# Enable verbose logging for development
+env:
+  UNIMOCK_PORT: "8080"
+  UNIMOCK_LOG_LEVEL: "debug"
+
+# Add development-specific configuration
+config:
+  yaml: |
+    # Configuration for different API endpoints and their ID extraction rules
+    
+    # Section for user-related endpoints
+    users:
+      path_pattern: "/api/users/*"
+      body_id_paths:
+        - "//id"
+        - "//@id"
+        - "//user/id"
+        - "//user/@id"
+      header_id_name: "X-User-ID"
+    
+    # Section for order-related endpoints
+    orders:
+      path_pattern: "/api/orders/*"
+      body_id_paths:
+        - "//id"
+        - "//@id"
+        - "//order/id"
+        - "//order/@id"
+      header_id_name: "X-Order-ID"
+    
+    # Development test endpoints
+    test:
+      path_pattern: "/api/test/*"
+      body_id_paths:
+        - "//id"
+      header_id_name: "X-Test-ID" 

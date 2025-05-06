@@ -37,6 +37,25 @@ go run main.go
 
 This will start the server on port 8080.
 
+## Development Commands
+
+The project includes Makefile targets for common tasks:
+
+```bash
+# Standard development
+make build      # Build the application
+make test       # Run all tests
+make run        # Build and run the application
+make clean      # Clean build artifacts
+
+# Kubernetes development
+make kind-start # Start a local Kubernetes cluster with KinD
+make helm-lint  # Lint the Helm chart
+make tilt-run   # Run Tilt for local development in Kubernetes
+make k8s-setup  # Deploy to Kubernetes using Helm
+make kind-stop  # Delete the Kubernetes cluster
+```
+
 ## Configuration
 
 The server can be configured with environment variables:
@@ -89,6 +108,8 @@ curl -X DELETE http://localhost:8080/users/123
 ## For Developers and Contributors
 
 - [Storage System (Internal)](docs/storage.md) - Internal storage implementation details
+- [Kubernetes Deployment](helm/unimock/README.md) - Deploy Unimock with Helm
+- [Local Development with Tilt](tilt/README.md) - Run and develop with Tilt in Kubernetes
 
 ## Use Cases
 

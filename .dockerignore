@@ -1,0 +1,28 @@
+# Ignore everything by default
+*
+**/*
+
+# Allow Go source code
+!**/*.go
+*_test.go
+
+# Allow module files
+!go.mod
+!go.sum
+
+# Allow essential config files
+!config.yaml
+!config.yml
+
+# Allow essential directories (but still filter their contents by the rules above)
+!internal/
+!pkg/
+!cmd/
+!main.go
+
+# Ensure the build command and specific directories
+!Makefile
+!Dockerfile
+
+# Explicitly exclude vendor to avoid inconsistency
+vendor/

@@ -21,4 +21,4 @@ vendor/
 Thumbs.db
 
 # Ignore binary
-unimock 
+/unimock 

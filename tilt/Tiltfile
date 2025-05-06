@@ -1,0 +1,61 @@
+# -*- mode: Python -*-
+
+# Build the Docker image with build tag
+docker_build(
+    'unimock:build',  # Name with tag directly in the ref
+    '..',
+    dockerfile='../Dockerfile'
+)
+
+# Deploy the Helm chart
+k8s_yaml(helm(
+    '../helm/unimock',
+    # Override default values for local development
+    values=[
+        '../helm/unimock/values.yaml',
+        './tilt-local-values.yaml'  # Custom values for local development
+    ],
+    # Set a specific release name
+    name='dev-unimock'
+))
+
+# Configure resources and port forwards
+k8s_resource(
+    'dev-unimock',
+    port_forwards=[
+        '8080:8080'
+    ],
+    new_name='unimock',  # Rename for display in Tilt UI
+    pod_readiness='wait'
+)
+
+# Provide live-reload functionality for local development
+# Watch for changes to automatically rebuild and redeploy
+watch_file('../main.go')
+watch_file('../internal')
+watch_file('../config.yaml')
+watch_file('./tilt-local-values.yaml')
+
+# Add custom commands to the Tilt UI
+local_resource(
+    'unimock-test-user',
+    cmd='curl -X POST -H "Content-Type: application/json" -d \'{"id": "1", "name": "Test User", "email": "test@example.com"}\' http://localhost:8080/api/users',
+    auto_init=False,
+    trigger_mode=TRIGGER_MODE_MANUAL
+)
+
+local_resource(
+    'unimock-get-health',
+    cmd='curl -s http://localhost:8080/_uni/health',
+    auto_init=False,
+    trigger_mode=TRIGGER_MODE_MANUAL
+)
+
+# Add health check endpoints to the Tilt UI
+k8s_resource(
+    'unimock',  # This references the renamed resource
+    links=[
+        link('http://localhost:8080/_uni/health', 'Health Check'),
+        link('http://localhost:8080/_uni/metrics', 'Metrics')
+    ]
+) 

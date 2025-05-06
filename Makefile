@@ -1,4 +1,4 @@
-.PHONY: test build clean run
+.PHONY: test build clean run helm-lint tilt-run kind-start kind-stop k8s-setup
 
 # Go parameters
 GOCMD=go
@@ -10,6 +10,9 @@ GOMOD=$(GOCMD) mod
 
 # Binary name
 BINARY_NAME=unimock
+
+# Kubernetes parameters
+K8S_CLUSTER_NAME=unimock
 
 # Test parameters
 TEST_FLAGS=-v -race -cover
@@ -44,6 +47,23 @@ vet:
 lint:
 	golangci-lint run
 
+# Kubernetes and deployment targets
+kind-start:
+	kind create cluster --name $(K8S_CLUSTER_NAME) || echo "Cluster already exists"
+	kubectl cluster-info
+
+kind-stop:
+	kind delete cluster --name $(K8S_CLUSTER_NAME)
+
+helm-lint:
+	cd helm/unimock && helm lint .
+
+tilt-run: kind-start
+	cd tilt && tilt up
+
+k8s-setup: kind-start
+	helm upgrade --install $(BINARY_NAME) ./helm/unimock
+
 help:
 	@echo "Available targets:"
 	@echo "  all        - Run tests and build"
@@ -55,4 +75,9 @@ help:
 	@echo "  deps       - Download dependencies"
 	@echo "  tidy       - Tidy up dependencies"
 	@echo "  vet        - Run go vet"
-	@echo "  lint       - Run golangci-lint" 
+	@echo "  lint       - Run golangci-lint"
+	@echo "  kind-start - Create a Kind Kubernetes cluster"
+	@echo "  kind-stop  - Delete the Kind Kubernetes cluster"
+	@echo "  helm-lint  - Lint the Helm chart"
+	@echo "  tilt-run   - Start Tilt for local development"
+	@echo "  k8s-setup  - Deploy to Kubernetes using Helm" 
