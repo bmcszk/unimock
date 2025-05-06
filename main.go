@@ -70,13 +70,20 @@ func setupLogger(level string) *slog.Logger {
 
 // routeHandler is a http.Handler that routes requests to the appropriate handler based on path prefix
 type routeHandler struct {
-	mainHandler http.Handler
-	techHandler http.Handler
-	logger      *slog.Logger
+	mainHandler     http.Handler
+	techHandler     http.Handler
+	scenarioHandler http.Handler
+	logger          *slog.Logger
 }
 
 // ServeHTTP implements the http.Handler interface
 func (h *routeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/_uni/scenarios") {
+		h.logger.Debug("routing to scenario handler", "path", r.URL.Path)
+		h.scenarioHandler.ServeHTTP(w, r)
+		return
+	}
+
 	if strings.HasPrefix(r.URL.Path, "/_uni/") {
 		h.logger.Debug("routing to technical handler", "path", r.URL.Path)
 		h.techHandler.ServeHTTP(w, r)
@@ -127,11 +134,15 @@ func main() {
 	startTime := time.Now()
 	techHandler := NewTechHandler(logger, startTime)
 
+	// Create a new scenario handler
+	scenarioHandler := NewScenarioHandler(storage, logger)
+
 	// Create a router handler
 	router := &routeHandler{
-		mainHandler: mainHandler,
-		techHandler: techHandler,
-		logger:      logger,
+		mainHandler:     mainHandler,
+		techHandler:     techHandler,
+		scenarioHandler: scenarioHandler,
+		logger:          logger,
 	}
 
 	// Create server
