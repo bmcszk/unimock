@@ -1,0 +1,53 @@
+# Configuration for different API endpoints and their ID extraction rules
+
+# Section for user-related endpoints
+users:
+  path_pattern: "/api/users/*"
+  body_id_paths:
+    - "//id"
+    - "//@id"
+    - "//user/id"
+    - "//user/@id"
+  header_id_name: "X-User-ID"
+
+# Section for order-related endpoints
+orders:
+  path_pattern: "/api/orders/*"
+  body_id_paths:
+    - "//id"
+    - "//@id"
+    - "//order/id"
+    - "//order/@id"
+  header_id_name: "X-Order-ID"
+
+# Section for product-related endpoints
+products:
+  path_pattern: "/api/products/*"
+  body_id_paths:
+    - "//id"
+    - "//@id"
+    - "//product/id"
+    - "//product/@id"
+  header_id_name: "X-Product-ID"
+
+# Section for payment-related endpoints
+payments:
+  path_pattern: "/api/payments/*"
+  body_id_paths:
+    - "//id"
+    - "//@id"
+    - "//payment/id"
+    - "//payment/@id"
+    - "//data/payment/id"
+    - "//data/payment/@id"
+  header_id_name: "X-Payment-ID"
+
+# Deep paths section
+user_orders:
+  path_pattern: "/api/users/*/orders/*"
+  body_id_paths:
+    - "//id"
+    - "//@id"
+    - "//order/id"
+    - "//order/@id"
+  header_id_name: "X-Order-ID" 

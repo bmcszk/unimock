@@ -200,6 +200,13 @@ The server can be configured with:
 - `idPaths`: List of XPath expressions to find IDs in request bodies
 - `idHeader`: Header name to look for ID in request headers
 
+### YAML Configuration
+- Config file using yaml
+- Config separated into sections
+- Every section has path pattern
+- Every section has paths to id in body
+- Every section has header name for id in header
+
 ## License
 
 MIT 
@@ -279,3 +286,9 @@ MIT
 3. Include proper content types in requests
 4. Handle both success and error cases in your tests
 5. Clean up test data after use
+
+### Path Matching and ID Extraction
+- Every request coming to server should match one of the configured path patterns
+- Every request may have different ID paths and header name to extract ID taken from config
+- Path patterns are matched in order of configuration
+- ID extraction follows the order: header name -> body paths -> path segment

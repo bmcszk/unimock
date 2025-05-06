@@ -27,7 +27,7 @@ func createRequest(t *testing.T, method, path string, body string) *http.Request
 func TestHandler_ExtractIDs(t *testing.T) {
 	storage := NewStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	handler := NewHandler(storage, []string{"//id", "//@id"}, "X-Resource-ID", logger)
+	handler := NewHandler(storage, nil /* TODO: add config */, logger)
 
 	tests := []struct {
 		name        string
@@ -511,7 +511,7 @@ func TestHandler_HandleRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new storage for each test case
 			storage := NewStorage()
-			handler := NewHandler(storage, []string{"//id"}, "X-Resource-ID", logger)
+			handler := NewHandler(storage, nil /* TODO: add config */, logger)
 
 			// For tests that require existing data, set it up
 			if tt.needsSetup {

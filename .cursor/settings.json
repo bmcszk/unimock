@@ -43,5 +43,14 @@
                 "linux": "/usr/bin/zsh"
             }
         }
+    },
+    "cursor": {
+        "rules": {
+            "autoCheck": true,
+            "checkOnSave": true,
+            "checkOnChange": true,
+            "showNotifications": true,
+            "enforceRules": true
+        }
     }
 }

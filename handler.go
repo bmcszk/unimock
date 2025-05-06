@@ -9,25 +9,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/antchfx/jsonquery"
-	"github.com/antchfx/xmlquery"
+	"github.com/bmcszk/unimock/config"
 )
 
 // Handler represents our HTTP request handler
 type Handler struct {
-	storage  Storage
-	idPaths  []string // XPath expressions to find IDs
-	idHeader string   // Header name to find ID
-	logger   *slog.Logger
+	storage Storage
+	cfg     *config.Config
+	logger  *slog.Logger
 }
 
 // NewHandler creates a new instance of Handler
-func NewHandler(storage Storage, idPaths []string, idHeader string, logger *slog.Logger) *Handler {
+func NewHandler(storage Storage, cfg *config.Config, logger *slog.Logger) *Handler {
 	return &Handler{
-		storage:  storage,
-		idPaths:  idPaths,
-		idHeader: idHeader,
-		logger:   logger,
+		storage: storage,
+		cfg:     cfg,
+		logger:  logger,
 	}
 }
 
@@ -57,6 +54,7 @@ func (h *Handler) extractIDs(r *http.Request) ([]string, error) {
 	}
 
 	// For POST requests, try to extract ID from headers first
+	/* TODO: add header extraction based on config
 	if h.idHeader != "" {
 		if id := r.Header.Get(h.idHeader); id != "" {
 			ids = append(ids, id)
@@ -64,7 +62,7 @@ func (h *Handler) extractIDs(r *http.Request) ([]string, error) {
 				"id", id,
 				"header", h.idHeader)
 		}
-	}
+	} */
 
 	// Try to extract IDs from body
 	contentType := r.Header.Get("Content-Type")
@@ -77,12 +75,15 @@ func (h *Handler) extractIDs(r *http.Request) ([]string, error) {
 		r.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		// Parse JSON
+		/* TODO: uncomment this
 		doc, err := jsonquery.Parse(bytes.NewReader(body))
 		if err != nil {
 			return nil, NewInvalidRequestError("invalid JSON body")
 		}
+		*/
 
 		// Try each ID path
+		/* TODO: add body extraction based on config
 		for _, idPath := range h.idPaths {
 			nodes, err := jsonquery.QueryAll(doc, idPath)
 			if err != nil {
@@ -93,7 +94,7 @@ func (h *Handler) extractIDs(r *http.Request) ([]string, error) {
 					ids = append(ids, id)
 				}
 			}
-		}
+		} */
 	} else if strings.Contains(contentType, "application/xml") {
 		// Read body
 		body, err := io.ReadAll(r.Body)
@@ -103,12 +104,14 @@ func (h *Handler) extractIDs(r *http.Request) ([]string, error) {
 		r.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		// Parse XML
+		/* TODO uncomment this
 		doc, err := xmlquery.Parse(bytes.NewReader(body))
 		if err != nil {
 			return nil, NewInvalidRequestError("invalid XML body")
-		}
+		} */
 
 		// Try each ID path
+		/* TODO: add body extraction based on config
 		for _, idPath := range h.idPaths {
 			nodes, err := xmlquery.QueryAll(doc, idPath)
 			if err != nil {
@@ -119,7 +122,7 @@ func (h *Handler) extractIDs(r *http.Request) ([]string, error) {
 					ids = append(ids, id)
 				}
 			}
-		}
+		} */
 	}
 
 	// If no IDs found in body/headers, try path
