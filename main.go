@@ -10,7 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bmcszk/unimock/config"
+	"github.com/bmcszk/unimock/internal/config"
+	"github.com/bmcszk/unimock/internal/handler"
+	"github.com/bmcszk/unimock/internal/storage"
 )
 
 type Envs struct {
@@ -96,18 +98,18 @@ func (h *routeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	// Parse configuration
-	conf := parseConfig()
+	envs := parseConfig()
 
 	// Setup logger
-	logger := setupLogger(conf.logLevel)
+	logger := setupLogger(envs.logLevel)
 	logger.Info("starting server",
-		"port", conf.port,
-		"config_path", conf.configPath,
-		"log_level", conf.logLevel)
+		"port", envs.port,
+		"config_path", envs.configPath,
+		"log_level", envs.logLevel)
 
 	// Load configuration
 	configLoader := &config.YAMLConfigLoader{}
-	config, err := configLoader.Load(conf.configPath)
+	cfg, err := configLoader.Load(envs.configPath)
 	if err != nil {
 		logger.Error("failed to load configuration",
 			"error", err)
@@ -115,27 +117,27 @@ func main() {
 	}
 
 	// Validate configuration
-	if config == nil {
+	if cfg == nil {
 		logger.Error("configuration is nil")
 		panic("configuration is nil")
 	}
-	if len(config.Sections) == 0 {
+	if len(cfg.Sections) == 0 {
 		logger.Error("no sections defined in configuration")
 		panic("no sections defined in configuration")
 	}
 
 	// Create a new storage
-	storage := NewStorage()
+	store := storage.NewStorage()
 
 	// Create a new main handler
-	mainHandler := NewHandler(storage, config, logger)
+	mainHandler := handler.NewHandler(store, cfg, logger)
 
 	// Create a new tech handler
 	startTime := time.Now()
-	techHandler := NewTechHandler(logger, startTime)
+	techHandler := handler.NewTechHandler(logger, startTime)
 
 	// Create a new scenario handler
-	scenarioHandler := NewScenarioHandler(storage, logger)
+	scenarioHandler := handler.NewScenarioHandler(store, logger)
 
 	// Create a router handler
 	router := &routeHandler{
@@ -147,7 +149,7 @@ func main() {
 
 	// Create server
 	srv := &http.Server{
-		Addr:         ":" + conf.port,
+		Addr:         ":" + envs.port,
 		Handler:      router,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,

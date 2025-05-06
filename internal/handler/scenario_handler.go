@@ -1,4 +1,4 @@
-package main
+package handler
 
 import (
 	"encoding/json"
@@ -7,18 +7,21 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/internal/storage"
+
 	"github.com/google/uuid"
 )
 
 // ScenarioHandler handles endpoints for managing scenarios
 type ScenarioHandler struct {
 	prefix  string
-	storage Storage
+	storage storage.Storage
 	logger  *slog.Logger
 }
 
 // NewScenarioHandler creates a new instance of ScenarioHandler
-func NewScenarioHandler(storage Storage, logger *slog.Logger) *ScenarioHandler {
+func NewScenarioHandler(storage storage.Storage, logger *slog.Logger) *ScenarioHandler {
 	return &ScenarioHandler{
 		prefix:  "/_uni/scenarios",
 		storage: storage,
@@ -63,12 +66,12 @@ func (h *ScenarioHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // handleList handles GET requests to list all scenarios
 func (h *ScenarioHandler) handleList(w http.ResponseWriter, r *http.Request) {
-	scenarios := []Scenario{}
+	scenarios := []model.Scenario{}
 
-	err := h.storage.ForEach(func(id string, data *MockData) error {
+	err := h.storage.ForEach(func(id string, data *model.MockData) error {
 		// Only include data stored by this handler (path starting with our prefix)
 		if strings.HasPrefix(data.Path, h.prefix) {
-			var scenario Scenario
+			var scenario model.Scenario
 			if err := json.Unmarshal(data.Body, &scenario); err != nil {
 				return err
 			}
@@ -102,7 +105,7 @@ func (h *ScenarioHandler) handleGet(w http.ResponseWriter, r *http.Request, uuid
 	}
 
 	// Parse the scenario
-	var scenario Scenario
+	var scenario model.Scenario
 	if err := json.Unmarshal(data.Body, &scenario); err != nil {
 		h.logger.Error("failed to unmarshal scenario", "error", err, "uuid", uuid)
 		http.Error(w, "Invalid scenario data", http.StatusInternalServerError)
@@ -128,7 +131,7 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse the scenario
-	var scenario Scenario
+	var scenario model.Scenario
 	if err := json.Unmarshal(body, &scenario); err != nil {
 		h.logger.Error("failed to unmarshal scenario", "error", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
@@ -154,7 +157,7 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create mock data for storage
-	data := &MockData{
+	data := &model.MockData{
 		Path:        h.prefix,
 		Location:    scenario.Location,
 		ContentType: "application/json",
@@ -194,7 +197,7 @@ func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, u
 	}
 
 	// Parse the scenario
-	var scenario Scenario
+	var scenario model.Scenario
 	if err := json.Unmarshal(body, &scenario); err != nil {
 		h.logger.Error("failed to unmarshal scenario", "error", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)

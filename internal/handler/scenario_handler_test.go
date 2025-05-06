@@ -1,4 +1,4 @@
-package main
+package handler
 
 import (
 	"bytes"
@@ -8,16 +8,19 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/internal/storage"
 )
 
 func TestScenarioHandler_Create(t *testing.T) {
 	// Create a new storage for testing
-	storage := NewStorage()
+	storage := storage.NewStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
 	// Create a new scenario
-	scenario := Scenario{
+	scenario := model.Scenario{
 		Path:        "/api/test",
 		StatusCode:  200,
 		ContentType: "application/json",
@@ -49,7 +52,7 @@ func TestScenarioHandler_Create(t *testing.T) {
 	}
 
 	// Check response
-	var response Scenario
+	var response model.Scenario
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Could not unmarshal response: %v", err)
@@ -68,12 +71,12 @@ func TestScenarioHandler_Create(t *testing.T) {
 
 func TestScenarioHandler_Get(t *testing.T) {
 	// Create a new storage for testing
-	storage := NewStorage()
+	storage := storage.NewStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
 	// Create a new scenario
-	scenario := Scenario{
+	scenario := model.Scenario{
 		Path:        "/api/test",
 		StatusCode:  200,
 		ContentType: "application/json",
@@ -88,7 +91,7 @@ func TestScenarioHandler_Get(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	// Get the created scenario's UUID
-	var createdScenario Scenario
+	var createdScenario model.Scenario
 	json.Unmarshal(rr.Body.Bytes(), &createdScenario)
 	uuid := createdScenario.UUID
 
@@ -107,7 +110,7 @@ func TestScenarioHandler_Get(t *testing.T) {
 	}
 
 	// Check response
-	var response Scenario
+	var response model.Scenario
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Could not unmarshal response: %v", err)
@@ -124,12 +127,12 @@ func TestScenarioHandler_Get(t *testing.T) {
 
 func TestScenarioHandler_List(t *testing.T) {
 	// Create a new storage for testing
-	storage := NewStorage()
+	storage := storage.NewStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
 	// Create multiple scenarios
-	scenarios := []Scenario{
+	scenarios := []model.Scenario{
 		{
 			Path:        "/api/test1",
 			StatusCode:  200,
@@ -168,7 +171,7 @@ func TestScenarioHandler_List(t *testing.T) {
 	}
 
 	// Check response
-	var response []Scenario
+	var response []model.Scenario
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Could not unmarshal response: %v", err)
@@ -182,12 +185,12 @@ func TestScenarioHandler_List(t *testing.T) {
 
 func TestScenarioHandler_Update(t *testing.T) {
 	// Create a new storage for testing
-	storage := NewStorage()
+	storage := storage.NewStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
 	// Create a new scenario
-	scenario := Scenario{
+	scenario := model.Scenario{
 		Path:        "/api/test",
 		StatusCode:  200,
 		ContentType: "application/json",
@@ -202,12 +205,12 @@ func TestScenarioHandler_Update(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	// Get the created scenario's UUID
-	var createdScenario Scenario
+	var createdScenario model.Scenario
 	json.Unmarshal(rr.Body.Bytes(), &createdScenario)
 	uuid := createdScenario.UUID
 
 	// Update the scenario
-	updatedScenario := Scenario{
+	updatedScenario := model.Scenario{
 		UUID:        uuid,
 		Path:        "/api/test-updated",
 		StatusCode:  201,
@@ -237,7 +240,7 @@ func TestScenarioHandler_Update(t *testing.T) {
 	}
 
 	// Check response
-	var response Scenario
+	var response model.Scenario
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Could not unmarshal response: %v", err)
@@ -257,12 +260,12 @@ func TestScenarioHandler_Update(t *testing.T) {
 
 func TestScenarioHandler_Delete(t *testing.T) {
 	// Create a new storage for testing
-	storage := NewStorage()
+	storage := storage.NewStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
 	// Create a new scenario
-	scenario := Scenario{
+	scenario := model.Scenario{
 		Path:        "/api/test",
 		StatusCode:  200,
 		ContentType: "application/json",
@@ -277,7 +280,7 @@ func TestScenarioHandler_Delete(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	// Get the created scenario's UUID
-	var createdScenario Scenario
+	var createdScenario model.Scenario
 	json.Unmarshal(rr.Body.Bytes(), &createdScenario)
 	uuid := createdScenario.UUID
 
@@ -312,7 +315,7 @@ func TestScenarioHandler_Delete(t *testing.T) {
 
 func TestScenarioHandler_NotFound(t *testing.T) {
 	// Create a new storage for testing
-	storage := NewStorage()
+	storage := storage.NewStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 
@@ -333,7 +336,7 @@ func TestScenarioHandler_NotFound(t *testing.T) {
 
 func TestScenarioHandler_InvalidJSON(t *testing.T) {
 	// Create a new storage for testing
-	storage := NewStorage()
+	storage := storage.NewStorage()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	handler := NewScenarioHandler(storage, logger)
 

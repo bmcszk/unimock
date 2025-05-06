@@ -1,4 +1,4 @@
-package main
+package handler
 
 import (
 	"bytes"
@@ -10,20 +10,23 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/internal/storage"
+
 	"github.com/antchfx/jsonquery"
 	"github.com/antchfx/xmlquery"
-	"github.com/bmcszk/unimock/config"
+	"github.com/bmcszk/unimock/internal/config"
 )
 
 // Handler represents our HTTP request handler
 type Handler struct {
-	storage Storage
+	storage storage.Storage
 	cfg     *config.Config
 	logger  *slog.Logger
 }
 
 // NewHandler creates a new instance of Handler
-func NewHandler(storage Storage, cfg *config.Config, logger *slog.Logger) *Handler {
+func NewHandler(storage storage.Storage, cfg *config.Config, logger *slog.Logger) *Handler {
 	return &Handler{
 		storage: storage,
 		cfg:     cfg,
@@ -198,7 +201,7 @@ func writeErrorResponse(w http.ResponseWriter, msg string, statusCode int) {
 }
 
 // writeResourceResponse writes a single resource response
-func writeResourceResponse(w http.ResponseWriter, data *MockData) error {
+func writeResourceResponse(w http.ResponseWriter, data *model.MockData) error {
 	w.Header().Set("Content-Type", data.ContentType)
 	if data.Location != "" {
 		w.Header().Set("Location", data.Location)
@@ -308,7 +311,7 @@ func (h *Handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data := &MockData{
+	data := &model.MockData{
 		Path:        strings.TrimRight(r.URL.Path, "/"),
 		ContentType: r.Header.Get("Content-Type"),
 		Body:        body,

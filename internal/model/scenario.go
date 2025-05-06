@@ -1,4 +1,4 @@
-package main
+package model
 
 // Scenario represents a mock scenario resource
 type Scenario struct {

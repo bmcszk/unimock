@@ -1,4 +1,4 @@
-package main
+package handler
 
 import (
 	"bytes"
@@ -10,11 +10,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bmcszk/unimock/config"
+	"github.com/bmcszk/unimock/internal/config"
+	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/internal/storage"
 )
 
 func TestHandler_ExtractIDs(t *testing.T) {
-	storage := NewStorage()
+	storage := storage.NewStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	cfg := &config.Config{
 		Sections: map[string]config.Section{
@@ -574,7 +576,7 @@ func TestHandler_HandleRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new storage for each test case
-			storage := NewStorage()
+			storage := storage.NewStorage()
 			handler := NewHandler(storage, cfg, logger)
 
 			// For tests that require existing data, set it up
@@ -591,7 +593,7 @@ func TestHandler_HandleRequest(t *testing.T) {
 					}
 
 					// Store the data
-					if err := storage.Create(ids, &MockData{
+					if err := storage.Create(ids, &model.MockData{
 						Path:        data.path,
 						ContentType: "application/json",
 						Body:        []byte(data.body),
@@ -669,4 +671,12 @@ func jsonEqual(a, b interface{}) bool {
 		return false
 	}
 	return bytes.Equal(aj, bj)
+}
+
+func createMockData(path string, body []byte) *model.MockData {
+	return &model.MockData{
+		Path:        path,
+		ContentType: "application/json",
+		Body:        body,
+	}
 }

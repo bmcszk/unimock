@@ -1,15 +1,17 @@
-package main
+package storage
 
 import (
 	"fmt"
 	"sync"
 	"testing"
+
+	"github.com/bmcszk/unimock/internal/model"
 )
 
 func TestStorage_StoreAndGet(t *testing.T) {
 	storage := NewStorage()
 
-	data := &MockData{
+	data := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123"}`),
@@ -35,13 +37,13 @@ func TestStorage_StoreAndGet(t *testing.T) {
 func TestStorage_GetByPath(t *testing.T) {
 	storage := NewStorage()
 
-	data1 := &MockData{
+	data1 := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123"}`),
 	}
 
-	data2 := &MockData{
+	data2 := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "456"}`),
@@ -72,7 +74,7 @@ func TestStorage_Update(t *testing.T) {
 	storage := NewStorage()
 
 	// Create initial data
-	data := &MockData{
+	data := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123"}`),
@@ -84,7 +86,7 @@ func TestStorage_Update(t *testing.T) {
 	}
 
 	// Update data
-	updatedData := &MockData{
+	updatedData := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123", "updated": true}`),
@@ -115,13 +117,13 @@ func TestStorage_Update(t *testing.T) {
 func TestStorage_ForEach(t *testing.T) {
 	storage := NewStorage()
 
-	data1 := &MockData{
+	data1 := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123"}`),
 	}
 
-	data2 := &MockData{
+	data2 := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "456"}`),
@@ -140,7 +142,7 @@ func TestStorage_ForEach(t *testing.T) {
 
 	// Test ForEach
 	count := 0
-	err = storage.ForEach(func(id string, data *MockData) error {
+	err = storage.ForEach(func(id string, data *model.MockData) error {
 		count++
 		return nil
 	})
@@ -156,13 +158,13 @@ func TestStorage_GetByPathMultipleElements(t *testing.T) {
 	storage := NewStorage()
 
 	// Create test data
-	data1 := &MockData{
+	data1 := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123"}`),
 	}
 
-	data2 := &MockData{
+	data2 := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "456"}`),
@@ -199,7 +201,7 @@ func TestStorage_ConcurrentAccess(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			id := fmt.Sprintf("test%d", i)
-			data := &MockData{
+			data := &model.MockData{
 				Path:        "/test",
 				ContentType: "application/json",
 				Body:        []byte(fmt.Sprintf(`{"id": "%d"}`, i)),
@@ -227,13 +229,13 @@ func TestStorage_DeleteOneOfMultipleElements(t *testing.T) {
 	storage := NewStorage()
 
 	// Create two elements with the same path
-	data1 := &MockData{
+	data1 := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123", "name": "test1"}`),
 	}
 
-	data2 := &MockData{
+	data2 := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "456", "name": "test2"}`),
@@ -297,7 +299,7 @@ func TestStorage_JsonWithIdInBody(t *testing.T) {
 	storage := NewStorage()
 
 	// Create JSON data with ID in body
-	data := &MockData{
+	data := &model.MockData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123", "name": "test", "value": 42}`),

@@ -1,52 +1,47 @@
-package main
+package storage
 
 import (
 	"path"
 	"strings"
 	"sync"
 
+	"github.com/bmcszk/unimock/internal/errors"
+	"github.com/bmcszk/unimock/internal/model"
+
 	"github.com/google/uuid"
 )
 
-// MockData represents the data to be stored
-type MockData struct {
-	Path        string
-	Location    string
-	ContentType string
-	Body        []byte
-}
-
 // Storage interface defines the operations for storing and retrieving data
 type Storage interface {
-	Create(ids []string, data *MockData) error
-	Update(id string, data *MockData) error
-	Get(id string) (*MockData, error)
-	GetByPath(path string) ([]*MockData, error)
+	Create(ids []string, data *model.MockData) error
+	Update(id string, data *model.MockData) error
+	Get(id string) (*model.MockData, error)
+	GetByPath(path string) ([]*model.MockData, error)
 	Delete(id string) error
-	ForEach(fn func(id string, data *MockData) error) error
+	ForEach(fn func(id string, data *model.MockData) error) error
 }
 
 // storage implements the Storage interface
 type storage struct {
 	mu      sync.RWMutex
-	data    map[string]*MockData // storageID -> data
-	idMap   map[string]string    // externalID -> storageID
-	pathMap map[string][]string  // path -> []storageID
+	data    map[string]*model.MockData // storageID -> data
+	idMap   map[string]string          // externalID -> storageID
+	pathMap map[string][]string        // path -> []storageID
 }
 
 // NewStorage creates a new instance of storage
 func NewStorage() Storage {
 	return &storage{
-		data:    make(map[string]*MockData),
+		data:    make(map[string]*model.MockData),
 		idMap:   make(map[string]string),
 		pathMap: make(map[string][]string),
 	}
 }
 
 // validateData checks if the data is valid
-func (s *storage) validateData(data *MockData) error {
+func (s *storage) validateData(data *model.MockData) error {
 	if data == nil {
-		return NewInvalidRequestError("data cannot be nil")
+		return errors.NewInvalidRequestError("data cannot be nil")
 	}
 	return nil
 }
@@ -54,13 +49,13 @@ func (s *storage) validateData(data *MockData) error {
 // validateID checks if the ID is valid
 func (s *storage) validateID(id string) error {
 	if id == "" {
-		return NewInvalidRequestError("ID cannot be empty")
+		return errors.NewInvalidRequestError("ID cannot be empty")
 	}
 	return nil
 }
 
 // Create stores new data with the given IDs
-func (s *storage) Create(ids []string, data *MockData) error {
+func (s *storage) Create(ids []string, data *model.MockData) error {
 	if err := s.validateData(data); err != nil {
 		return err
 	}
@@ -71,7 +66,7 @@ func (s *storage) Create(ids []string, data *MockData) error {
 	// Check for conflicts
 	for _, id := range ids {
 		if _, exists := s.idMap[id]; exists {
-			return NewConflictError(id)
+			return errors.NewConflictError(id)
 		}
 	}
 
@@ -110,7 +105,7 @@ func (s *storage) Create(ids []string, data *MockData) error {
 }
 
 // Update updates existing data for the given ID
-func (s *storage) Update(id string, data *MockData) error {
+func (s *storage) Update(id string, data *model.MockData) error {
 	if err := s.validateData(data); err != nil {
 		return err
 	}
@@ -124,7 +119,7 @@ func (s *storage) Update(id string, data *MockData) error {
 	// Get existing storage ID
 	storageID, exists := s.idMap[id]
 	if !exists {
-		return NewNotFoundError(id, "")
+		return errors.NewNotFoundError(id, "")
 	}
 
 	// Get old data for path cleanup
@@ -153,7 +148,7 @@ func (s *storage) Update(id string, data *MockData) error {
 }
 
 // Get retrieves data by ID
-func (s *storage) Get(id string) (*MockData, error) {
+func (s *storage) Get(id string) (*model.MockData, error) {
 	if err := s.validateID(id); err != nil {
 		return nil, err
 	}
@@ -163,27 +158,27 @@ func (s *storage) Get(id string) (*MockData, error) {
 
 	storageID, exists := s.idMap[id]
 	if !exists {
-		return nil, NewNotFoundError(id, "")
+		return nil, errors.NewNotFoundError(id, "")
 	}
 
 	data, exists := s.data[storageID]
 	if !exists {
-		return nil, NewNotFoundError(id, "")
+		return nil, errors.NewNotFoundError(id, "")
 	}
 
 	return data, nil
 }
 
 // GetByPath retrieves all data stored at the given path
-func (s *storage) GetByPath(path string) ([]*MockData, error) {
+func (s *storage) GetByPath(path string) ([]*model.MockData, error) {
 	if path == "" {
-		return nil, NewInvalidRequestError("path cannot be empty")
+		return nil, errors.NewInvalidRequestError("path cannot be empty")
 	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var result []*MockData
+	var result []*model.MockData
 	seen := make(map[string]bool) // Track seen storage IDs to prevent duplicates
 
 	// First try exact path match
@@ -215,7 +210,7 @@ func (s *storage) GetByPath(path string) ([]*MockData, error) {
 		return result, nil
 	}
 
-	return nil, NewNotFoundError("", path)
+	return nil, errors.NewNotFoundError("", path)
 }
 
 // Delete removes data by ID or path
@@ -278,16 +273,16 @@ func (s *storage) Delete(id string) error {
 	}
 
 	if !found {
-		return NewNotFoundError(id, id)
+		return errors.NewNotFoundError(id, id)
 	}
 
 	return nil
 }
 
 // ForEach iterates over all stored data
-func (s *storage) ForEach(fn func(id string, data *MockData) error) error {
+func (s *storage) ForEach(fn func(id string, data *model.MockData) error) error {
 	if fn == nil {
-		return NewInvalidRequestError("callback function cannot be nil")
+		return errors.NewInvalidRequestError("callback function cannot be nil")
 	}
 
 	s.mu.RLock()
@@ -295,7 +290,7 @@ func (s *storage) ForEach(fn func(id string, data *MockData) error) error {
 
 	for id, data := range s.data {
 		if err := fn(id, data); err != nil {
-			return NewStorageError("forEach", err)
+			return errors.NewStorageError("forEach", err)
 		}
 	}
 
