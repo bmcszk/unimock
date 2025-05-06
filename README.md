@@ -214,7 +214,7 @@ The server can be configured with:
 
 ## License
 
-MIT 
+This project is licensed under the [MIT License](LICENSE) - see the [LICENSE](LICENSE) file for details.
 
 ## Technical Details
 
