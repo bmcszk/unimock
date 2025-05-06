@@ -297,3 +297,7 @@ MIT
 - Every request may have different ID paths and header name to extract ID taken from config
 - Path patterns are matched in order of configuration
 - ID extraction follows the order: header name -> body paths -> path segment
+
+## Documentation
+
+- [ID Extraction](docs/id_extraction.md) - Learn how to configure ID extraction from requests

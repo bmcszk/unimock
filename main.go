@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,12 +19,28 @@ type Envs struct {
 }
 
 func parseConfig() *Envs {
-	// TODO change flags to envs
 	envs := &Envs{}
-	flag.StringVar(&envs.port, "port", "8080", "Port to listen on")
-	flag.StringVar(&envs.configPath, "config", "config.yaml", "Path to configuration file")
-	flag.StringVar(&envs.logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
-	flag.Parse()
+
+	// Get port from environment variable, default to 8080
+	if port := os.Getenv("UNIMOCK_PORT"); port != "" {
+		envs.port = port
+	} else {
+		envs.port = "8080"
+	}
+
+	// Get config path from environment variable, default to config.yaml
+	if configPath := os.Getenv("UNIMOCK_CONFIG"); configPath != "" {
+		envs.configPath = configPath
+	} else {
+		envs.configPath = "config.yaml"
+	}
+
+	// Get log level from environment variable, default to info
+	if logLevel := os.Getenv("UNIMOCK_LOG_LEVEL"); logLevel != "" {
+		envs.logLevel = logLevel
+	} else {
+		envs.logLevel = "info"
+	}
 
 	return envs
 }
@@ -70,6 +85,16 @@ func main() {
 		logger.Error("failed to load configuration",
 			"error", err)
 		panic(err)
+	}
+
+	// Validate configuration
+	if config == nil {
+		logger.Error("configuration is nil")
+		panic("configuration is nil")
+	}
+	if len(config.Sections) == 0 {
+		logger.Error("no sections defined in configuration")
+		panic("no sections defined in configuration")
 	}
 
 	// Create a new storage

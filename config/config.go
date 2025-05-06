@@ -15,9 +15,42 @@ type Config struct {
 
 // Section represents a configuration section for a specific API endpoint pattern
 type Section struct {
-	PathPattern  string   `yaml:"path_pattern"`
-	BodyIDPaths  []string `yaml:"body_id_paths"`
-	HeaderIDName string   `yaml:"header_id_name"`
+	// PathPattern defines the URL pattern to match against.
+	// Use * as a wildcard for ID segments, e.g. "/users/*" or "/users/*/orders/*"
+	PathPattern string `yaml:"path_pattern"`
+
+	// BodyIDPaths defines the XPath-like paths to extract IDs from request bodies.
+	// For JSON:
+	//   - Use "/" to start from root
+	//   - Use element names to navigate
+	//   - Use "//" to search anywhere
+	//   - Use "*" as wildcard
+	//   - Use "text()" to get text content
+	// Examples:
+	//   - "/id" - extracts ID from root object
+	//   - "/data/id" - extracts ID from nested object
+	//   - "//id" - extracts any ID element anywhere
+	//   - "/items/*/id" - extracts IDs from array of objects
+	//   - "/user/id" - extracts ID from specific object
+	//   - "//id[text()='123']" - extracts ID with specific value
+	//
+	// For XML:
+	//   - Use "/" to start from root
+	//   - Use element names to navigate
+	//   - Use "//" to search anywhere
+	//   - Use "*" as wildcard
+	//   - Use "text()" to get text content
+	// Examples:
+	//   - "/root/id" - extracts ID from root element
+	//   - "//id" - extracts any ID element
+	//   - "/root/items/item/id" - extracts IDs from nested elements
+	//   - "/root/*/id" - extracts IDs from any direct child
+	//   - "//id[text()='123']" - extracts ID with specific value
+	BodyIDPaths []string `yaml:"body_id_paths"`
+
+	// HeaderIDName specifies the HTTP header name to extract IDs from.
+	// If empty, no header-based ID extraction will be performed.
+	HeaderIDName string `yaml:"header_id_name"`
 }
 
 // ConfigLoader defines the interface for loading configuration
