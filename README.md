@@ -71,40 +71,26 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 
 #### PUT Requests
 - Updates existing resources
-- Uses same ID extraction logic as GET:
-  - ID is the last segment of the path (e.g., `/users/123` -> ID is "123")
-  - No body parsing for ID extraction
-  - Example: PUT `/users/123` will update resource with ID "123"
-- Returns 404 if resource doesn't exist
-- Returns 200 on successful update
-- Example:
-  ```bash
-  # Update user with ID 123
-  curl -X PUT \
-    -H "Content-Type: application/json" \
-    -d '{"name": "updated"}' \
-    http://localhost:8080/users/123
-  ```
+- Uses GET-style ID extraction:
+  - ID from last path segment
+  - No body parsing
+  - Consistent with GET behavior
+- Returns 404 for non-existent resources
+- Example paths:
+  - `/users/123` -> updates resource with ID "123"
+  - `/users/123/orders/456` -> updates resource with ID "456"
 
 #### DELETE Requests
-- Removes resources using a two-step process:
-  1. First attempts to delete by ID (using GET logic):
-     - ID is the last segment of the path
-     - Example: DELETE `/users/123` first tries to delete resource with ID "123"
-     - Returns 204 if successful
-  2. If ID-based deletion fails, falls back to path-based deletion:
-     - Removes all resources at the specified path
-     - Example: If `/users/123` not found, removes all resources under `/users/123/*`
-     - Returns 204 if any resources were deleted
-- Returns 404 if no resources found by either method
-- Examples:
-  ```bash
-  # Delete by ID (first attempt)
-  curl -X DELETE http://localhost:8080/users/123
-
-  # Delete by path (fallback)
-  curl -X DELETE http://localhost:8080/users/123/orders
-  ```
+- Two-step deletion process:
+  1. Try ID-based deletion (GET logic)
+     - Example: `/users/123` -> deletes resource with ID "123"
+  2. Fall back to path-based deletion
+     - Example: If ID not found, deletes all resources under `/users/123/*`
+- Returns 204 on success
+- Returns 404 if no resources found
+- Example paths:
+  - `/users/123` -> first tries to delete resource with ID "123", then falls back to deleting all resources under `/users/123/*`
+  - `/users/123/orders` -> first tries to delete resource with ID "orders", then falls back to deleting all resources under `/users/123/orders/*`
 
 ### ID Extraction
 - Configurable ID paths for JSON and XML bodies
@@ -144,37 +130,18 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 ## Installation
 
 ```bash
-go get github.com/yourusername/unimock
+go get github.com/bmcszk/unimock
 ```
 
 ## Usage
 
-```go
-package main
+To run the mock server:
 
-import (
-    "fmt"
-    "log"
-    "net/http"
-)
-
-func main() {
-    // Configure ID extraction paths and header
-    idPaths := []string{
-        "//id",
-        "//@id",
-        "//*[@id]",
-    }
-    idHeader := "X-Resource-ID"
-
-    server := NewMockServer(idPaths, idHeader)
-    http.HandleFunc("/", server.handleRequest)
-
-    port := 8080
-    fmt.Printf("Starting Universal Mock server on port %d...\n", port)
-    log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
-}
+```bash
+make run
 ```
+
+This will start the server on port 8080.
 
 ## Example Requests
 

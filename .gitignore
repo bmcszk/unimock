@@ -1,0 +1,24 @@
+# Ignore vendor directory
+vendor/
+
+# Ignore Go specific files
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Ignore IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore OS specific files
+.DS_Store
+Thumbs.db
+
+# Ignore binary
+unimock 
