@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/bmcszk/unimock/internal/config"
 	"github.com/bmcszk/unimock/internal/handler"
+	"github.com/bmcszk/unimock/internal/router"
 	"github.com/bmcszk/unimock/internal/storage"
 )
 
@@ -70,49 +70,6 @@ func setupLogger(level string) *slog.Logger {
 	return slog.New(handler)
 }
 
-// routeHandler is a http.Handler that routes requests to the appropriate handler based on path prefix
-type routeHandler struct {
-	mainHandler     http.Handler
-	techHandler     http.Handler
-	scenarioHandler http.Handler
-	logger          *slog.Logger
-}
-
-// ServeHTTP implements the http.Handler interface
-func (h *routeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// First, check if there's a scenario matching this path and method
-	scenario := h.scenarioHandler.(*handler.ScenarioHandler).GetScenarioByPath(r.URL.Path, r.Method)
-	if scenario != nil {
-		h.logger.Info("found matching scenario",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"uuid", scenario.UUID)
-
-		// Set the status code and content type from the scenario
-		w.Header().Set("Content-Type", scenario.ContentType)
-		w.WriteHeader(scenario.StatusCode)
-
-		// Write the response body from the scenario
-		w.Write([]byte(scenario.Data))
-		return
-	}
-
-	if strings.HasPrefix(r.URL.Path, "/_uni/scenarios") {
-		h.logger.Debug("routing to scenario handler", "path", r.URL.Path)
-		h.scenarioHandler.ServeHTTP(w, r)
-		return
-	}
-
-	if strings.HasPrefix(r.URL.Path, "/_uni/") {
-		h.logger.Debug("routing to technical handler", "path", r.URL.Path)
-		h.techHandler.ServeHTTP(w, r)
-		return
-	}
-
-	h.logger.Debug("routing to main handler", "path", r.URL.Path)
-	h.mainHandler.ServeHTTP(w, r)
-}
-
 func main() {
 	// Parse configuration
 	envs := parseConfig()
@@ -144,13 +101,13 @@ func main() {
 	}
 
 	// Create a new storage
-	store := storage.NewStorage()
+	store := storage.NewMockStorage()
 
 	// Create a new scenario storage
 	scenarioStore := storage.NewScenarioStorage()
 
 	// Create a new main handler
-	mainHandler := handler.NewHandler(store, cfg, logger)
+	mainHandler := handler.NewMockHandler(store, cfg, logger)
 
 	// Create a new tech handler
 	startTime := time.Now()
@@ -159,18 +116,13 @@ func main() {
 	// Create a new scenario handler with dedicated scenario storage
 	scenarioHandler := handler.NewScenarioHandler(scenarioStore, logger)
 
-	// Create a router handler
-	router := &routeHandler{
-		mainHandler:     mainHandler,
-		techHandler:     techHandler,
-		scenarioHandler: scenarioHandler,
-		logger:          logger,
-	}
+	// Create a router
+	appRouter := router.NewRouter(mainHandler, techHandler, scenarioHandler, logger)
 
 	// Create server
 	srv := &http.Server{
 		Addr:         ":" + envs.port,
-		Handler:      router,
+		Handler:      appRouter,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,

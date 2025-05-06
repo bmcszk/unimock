@@ -8,8 +8,8 @@ import (
 	"github.com/bmcszk/unimock/internal/model"
 )
 
-func TestStorage_StoreAndGet(t *testing.T) {
-	storage := NewStorage()
+func TestMockStorage_StoreAndGet(t *testing.T) {
+	storage := NewMockStorage()
 
 	data := &model.MockData{
 		Path:        "/test",
@@ -34,8 +34,8 @@ func TestStorage_StoreAndGet(t *testing.T) {
 	}
 }
 
-func TestStorage_GetByPath(t *testing.T) {
-	storage := NewStorage()
+func TestMockStorage_GetByPath(t *testing.T) {
+	storage := NewMockStorage()
 
 	data1 := &model.MockData{
 		Path:        "/test",
@@ -70,8 +70,8 @@ func TestStorage_GetByPath(t *testing.T) {
 	}
 }
 
-func TestStorage_Update(t *testing.T) {
-	storage := NewStorage()
+func TestMockStorage_Update(t *testing.T) {
+	storage := NewMockStorage()
 
 	// Create initial data
 	data := &model.MockData{
@@ -114,8 +114,8 @@ func TestStorage_Update(t *testing.T) {
 	}
 }
 
-func TestStorage_ForEach(t *testing.T) {
-	storage := NewStorage()
+func TestMockStorage_ForEach(t *testing.T) {
+	storage := NewMockStorage()
 
 	data1 := &model.MockData{
 		Path:        "/test",
@@ -154,8 +154,8 @@ func TestStorage_ForEach(t *testing.T) {
 	}
 }
 
-func TestStorage_GetByPathMultipleElements(t *testing.T) {
-	storage := NewStorage()
+func TestMockStorage_GetByPathMultipleElements(t *testing.T) {
+	storage := NewMockStorage()
 
 	// Create test data
 	data1 := &model.MockData{
@@ -191,8 +191,8 @@ func TestStorage_GetByPathMultipleElements(t *testing.T) {
 	}
 }
 
-func TestStorage_ConcurrentAccess(t *testing.T) {
-	storage := NewStorage()
+func TestMockStorage_ConcurrentAccess(t *testing.T) {
+	storage := NewMockStorage()
 	var wg sync.WaitGroup
 
 	// Test concurrent writes
@@ -225,8 +225,8 @@ func TestStorage_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestStorage_DeleteOneOfMultipleElements(t *testing.T) {
-	storage := NewStorage()
+func TestMockStorage_DeleteOneOfMultipleElements(t *testing.T) {
+	storage := NewMockStorage()
 
 	// Create two elements with the same path
 	data1 := &model.MockData{
@@ -295,8 +295,8 @@ func TestStorage_DeleteOneOfMultipleElements(t *testing.T) {
 	}
 }
 
-func TestStorage_JsonWithIdInBody(t *testing.T) {
-	storage := NewStorage()
+func TestMockStorage_JsonWithIdInBody(t *testing.T) {
+	storage := NewMockStorage()
 
 	// Create JSON data with ID in body
 	data := &model.MockData{

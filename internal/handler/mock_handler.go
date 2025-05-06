@@ -18,16 +18,16 @@ import (
 	"github.com/bmcszk/unimock/internal/config"
 )
 
-// Handler represents our HTTP request handler
-type Handler struct {
-	storage storage.Storage
+// MockHandler represents our HTTP request handler
+type MockHandler struct {
+	storage storage.MockStorage
 	cfg     *config.Config
 	logger  *slog.Logger
 }
 
-// NewHandler creates a new instance of Handler
-func NewHandler(storage storage.Storage, cfg *config.Config, logger *slog.Logger) *Handler {
-	return &Handler{
+// NewMockHandler creates a new instance of Handler
+func NewMockHandler(storage storage.MockStorage, cfg *config.Config, logger *slog.Logger) *MockHandler {
+	return &MockHandler{
 		storage: storage,
 		cfg:     cfg,
 		logger:  logger,
@@ -47,7 +47,7 @@ func isValidID(segment string, sectionName string) bool {
 }
 
 // extractIDs extracts IDs from the request using the configured paths
-func (h *Handler) extractIDs(req *http.Request) ([]string, error) {
+func (h *MockHandler) extractIDs(req *http.Request) ([]string, error) {
 	// Find matching section
 	sectionName, section, err := h.cfg.MatchPath(req.URL.Path)
 	if err != nil {
@@ -137,7 +137,7 @@ func (h *Handler) extractIDs(req *http.Request) ([]string, error) {
 }
 
 // extractJSONIDs extracts IDs from JSON body
-func (h *Handler) extractJSONIDs(body []byte, paths []string, seenIDs map[string]bool) ([]string, error) {
+func (h *MockHandler) extractJSONIDs(body []byte, paths []string, seenIDs map[string]bool) ([]string, error) {
 	doc, err := jsonquery.Parse(bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON body: %w", err)
@@ -165,7 +165,7 @@ func (h *Handler) extractJSONIDs(body []byte, paths []string, seenIDs map[string
 }
 
 // extractXMLIDs extracts IDs from XML body
-func (h *Handler) extractXMLIDs(body []byte, paths []string, seenIDs map[string]bool) ([]string, error) {
+func (h *MockHandler) extractXMLIDs(body []byte, paths []string, seenIDs map[string]bool) ([]string, error) {
 	doc, err := xmlquery.Parse(bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse XML body: %w", err)
@@ -211,7 +211,7 @@ func writeResourceResponse(w http.ResponseWriter, data *model.MockData) error {
 }
 
 // HandleRequest handles all HTTP requests
-func (h *Handler) HandleRequest(w http.ResponseWriter, r *http.Request) {
+func (h *MockHandler) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	defer func() {
 		h.logger.Info("request completed",
@@ -235,11 +235,11 @@ func (h *Handler) HandleRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServeHTTP implements the http.Handler interface
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *MockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.HandleRequest(w, r)
 }
 
-func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
+func (h *MockHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 	ids, err := h.extractIDs(r)
 	if err != nil {
 		h.logger.Error("failed to extract IDs", "error", err, "path", r.URL.Path)
@@ -289,7 +289,7 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	writeResourceResponse(w, data)
 }
 
-func (h *Handler) handlePost(w http.ResponseWriter, r *http.Request) {
+func (h *MockHandler) handlePost(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		h.logger.Error("failed to read request body", "error", err)
@@ -328,7 +328,7 @@ func (h *Handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	writeResourceResponse(w, data)
 }
 
-func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) {
+func (h *MockHandler) handlePut(w http.ResponseWriter, r *http.Request) {
 	// Extract IDs from request
 	ids, err := h.extractIDs(r)
 	if err != nil {
@@ -374,7 +374,7 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	writeResourceResponse(w, item)
 }
 
-func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
+func (h *MockHandler) handleDelete(w http.ResponseWriter, r *http.Request) {
 	ids, err := h.extractIDs(r)
 	if err != nil {
 		h.logger.Error("failed to extract IDs", "error", err, "path", r.URL.Path)

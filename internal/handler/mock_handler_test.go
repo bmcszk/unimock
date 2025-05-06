@@ -15,8 +15,8 @@ import (
 	"github.com/bmcszk/unimock/internal/storage"
 )
 
-func TestHandler_ExtractIDs(t *testing.T) {
-	storage := storage.NewStorage()
+func TestMockHandler_ExtractIDs(t *testing.T) {
+	storage := storage.NewMockStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	cfg := &config.Config{
 		Sections: map[string]config.Section{
@@ -32,7 +32,7 @@ func TestHandler_ExtractIDs(t *testing.T) {
 			},
 		},
 	}
-	handler := NewHandler(storage, cfg, logger)
+	handler := NewMockHandler(storage, cfg, logger)
 
 	tests := []struct {
 		name        string
@@ -197,7 +197,7 @@ func TestHandler_ExtractIDs(t *testing.T) {
 	}
 }
 
-func TestHandler_HandleRequest(t *testing.T) {
+func TestMockHandler_HandleRequest(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	cfg := &config.Config{
 		Sections: map[string]config.Section{
@@ -576,8 +576,8 @@ func TestHandler_HandleRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new storage for each test case
-			storage := storage.NewStorage()
-			handler := NewHandler(storage, cfg, logger)
+			storage := storage.NewMockStorage()
+			handler := NewMockHandler(storage, cfg, logger)
 
 			// For tests that require existing data, set it up
 			if tt.needsSetup {
