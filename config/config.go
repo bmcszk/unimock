@@ -82,73 +82,76 @@ func (l *YAMLConfigLoader) Load(path string) (*Config, error) {
 	return config, nil
 }
 
-// MatchPath finds the first section that matches the given path
-func (c *Config) MatchPath(path string) (string, *Section, error) {
-	// Remove leading and trailing slashes for consistent matching
-	path = strings.Trim(path, "/")
+// isPatternMatch checks if a path matches a pattern with wildcards
+func isPatternMatch(pattern, path string) bool {
+	// Split pattern and path into segments
+	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
+	pathParts := strings.Split(strings.Trim(path, "/"), "/")
 
-	// Try to find the most specific match first
-	var bestMatch string
-	var bestSection *Section
-	var bestPatternLen int
+	// Check for exact static path match
+	if !strings.Contains(pattern, "*") && pattern != path {
+		return false
+	}
 
-	for name, section := range c.Sections {
-		// Convert path pattern to match format
-		pattern := strings.Trim(section.PathPattern, "/")
+	// For wildcard patterns, check each segment
+	if strings.Contains(pattern, "*") {
+		// Different number of segments means no match, unless pattern ends with *
+		if len(patternParts) != len(pathParts) &&
+			!(len(patternParts) > 0 && patternParts[len(patternParts)-1] == "*" &&
+				len(pathParts) >= len(patternParts)-1) {
+			return false
+		}
 
-		// Split pattern and path into segments
-		patternParts := strings.Split(pattern, "/")
-		pathParts := strings.Split(path, "/")
-
-		// Handle collection paths (no ID)
-		if len(patternParts) > 0 && strings.HasSuffix(pattern, "*") {
-			// Remove the * from pattern
-			basePattern := strings.TrimSuffix(pattern, "*")
-			if strings.HasPrefix(path+"/", basePattern) {
-				// Check if this is a more specific match
-				if len(basePattern) > bestPatternLen {
-					bestMatch = name
-					bestSection = &section
-					bestPatternLen = len(basePattern)
-				}
+		// Check each segment
+		for i := 0; i < len(patternParts) && i < len(pathParts); i++ {
+			// Wildcard matches anything
+			if patternParts[i] == "*" {
 				continue
 			}
-		}
-
-		// Handle exact matches for collection paths
-		if pattern == path {
-			if len(pattern) > bestPatternLen {
-				bestMatch = name
-				bestSection = &section
-				bestPatternLen = len(pattern)
-			}
-			continue
-		}
-
-		// Handle paths with ID
-		if len(patternParts) == len(pathParts) {
-			matched := true
-			for i := 0; i < len(patternParts); i++ {
-				if patternParts[i] == "*" {
-					continue
-				}
-				if patternParts[i] != pathParts[i] {
-					matched = false
-					break
-				}
-			}
-			if matched {
-				if len(pattern) > bestPatternLen {
-					bestMatch = name
-					bestSection = &section
-					bestPatternLen = len(pattern)
-				}
+			// Exact match required for non-wildcard segments
+			if patternParts[i] != pathParts[i] {
+				return false
 			}
 		}
 	}
 
-	if bestSection != nil {
-		return bestMatch, bestSection, nil
+	return true
+}
+
+// MatchPath finds the section that matches the given path
+func (c *Config) MatchPath(path string) (string, *Section, error) {
+	// Remove leading and trailing slashes for consistent matching
+	path = strings.Trim(path, "/")
+
+	// First prioritize exact matches
+	for name, section := range c.Sections {
+		pattern := strings.Trim(section.PathPattern, "/")
+		if pattern == path {
+			return name, &section, nil
+		}
+	}
+
+	// Then try to find wildcard matches, prioritizing longer patterns first
+	var matchingName string
+	var matchingSection *Section
+	var maxSegments int
+
+	for name, section := range c.Sections {
+		pattern := strings.Trim(section.PathPattern, "/")
+
+		if strings.Contains(pattern, "*") && isPatternMatch(pattern, path) {
+			// Count pattern segments to prioritize deeper/more specific paths
+			segments := len(strings.Split(pattern, "/"))
+			if segments > maxSegments {
+				maxSegments = segments
+				matchingName = name
+				matchingSection = &section
+			}
+		}
+	}
+
+	if matchingSection != nil {
+		return matchingName, matchingSection, nil
 	}
 
 	return "", nil, nil

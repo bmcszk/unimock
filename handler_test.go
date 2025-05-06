@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -10,21 +9,9 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/bmcszk/unimock/config"
 )
-
-// Helper function to create a request with timeout
-func createRequest(t *testing.T, method, path string, body string) *http.Request {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
-	req = req.WithContext(ctx)
-	t.Cleanup(func() {
-		cancel()
-	})
-	return req
-}
 
 func TestHandler_ExtractIDs(t *testing.T) {
 	storage := NewStorage()
