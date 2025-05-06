@@ -3,12 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/antchfx/jsonquery"
 	"github.com/antchfx/xmlquery"
@@ -44,117 +44,115 @@ func (h *Handler) extractIDs(r *http.Request) ([]string, error) {
 			// Check if the last segment is numeric or looks like an ID
 			if _, err := json.Marshal(lastSegment); err == nil && len(pathSegments) > 1 {
 				ids = append(ids, lastSegment)
-				slog.Info("extracted IDs from path",
+				h.logger.Info("extracted IDs from path",
 					"ids", ids,
 					"path", r.URL.Path)
 				return ids, nil
 			}
 		}
 		// For collection paths, return empty ID list
-		slog.Info("extracted IDs from path",
+		h.logger.Info("extracted IDs from path",
 			"ids", ids,
 			"path", r.URL.Path)
 		return ids, nil
 	}
 
 	// For POST requests, try to extract ID from headers first
-	if r.Method == http.MethodPost {
-		// Try headers first
-		if id := r.Header.Get("X-Resource-ID"); id != "" {
+	if h.idHeader != "" {
+		if id := r.Header.Get(h.idHeader); id != "" {
 			ids = append(ids, id)
-			slog.Info("extracted IDs",
-				"ids", ids,
-				"path", r.URL.Path)
-			return ids, nil
+			h.logger.Info("extracted ID from header",
+				"id", id,
+				"header", h.idHeader)
+		}
+	}
+
+	// Try to extract IDs from body
+	contentType := r.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		// Read body
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			return nil, NewInvalidRequestError("failed to read request body")
+		}
+		r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+		// Parse JSON
+		doc, err := jsonquery.Parse(bytes.NewReader(body))
+		if err != nil {
+			return nil, NewInvalidRequestError("invalid JSON body")
 		}
 
-		// Then try body
-		if r.Body != nil && r.ContentLength > 0 {
-			body, err := io.ReadAll(r.Body)
+		// Try each ID path
+		for _, idPath := range h.idPaths {
+			nodes, err := jsonquery.QueryAll(doc, idPath)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read body: %v", err)
+				continue
 			}
-			r.Body = io.NopCloser(bytes.NewBuffer(body))
-
-			contentType := r.Header.Get("Content-Type")
-			switch {
-			case strings.Contains(contentType, "application/json"):
-				doc, err := jsonquery.Parse(bytes.NewReader(body))
-				if err != nil {
-					slog.Error("failed to parse JSON body",
-						"error", err,
-						"content_type", contentType)
-					return nil, fmt.Errorf("failed to parse JSON body: %v", err)
-				}
-
-				// Try to find ID in JSON
-				if node := jsonquery.FindOne(doc, "//id"); node != nil {
-					ids = append(ids, node.InnerText())
-				} else {
-					// For JSON without ID, return error
-					slog.Error("no ID found in JSON body",
-						"path", r.URL.Path)
-					return nil, fmt.Errorf("no ID found in JSON body")
-				}
-
-			case strings.Contains(contentType, "application/xml"):
-				doc, err := xmlquery.Parse(bytes.NewReader(body))
-				if err != nil {
-					slog.Error("failed to parse XML body",
-						"error", err,
-						"content_type", contentType)
-					return nil, fmt.Errorf("failed to parse XML body: %v", err)
-				}
-
-				// Try to find ID in XML
-				if node := xmlquery.FindOne(doc, "//id"); node != nil {
-					ids = append(ids, node.InnerText())
+			for _, node := range nodes {
+				if id, ok := node.Value().(string); ok && id != "" {
+					ids = append(ids, id)
 				}
 			}
 		}
+	} else if strings.Contains(contentType, "application/xml") {
+		// Read body
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			return nil, NewInvalidRequestError("failed to read request body")
+		}
+		r.Body = io.NopCloser(bytes.NewBuffer(body))
 
-		// For collection paths, return empty ID list
-		if len(ids) == 0 && strings.Count(strings.Trim(r.URL.Path, "/"), "/") == 0 {
-			slog.Info("collection path, returning empty ID list",
-				"path", r.URL.Path)
-			return ids, nil
+		// Parse XML
+		doc, err := xmlquery.Parse(bytes.NewReader(body))
+		if err != nil {
+			return nil, NewInvalidRequestError("invalid XML body")
 		}
 
-		// For deep paths, extract the last segment as ID
-		if len(ids) == 0 {
-			pathSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-			if len(pathSegments) > 1 {
-				lastSegment := pathSegments[len(pathSegments)-1]
-				if _, err := json.Marshal(lastSegment); err == nil {
-					ids = append(ids, lastSegment)
+		// Try each ID path
+		for _, idPath := range h.idPaths {
+			nodes, err := xmlquery.QueryAll(doc, idPath)
+			if err != nil {
+				continue
+			}
+			for _, node := range nodes {
+				if id := node.InnerText(); id != "" {
+					ids = append(ids, id)
 				}
 			}
-		}
-
-		// For POST requests without ID, return error
-		if len(ids) == 0 {
-			slog.Error("no IDs found",
-				"path", r.URL.Path)
-			return nil, fmt.Errorf("no IDs found")
-		}
-
-		slog.Info("extracted IDs",
-			"ids", ids,
-			"path", r.URL.Path)
-
-		return ids, nil
-	}
-
-	// For other methods, try path segments
-	pathSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(pathSegments) > 1 {
-		lastSegment := pathSegments[len(pathSegments)-1]
-		if _, err := json.Marshal(lastSegment); err == nil {
-			ids = append(ids, lastSegment)
 		}
 	}
 
-	slog.Info("extracted IDs",
+	// If no IDs found in body/headers, try path
+	if len(ids) == 0 {
+		pathSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(pathSegments) > 1 {
+			lastSegment := pathSegments[len(pathSegments)-1]
+			if _, err := json.Marshal(lastSegment); err == nil {
+				ids = append(ids, lastSegment)
+			}
+		}
+	}
+
+	// For POST requests without ID, return error
+	if r.Method == http.MethodPost && len(ids) == 0 {
+		// Check if this is a collection path (no ID in path)
+		pathSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(pathSegments) == 1 {
+			isJSONRequest := strings.Contains(r.Header.Get("Content-Type"), "application/json")
+			if isJSONRequest {
+				h.logger.Error("no IDs found in JSON request",
+					"path", r.URL.Path)
+				return nil, NewInvalidRequestError("no IDs found in request")
+			}
+			// For non-JSON requests to collection paths, return empty ID list
+			h.logger.Info("collection path without ID",
+				"path", r.URL.Path)
+			return []string{}, nil
+		}
+	}
+
+	h.logger.Info("extracted IDs",
 		"ids", ids,
 		"path", r.URL.Path)
 
@@ -163,6 +161,14 @@ func (h *Handler) extractIDs(r *http.Request) ([]string, error) {
 
 // HandleRequest handles all HTTP requests
 func (h *Handler) HandleRequest(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	defer func() {
+		h.logger.Info("request completed",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"duration_ms", time.Since(start).Milliseconds())
+	}()
+
 	switch r.Method {
 	case http.MethodGet:
 		h.handleGet(w, r)
@@ -184,7 +190,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	ids, err := h.extractIDs(r)
-	if err != nil || len(ids) == 0 {
+	if err != nil {
+		h.logger.Error("failed to extract IDs",
+			"error", err,
+			"path", r.URL.Path)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if len(ids) == 0 {
 		// For GET requests, if no ID is found, try to get all items by path
 		items, err := h.storage.GetByPath(r.URL.Path)
 		if err != nil {
@@ -194,7 +208,10 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("[]"))
 				return
 			}
-			http.Error(w, "Not found", http.StatusNotFound)
+			h.logger.Error("failed to get items by path",
+				"error", err,
+				"path", r.URL.Path)
+			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 
@@ -206,6 +223,8 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
 
 		data, err := json.Marshal(result)
 		if err != nil {
+			h.logger.Error("failed to marshal response",
+				"error", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -218,7 +237,10 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	// Get single item by ID
 	data, err := h.storage.Get(ids[0])
 	if err != nil {
-		http.Error(w, "Not found", http.StatusNotFound)
+		h.logger.Error("failed to get item by ID",
+			"error", err,
+			"id", ids[0])
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
@@ -229,6 +251,8 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		h.logger.Error("failed to read request body",
+			"error", err)
 		http.Error(w, "Failed to read body", http.StatusBadRequest)
 		return
 	}
@@ -241,15 +265,10 @@ func (h *Handler) handlePost(w http.ResponseWriter, r *http.Request) {
 			// For testing purposes, use a fixed ID
 			ids = []string{"456"}
 		} else {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Check if any of the IDs already exist
-	for _, id := range ids {
-		if _, err := h.storage.Get(id); err == nil {
-			http.Error(w, "Conflict", http.StatusConflict)
+			h.logger.Error("failed to extract IDs",
+				"error", err,
+				"path", r.URL.Path)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
@@ -261,7 +280,11 @@ func (h *Handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.storage.Create(ids, data); err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		h.logger.Error("failed to create resource",
+			"error", err,
+			"ids", ids,
+			"path", r.URL.Path)
+		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
 
@@ -274,13 +297,18 @@ func (h *Handler) handlePost(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	ids, err := h.extractIDs(r)
 	if err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		h.logger.Error("failed to extract IDs",
+			"error", err,
+			"path", r.URL.Path)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Read request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		h.logger.Error("failed to read request body",
+			"error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -297,25 +325,36 @@ func (h *Handler) handlePut(w http.ResponseWriter, r *http.Request) {
 		// Check if the resource exists
 		_, err = h.storage.Get(ids[0])
 		if err != nil {
-			http.Error(w, "Not found", http.StatusNotFound)
+			h.logger.Error("failed to get resource for update",
+				"error", err,
+				"id", ids[0])
+			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		// Resource exists, update it
 		if err := h.storage.Update(ids[0], data); err != nil {
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			h.logger.Error("failed to update resource",
+				"error", err,
+				"id", ids[0])
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
+	h.logger.Error("no ID provided for update",
+		"path", r.URL.Path)
 	http.Error(w, "Bad request", http.StatusBadRequest)
 }
 
 func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 	ids, err := h.extractIDs(r)
 	if err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		h.logger.Error("failed to extract IDs",
+			"error", err,
+			"path", r.URL.Path)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -326,7 +365,10 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			// Resource exists, delete it
 			if err := h.storage.Delete(ids[0]); err != nil {
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				h.logger.Error("failed to delete resource by ID",
+					"error", err,
+					"id", ids[0])
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -337,6 +379,9 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 	// If ID-based deletion failed, try path-based deletion
 	items, err := h.storage.GetByPath(r.URL.Path)
 	if err != nil || len(items) == 0 {
+		h.logger.Error("failed to get items for path-based deletion",
+			"error", err,
+			"path", r.URL.Path)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
@@ -350,7 +395,10 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 			if _, err := json.Marshal(lastSegment); err == nil {
 				// Delete the item
 				if err := h.storage.Delete(lastSegment); err != nil {
-					http.Error(w, "Internal server error", http.StatusInternalServerError)
+					h.logger.Error("failed to delete item during path-based deletion",
+						"error", err,
+						"id", lastSegment)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			}

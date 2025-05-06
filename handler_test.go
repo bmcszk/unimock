@@ -543,7 +543,7 @@ func TestHandler_HandleRequest(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			handler.HandleRequest(w, req)
+			handler.ServeHTTP(w, req)
 
 			if w.Code != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)

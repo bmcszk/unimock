@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"path"
 	"strings"
 	"sync"
@@ -43,10 +42,37 @@ func NewStorage() Storage {
 	}
 }
 
+// validateData checks if the data is valid
+func (s *storage) validateData(data *MockData) error {
+	if data == nil {
+		return NewInvalidRequestError("data cannot be nil")
+	}
+	return nil
+}
+
+// validateID checks if the ID is valid
+func (s *storage) validateID(id string) error {
+	if id == "" {
+		return NewInvalidRequestError("ID cannot be empty")
+	}
+	return nil
+}
+
 // Create stores new data with the given IDs
 func (s *storage) Create(ids []string, data *MockData) error {
+	if err := s.validateData(data); err != nil {
+		return err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Check for conflicts
+	for _, id := range ids {
+		if _, exists := s.idMap[id]; exists {
+			return NewConflictError(id)
+		}
+	}
 
 	// Generate a new storage ID
 	storageID := uuid.New().String()
@@ -71,18 +97,20 @@ func (s *storage) Create(ids []string, data *MockData) error {
 
 // Update updates existing data for the given ID
 func (s *storage) Update(id string, data *MockData) error {
+	if err := s.validateData(data); err != nil {
+		return err
+	}
+	if err := s.validateID(id); err != nil {
+		return err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	// If no ID provided, return error
-	if id == "" {
-		return fmt.Errorf("not found")
-	}
 
 	// Get existing storage ID
 	storageID, exists := s.idMap[id]
 	if !exists {
-		return fmt.Errorf("not found")
+		return NewNotFoundError(id, "")
 	}
 
 	// Get old data for path cleanup
@@ -112,17 +140,21 @@ func (s *storage) Update(id string, data *MockData) error {
 
 // Get retrieves data by ID
 func (s *storage) Get(id string) (*MockData, error) {
+	if err := s.validateID(id); err != nil {
+		return nil, err
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	storageID, exists := s.idMap[id]
 	if !exists {
-		return nil, fmt.Errorf("not found")
+		return nil, NewNotFoundError(id, "")
 	}
 
 	data, exists := s.data[storageID]
 	if !exists {
-		return nil, fmt.Errorf("not found")
+		return nil, NewNotFoundError(id, "")
 	}
 
 	return data, nil
@@ -130,6 +162,10 @@ func (s *storage) Get(id string) (*MockData, error) {
 
 // GetByPath retrieves all data stored at the given path
 func (s *storage) GetByPath(path string) ([]*MockData, error) {
+	if path == "" {
+		return nil, NewInvalidRequestError("path cannot be empty")
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -165,21 +201,22 @@ func (s *storage) GetByPath(path string) ([]*MockData, error) {
 		return result, nil
 	}
 
-	return nil, fmt.Errorf("not found")
+	return nil, NewNotFoundError("", path)
 }
 
 // Delete removes data by ID or path
 func (s *storage) Delete(id string) error {
+	if err := s.validateID(id); err != nil {
+		return err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// Try to delete by ID first
-	if storageID, exists := s.idMap[id]; exists {
+	storageID, exists := s.idMap[id]
+	if exists {
 		data := s.data[storageID]
-		delete(s.data, storageID)
-		delete(s.idMap, id)
-
-		// Remove from pathMap
 		if data != nil {
 			// Remove from original path
 			if pathIDs, ok := s.pathMap[data.Path]; ok {
@@ -201,6 +238,8 @@ func (s *storage) Delete(id string) error {
 				}
 			}
 		}
+		delete(s.data, storageID)
+		delete(s.idMap, id)
 		return nil
 	}
 
@@ -225,7 +264,7 @@ func (s *storage) Delete(id string) error {
 	}
 
 	if !found {
-		return fmt.Errorf("not found")
+		return NewNotFoundError(id, id)
 	}
 
 	return nil
@@ -233,12 +272,16 @@ func (s *storage) Delete(id string) error {
 
 // ForEach iterates over all stored data
 func (s *storage) ForEach(fn func(id string, data *MockData) error) error {
+	if fn == nil {
+		return NewInvalidRequestError("callback function cannot be nil")
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	for id, data := range s.data {
 		if err := fn(id, data); err != nil {
-			return err
+			return NewStorageError("forEach", err)
 		}
 	}
 
