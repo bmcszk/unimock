@@ -13,7 +13,7 @@ func TestScenarioStorage_CRUD(t *testing.T) {
 	// Test creating a scenario
 	scenario := &model.Scenario{
 		UUID:        "test-id",
-		Path:        "/api/test",
+		RequestPath: "GET /api/test",
 		StatusCode:  200,
 		ContentType: "application/json",
 		Data:        `{"message":"Test scenario"}`,
@@ -35,8 +35,8 @@ func TestScenarioStorage_CRUD(t *testing.T) {
 	if retrieved.UUID != scenario.UUID {
 		t.Errorf("Expected UUID %s, got %s", scenario.UUID, retrieved.UUID)
 	}
-	if retrieved.Path != scenario.Path {
-		t.Errorf("Expected Path %s, got %s", scenario.Path, retrieved.Path)
+	if retrieved.RequestPath != scenario.RequestPath {
+		t.Errorf("Expected RequestPath %s, got %s", scenario.RequestPath, retrieved.RequestPath)
 	}
 	if retrieved.StatusCode != scenario.StatusCode {
 		t.Errorf("Expected StatusCode %d, got %d", scenario.StatusCode, retrieved.StatusCode)
@@ -48,7 +48,7 @@ func TestScenarioStorage_CRUD(t *testing.T) {
 	// Update
 	updatedScenario := &model.Scenario{
 		UUID:        "test-id",
-		Path:        "/api/updated",
+		RequestPath: "PUT /api/updated",
 		StatusCode:  201,
 		ContentType: "application/json",
 		Data:        `{"message":"Updated scenario"}`,
@@ -66,8 +66,8 @@ func TestScenarioStorage_CRUD(t *testing.T) {
 	}
 
 	// Verify updated fields
-	if retrieved.Path != updatedScenario.Path {
-		t.Errorf("Expected updated Path %s, got %s", updatedScenario.Path, retrieved.Path)
+	if retrieved.RequestPath != updatedScenario.RequestPath {
+		t.Errorf("Expected updated RequestPath %s, got %s", updatedScenario.RequestPath, retrieved.RequestPath)
 	}
 	if retrieved.StatusCode != updatedScenario.StatusCode {
 		t.Errorf("Expected updated StatusCode %d, got %d", updatedScenario.StatusCode, retrieved.StatusCode)

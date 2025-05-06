@@ -22,7 +22,7 @@ func TestScenarioHandler_Create(t *testing.T) {
 
 	// Create a new scenario
 	scenario := model.Scenario{
-		Path:        "/api/test",
+		RequestPath: "GET /api/test",
 		StatusCode:  200,
 		ContentType: "application/json",
 		Data:        `{"message":"Hello, World!"}`,
@@ -65,8 +65,8 @@ func TestScenarioHandler_Create(t *testing.T) {
 	}
 
 	// Verify the path was preserved
-	if response.Path != scenario.Path {
-		t.Errorf("Expected path %s, got %s", scenario.Path, response.Path)
+	if response.RequestPath != scenario.RequestPath {
+		t.Errorf("Expected requestPath %s, got %s", scenario.RequestPath, response.RequestPath)
 	}
 }
 
@@ -78,7 +78,7 @@ func TestScenarioHandler_Get(t *testing.T) {
 
 	// Create a new scenario
 	scenario := model.Scenario{
-		Path:        "/api/test",
+		RequestPath: "GET /api/test",
 		StatusCode:  200,
 		ContentType: "application/json",
 		Data:        `{"message":"Hello, World!"}`,
@@ -121,8 +121,8 @@ func TestScenarioHandler_Get(t *testing.T) {
 	if response.UUID != uuid {
 		t.Errorf("Expected UUID %s, got %s", uuid, response.UUID)
 	}
-	if response.Path != scenario.Path {
-		t.Errorf("Expected path %s, got %s", scenario.Path, response.Path)
+	if response.RequestPath != scenario.RequestPath {
+		t.Errorf("Expected requestPath %s, got %s", scenario.RequestPath, response.RequestPath)
 	}
 }
 
@@ -135,13 +135,13 @@ func TestScenarioHandler_List(t *testing.T) {
 	// Create multiple scenarios
 	scenarios := []model.Scenario{
 		{
-			Path:        "/api/test1",
+			RequestPath: "GET /api/test1",
 			StatusCode:  200,
 			ContentType: "application/json",
 			Data:        `{"message":"Hello, World 1!"}`,
 		},
 		{
-			Path:        "/api/test2",
+			RequestPath: "GET /api/test2",
 			StatusCode:  201,
 			ContentType: "application/json",
 			Data:        `{"message":"Hello, World 2!"}`,
@@ -192,7 +192,7 @@ func TestScenarioHandler_Update(t *testing.T) {
 
 	// Create a new scenario
 	scenario := model.Scenario{
-		Path:        "/api/test",
+		RequestPath: "GET /api/test",
 		StatusCode:  200,
 		ContentType: "application/json",
 		Data:        `{"message":"Hello, World!"}`,
@@ -213,7 +213,7 @@ func TestScenarioHandler_Update(t *testing.T) {
 	// Update the scenario
 	updatedScenario := model.Scenario{
 		UUID:        uuid,
-		Path:        "/api/test-updated",
+		RequestPath: "PUT /api/test-updated",
 		StatusCode:  201,
 		ContentType: "application/json",
 		Data:        `{"message":"Updated message"}`,
@@ -248,8 +248,8 @@ func TestScenarioHandler_Update(t *testing.T) {
 	}
 
 	// Verify the updated fields
-	if response.Path != updatedScenario.Path {
-		t.Errorf("Expected path %s, got %s", updatedScenario.Path, response.Path)
+	if response.RequestPath != updatedScenario.RequestPath {
+		t.Errorf("Expected requestPath %s, got %s", updatedScenario.RequestPath, response.RequestPath)
 	}
 	if response.StatusCode != updatedScenario.StatusCode {
 		t.Errorf("Expected status code %d, got %d", updatedScenario.StatusCode, response.StatusCode)
@@ -267,7 +267,7 @@ func TestScenarioHandler_Delete(t *testing.T) {
 
 	// Create a new scenario
 	scenario := model.Scenario{
-		Path:        "/api/test",
+		RequestPath: "GET /api/test",
 		StatusCode:  200,
 		ContentType: "application/json",
 		Data:        `{"message":"Hello, World!"}`,
@@ -365,17 +365,24 @@ func TestGetScenarioByPath(t *testing.T) {
 	scenarios := []*model.Scenario{
 		{
 			UUID:        "123",
-			Path:        "/api/users",
+			RequestPath: "GET /api/users",
 			StatusCode:  200,
 			ContentType: "application/json",
 			Data:        `[{"id": 1, "name": "John"}]`,
 		},
 		{
 			UUID:        "456",
-			Path:        "/api/products",
-			StatusCode:  200,
+			RequestPath: "POST /api/products",
+			StatusCode:  201,
 			ContentType: "application/json",
 			Data:        `[{"id": 1, "name": "Product A"}]`,
+		},
+		{
+			UUID:        "789",
+			RequestPath: "GET /api/products",
+			StatusCode:  200,
+			ContentType: "application/json",
+			Data:        `[{"id": 1, "name": "Product B"}]`,
 		},
 	}
 
@@ -392,24 +399,42 @@ func TestGetScenarioByPath(t *testing.T) {
 	tests := []struct {
 		name     string
 		path     string
+		method   string
 		wantUUID string
 		wantNil  bool
 	}{
 		{
-			name:     "existing path",
+			name:     "existing path with GET method",
 			path:     "/api/users",
+			method:   "GET",
 			wantUUID: "123",
 			wantNil:  false,
 		},
 		{
-			name:     "another existing path",
+			name:     "existing path with POST method",
 			path:     "/api/products",
+			method:   "POST",
 			wantUUID: "456",
 			wantNil:  false,
 		},
 		{
+			name:     "existing path with GET method 2",
+			path:     "/api/products",
+			method:   "GET",
+			wantUUID: "789",
+			wantNil:  false,
+		},
+		{
+			name:     "existing path with wrong method",
+			path:     "/api/users",
+			method:   "POST",
+			wantUUID: "",
+			wantNil:  true,
+		},
+		{
 			name:     "non-existing path",
 			path:     "/api/nonexistent",
+			method:   "GET",
 			wantUUID: "",
 			wantNil:  true,
 		},
@@ -417,17 +442,17 @@ func TestGetScenarioByPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			scenario := handler.GetScenarioByPath(tt.path)
+			scenario := handler.GetScenarioByPath(tt.path, tt.method)
 
 			if tt.wantNil {
 				if scenario != nil {
-					t.Errorf("GetScenarioByPath(%q) = %v, want nil", tt.path, scenario)
+					t.Errorf("GetScenarioByPath(%q, %q) = %v, want nil", tt.path, tt.method, scenario)
 				}
 			} else {
 				if scenario == nil {
-					t.Errorf("GetScenarioByPath(%q) = nil, want scenario with UUID %q", tt.path, tt.wantUUID)
+					t.Errorf("GetScenarioByPath(%q, %q) = nil, want scenario with UUID %q", tt.path, tt.method, tt.wantUUID)
 				} else if scenario.UUID != tt.wantUUID {
-					t.Errorf("GetScenarioByPath(%q) = scenario with UUID %q, want scenario with UUID %q", tt.path, scenario.UUID, tt.wantUUID)
+					t.Errorf("GetScenarioByPath(%q, %q) = scenario with UUID %q, want scenario with UUID %q", tt.path, tt.method, scenario.UUID, tt.wantUUID)
 				}
 			}
 		})

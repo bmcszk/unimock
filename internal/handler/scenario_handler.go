@@ -29,11 +29,23 @@ func NewScenarioHandler(storage storage.ScenarioStorage, logger *slog.Logger) *S
 	}
 }
 
-// GetScenarioByPath returns a scenario matching the given path, or nil if not found
-func (h *ScenarioHandler) GetScenarioByPath(path string) *model.Scenario {
+// GetScenarioByPath returns a scenario matching the given path and method, or nil if not found
+func (h *ScenarioHandler) GetScenarioByPath(path string, method string) *model.Scenario {
 	scenarios := h.storage.List()
+
 	for _, scenario := range scenarios {
-		if scenario.Path == path {
+		// Split the RequestPath into method and path
+		parts := strings.SplitN(scenario.RequestPath, " ", 2)
+		if len(parts) != 2 {
+			h.logger.Warn("scenario has invalid RequestPath format", "uuid", scenario.UUID, "requestPath", scenario.RequestPath)
+			continue
+		}
+
+		scenarioMethod := parts[0]
+		scenarioPath := parts[1]
+
+		// Match both method and path
+		if scenarioMethod == method && scenarioPath == path {
 			return scenario
 		}
 	}

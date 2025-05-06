@@ -48,7 +48,7 @@ func TestScenarioPathMatching(t *testing.T) {
 	// Create test scenarios
 	testScenario := &model.Scenario{
 		UUID:        "test-uuid",
-		Path:        "/api/test",
+		RequestPath: "GET /api/test",
 		StatusCode:  201,
 		ContentType: "application/json",
 		Data:        `{"message": "This is a test scenario"}`,

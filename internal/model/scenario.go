@@ -3,7 +3,7 @@ package model
 // Scenario represents a mock scenario resource
 type Scenario struct {
 	UUID        string `json:"uuid,omitempty"`
-	Path        string `json:"path"`
+	RequestPath string `json:"requestPath"` // Format: "METHOD /path" (e.g., "GET /api/users")
 	StatusCode  int    `json:"statusCode"`
 	ContentType string `json:"contentType"`
 	Location    string `json:"location,omitempty"`

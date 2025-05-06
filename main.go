@@ -80,13 +80,18 @@ type routeHandler struct {
 
 // ServeHTTP implements the http.Handler interface
 func (h *routeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// First, check if there's a scenario matching this path
-	scenarios := h.scenarioHandler.(*handler.ScenarioHandler).GetScenarioByPath(r.URL.Path)
-	if scenario := scenarios; scenario != nil {
-		h.logger.Info("found matching scenario", "path", r.URL.Path, "uuid", scenario.UUID)
+	// First, check if there's a scenario matching this path and method
+	scenario := h.scenarioHandler.(*handler.ScenarioHandler).GetScenarioByPath(r.URL.Path, r.Method)
+	if scenario != nil {
+		h.logger.Info("found matching scenario",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"uuid", scenario.UUID)
+
 		// Set the status code and content type from the scenario
 		w.Header().Set("Content-Type", scenario.ContentType)
 		w.WriteHeader(scenario.StatusCode)
+
 		// Write the response body from the scenario
 		w.Write([]byte(scenario.Data))
 		return
