@@ -1,0 +1,43 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "go test -v ./...",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Run Linter",
+            "type": "shell",
+            "command": "golangci-lint run",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "go build -o unimock",
+            "group": "build"
+        },
+        {
+            "label": "Clean",
+            "type": "shell",
+            "command": "rm -f unimock",
+            "group": "build"
+        },
+        {
+            "label": "Run Server",
+            "type": "shell",
+            "command": "go run .",
+            "group": "none",
+            "isBackground": true,
+            "problemMatcher": []
+        }
+    ]
+}

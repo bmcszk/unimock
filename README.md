@@ -35,6 +35,7 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 - Resource paths (e.g., `/users/123`) - for single resources
 - Deep paths (e.g., `/users/123/orders/456`) - treated as single resources
 - Last path segment is used as ID when no ID found in body/headers
+- All paths are stored without trailing slashes
 
 ### Storage
 - In-memory storage with thread-safe operations
@@ -42,6 +43,8 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 - Support for path-based storage and retrieval
 - UUID-based internal storage IDs
 - Persistence of external ID to storage ID mapping until explicit deletion
+- Paths are stored without trailing slashes
+- Location field stores the full resource path with ID
 
 ### HTTP Handler
 
@@ -49,6 +52,7 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 - Single item retrieval by ID:
   - ID is the last segment of the path (e.g., `/users/123` -> ID is "123")
   - Returns the item with its original content type
+  - Location header contains the full resource path
 - Array retrieval by path:
   - Returns all items stored at the given path as a JSON array
   - Always returns JSON array format, regardless of item content types
@@ -66,7 +70,7 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
      - For others: Uses last path segment as ID
 - Returns 409 if resource already exists
 - Returns 201 on successful creation with:
-  - Location header pointing to the new resource
+  - Location header containing the full resource path from data.Location
   - Created resource in response body
 
 #### PUT Requests
@@ -76,6 +80,7 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
   - No body parsing
   - Consistent with GET behavior
 - Returns 404 for non-existent resources
+- Location header contains the full resource path from data.Location
 - Example paths:
   - `/users/123` -> updates resource with ID "123"
   - `/users/123/orders/456` -> updates resource with ID "456"
@@ -88,6 +93,7 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
      - Example: If ID not found, deletes all resources under `/users/123/*`
 - Returns 204 on success
 - Returns 404 if no resources found
+- Location header contains the full resource path from data.Location
 - Example paths:
   - `/users/123` -> first tries to delete resource with ID "123", then falls back to deleting all resources under `/users/123/*`
   - `/users/123/orders` -> first tries to delete resource with ID "orders", then falls back to deleting all resources under `/users/123/orders/*`
@@ -206,6 +212,7 @@ MIT
 - Configurable XPath expressions for ID location
 - Multiple ID support in single request
 - Header-based ID extraction option
+- Path-based fallback for non-JSON requests
 
 ### Storage
 - Thread-safe in-memory map
@@ -213,7 +220,8 @@ MIT
   - External IDs
   - Content type
   - Request body
-  - Path information
+  - Path information (without trailing slashes)
+  - Location field with full resource path
 - Path-based storage for requests without IDs
 
 ### HTTP Methods
@@ -239,6 +247,7 @@ MIT
   - No body parsing
   - Consistent with GET behavior
 - Returns 404 for non-existent resources
+- Location header contains the full resource path from data.Location
 - Example paths:
   - `/users/123` -> updates resource with ID "123"
   - `/users/123/orders/456` -> updates resource with ID "456"
@@ -251,6 +260,7 @@ MIT
      - Example: If ID not found, deletes all resources under `/users/123/*`
 - Returns 204 on success
 - Returns 404 if no resources found
+- Location header contains the full resource path from data.Location
 - Example paths:
   - `/users/123` -> first tries to delete resource with ID "123", then falls back to deleting all resources under `/users/123/*`
   - `/users/123/orders` -> first tries to delete resource with ID "orders", then falls back to deleting all resources under `/users/123/orders/*`

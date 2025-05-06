@@ -1,0 +1,101 @@
+{
+    "version": "1.0",
+    "rules": [
+        {
+            "name": "Requirement Change Documentation",
+            "description": "Document all requirement changes in README.md first",
+            "pattern": "### [A-Z][a-zA-Z ]+\\n-",
+            "severity": "error"
+        },
+        {
+            "name": "Interface Changes",
+            "description": "Update interfaces and models before implementation",
+            "pattern": "type [A-Z][a-zA-Z]+ interface|type [A-Z][a-zA-Z]+ struct",
+            "severity": "error"
+        },
+        {
+            "name": "Test First Development",
+            "description": "Write tests for new requirements before implementation",
+            "pattern": "func Test[A-Z][a-zA-Z]+_NewRequirement",
+            "severity": "error"
+        },
+        {
+            "name": "Test Updates",
+            "description": "Update existing tests to match new requirements",
+            "pattern": "func Test[A-Z][a-zA-Z]+_Updated",
+            "severity": "error"
+        },
+        {
+            "name": "Test Verification",
+            "description": "Run tests to verify they fail with new requirements",
+            "pattern": "go test -v ./...",
+            "severity": "error"
+        },
+        {
+            "name": "Incremental Implementation",
+            "description": "Implement changes in small, testable steps",
+            "pattern": "// TODO: Implement step [0-9]+",
+            "severity": "warning"
+        },
+        {
+            "name": "Continuous Testing",
+            "description": "Run tests between implementation steps",
+            "pattern": "go test -v ./...",
+            "severity": "error"
+        },
+        {
+            "name": "Error Handling",
+            "description": "All errors must be logged before returning",
+            "pattern": "h\\.logger\\.Error\\(.*\\)",
+            "severity": "warning"
+        },
+        {
+            "name": "Function Comments",
+            "description": "Add comments for public functions",
+            "pattern": "// [A-Z]",
+            "severity": "warning"
+        },
+        {
+            "name": "Package Documentation",
+            "description": "Document package purpose",
+            "pattern": "^// Package [a-z]+",
+            "severity": "warning"
+        },
+        {
+            "name": "Resource Cleanup",
+            "description": "Clean up resources properly",
+            "pattern": "defer.*\\.Close\\(\\)",
+            "severity": "error"
+        },
+        {
+            "name": "Concurrent Access",
+            "description": "Handle concurrent access properly",
+            "pattern": "sync\\.(Mutex|RWMutex)",
+            "severity": "error"
+        },
+        {
+            "name": "Sensitive Data",
+            "description": "Don't log sensitive information",
+            "pattern": "password|secret|token|key",
+            "severity": "error"
+        },
+        {
+            "name": "Test Coverage",
+            "description": "Write tests for functionality",
+            "pattern": "func Test[A-Z]",
+            "severity": "warning"
+        },
+        {
+            "name": "Table Driven Tests",
+            "description": "Use table-driven tests where appropriate",
+            "pattern": "tests := \\[\\]struct",
+            "severity": "warning"
+        }
+    ],
+    "ignore": [
+        "*.test.go",
+        "*.mock.go",
+        "vendor/*",
+        "**/testdata/*"
+    ]
+}
