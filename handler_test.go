@@ -413,6 +413,98 @@ func TestHandler_HandleRequest(t *testing.T) {
 			expectedStatus: http.StatusNotFound,
 			needsSetup:     false,
 		},
+		{
+			name:           "POST JSON with ID in body and verify retrieval",
+			method:         http.MethodPost,
+			path:           "/test",
+			headers:        map[string]string{"Content-Type": "application/json"},
+			body:           `{"id": "123", "name": "test", "value": 42}`,
+			expectedStatus: http.StatusCreated,
+			expectedBody:   `{"id": "123", "name": "test", "value": 42}`,
+			checkHeaders: map[string]string{
+				"Location":     "/test/123",
+				"Content-Type": "application/json",
+			},
+			needsSetup: false,
+		},
+		{
+			name:           "GET JSON with ID in body after creation",
+			method:         http.MethodGet,
+			path:           "/test/123",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"id": "123", "name": "test", "value": 42}`,
+			needsSetup:     true,
+			setupData: []struct {
+				path string
+				body string
+			}{
+				{
+					path: "/test/123",
+					body: `{"id": "123", "name": "test", "value": 42}`,
+				},
+			},
+		},
+		{
+			name:           "GET collection with JSON items",
+			method:         http.MethodGet,
+			path:           "/test",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `[{"id": "123", "name": "test", "value": 42}]`,
+			needsSetup:     true,
+			setupData: []struct {
+				path string
+				body string
+			}{
+				{
+					path: "/test/123",
+					body: `{"id": "123", "name": "test", "value": 42}`,
+				},
+			},
+		},
+		{
+			name:           "Delete one of multiple elements",
+			method:         http.MethodDelete,
+			path:           "/test/123",
+			expectedStatus: http.StatusNoContent,
+			needsSetup:     true,
+			setupData: []struct {
+				path string
+				body string
+			}{
+				{
+					path: "/test/123",
+					body: `{"id": "123", "name": "test1", "value": 42}`,
+				},
+				{
+					path: "/test/456",
+					body: `{"id": "456", "name": "test2", "value": 43}`,
+				},
+			},
+		},
+		{
+			name:           "Verify remaining element after deletion",
+			method:         http.MethodGet,
+			path:           "/test",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `[{"id": "456", "name": "test2", "value": 43}]`,
+			needsSetup:     true,
+			setupData: []struct {
+				path string
+				body string
+			}{
+				{
+					path: "/test/456",
+					body: `{"id": "456", "name": "test2", "value": 43}`,
+				},
+			},
+		},
+		{
+			name:           "Verify deleted element is not accessible",
+			method:         http.MethodGet,
+			path:           "/test/123",
+			expectedStatus: http.StatusNotFound,
+			needsSetup:     false,
+		},
 	}
 
 	for _, tt := range tests {

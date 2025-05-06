@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path"
 	"strings"
 	"sync"
 
@@ -58,8 +59,12 @@ func (s *storage) Create(ids []string, data *MockData) error {
 		s.idMap[id] = storageID
 	}
 
-	// Add to pathMap
+	// Add to pathMap for both original path and path with ID
 	s.pathMap[data.Path] = append(s.pathMap[data.Path], storageID)
+	if len(ids) > 0 {
+		idPath := path.Join(data.Path, ids[0])
+		s.pathMap[idPath] = append(s.pathMap[idPath], storageID)
+	}
 
 	return nil
 }
@@ -128,37 +133,34 @@ func (s *storage) GetByPath(path string) ([]*MockData, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	// For collection paths (e.g. /users), return all items under that path
-	if strings.Count(strings.Trim(path, "/"), "/") == 0 {
-		var result []*MockData
-		for _, data := range s.data {
-			if strings.HasPrefix(data.Path, path+"/") {
+	var result []*MockData
+	seen := make(map[string]bool) // Track seen storage IDs to prevent duplicates
+
+	// First try exact path match
+	if storageIDs, ok := s.pathMap[path]; ok {
+		for _, sid := range storageIDs {
+			if data, exists := s.data[sid]; exists && !seen[sid] {
+				seen[sid] = true
 				result = append(result, data)
 			}
 		}
 		if len(result) > 0 {
 			return result, nil
 		}
-		return nil, fmt.Errorf("not found")
 	}
 
-	// For specific paths, return exact matches
-	var result []*MockData
-	for _, data := range s.data {
-		if data.Path == path {
-			result = append(result, data)
+	// If no exact match, try prefix match for collection paths
+	for storedPath, storageIDs := range s.pathMap {
+		if strings.HasPrefix(storedPath, path+"/") {
+			for _, sid := range storageIDs {
+				if data, exists := s.data[sid]; exists && !seen[sid] {
+					seen[sid] = true
+					result = append(result, data)
+				}
+			}
 		}
-	}
-	if len(result) > 0 {
-		return result, nil
 	}
 
-	// If no exact matches, try to find items with the path as a prefix
-	for _, data := range s.data {
-		if strings.HasPrefix(data.Path, path+"/") {
-			result = append(result, data)
-		}
-	}
 	if len(result) > 0 {
 		return result, nil
 	}
@@ -166,39 +168,64 @@ func (s *storage) GetByPath(path string) ([]*MockData, error) {
 	return nil, fmt.Errorf("not found")
 }
 
-// Delete removes data by ID
+// Delete removes data by ID or path
 func (s *storage) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// If no ID provided, return error
-	if id == "" {
-		return fmt.Errorf("not found")
-	}
+	// Try to delete by ID first
+	if storageID, exists := s.idMap[id]; exists {
+		data := s.data[storageID]
+		delete(s.data, storageID)
+		delete(s.idMap, id)
 
-	// Try to delete by ID
-	storageID, exists := s.idMap[id]
-	if !exists {
-		return fmt.Errorf("not found")
-	}
-
-	// Remove from data
-	data := s.data[storageID]
-	delete(s.data, storageID)
-
-	// Remove from idMap
-	delete(s.idMap, id)
-
-	// Remove from pathMap
-	if data != nil {
-		if pathIDs, ok := s.pathMap[data.Path]; ok {
-			for i, sid := range pathIDs {
-				if sid == storageID {
-					s.pathMap[data.Path] = append(pathIDs[:i], pathIDs[i+1:]...)
-					break
+		// Remove from pathMap
+		if data != nil {
+			// Remove from original path
+			if pathIDs, ok := s.pathMap[data.Path]; ok {
+				for i, sid := range pathIDs {
+					if sid == storageID {
+						s.pathMap[data.Path] = append(pathIDs[:i], pathIDs[i+1:]...)
+						break
+					}
+				}
+			}
+			// Remove from ID path
+			idPath := path.Join(data.Path, id)
+			if pathIDs, ok := s.pathMap[idPath]; ok {
+				for i, sid := range pathIDs {
+					if sid == storageID {
+						s.pathMap[idPath] = append(pathIDs[:i], pathIDs[i+1:]...)
+						break
+					}
 				}
 			}
 		}
+		return nil
+	}
+
+	// If ID-based deletion failed, try path-based deletion
+	var found bool
+	for storedPath, storageIDs := range s.pathMap {
+		if strings.HasPrefix(storedPath, id+"/") || storedPath == id {
+			for _, sid := range storageIDs {
+				if _, exists := s.data[sid]; exists {
+					// Find and remove all external IDs that map to this storage ID
+					for extID, storedSID := range s.idMap {
+						if storedSID == sid {
+							delete(s.idMap, extID)
+						}
+					}
+					delete(s.data, sid)
+					found = true
+				}
+			}
+			delete(s.pathMap, storedPath)
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("not found")
 	}
 
 	return nil
