@@ -103,6 +103,11 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 - Configurable ID header name
 - Path-based fallback for non-JSON requests
 - No body parsing for GET requests
+- Support for various ID types:
+  - Numbers (e.g., "123", "42")
+  - Text (e.g., "user-123", "order-xyz")
+  - UUIDs (e.g., "550e8400-e29b-41d4-a716-446655440000")
+  - Dates (e.g., "2024-03-20", "2024-03-20T15:30:00Z")
 
 ### Content Types
 - Supports any content type for storage
