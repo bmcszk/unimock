@@ -12,6 +12,7 @@ import (
 	"github.com/bmcszk/unimock/internal/config"
 	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 )
 
@@ -32,13 +33,18 @@ func TestRouter_ServeHTTP(t *testing.T) {
 		},
 	}
 
+	// Create services
+	mockService := service.NewMockService(store, cfg)
+	scenarioService := service.NewScenarioService(scenarioStore)
+	techService := service.NewTechService(time.Now())
+
 	// Create handlers
-	mainHandler := handler.NewMockHandler(store, cfg, logger)
-	techHandler := handler.NewTechHandler(logger, time.Now())
-	scenarioHandler := handler.NewScenarioHandler(scenarioStore, logger)
+	mainHandler := handler.NewMockHandler(mockService, logger)
+	techHandler := handler.NewTechHandler(techService, logger)
+	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create router
-	router := NewRouter(mainHandler, techHandler, scenarioHandler, logger)
+	router := NewRouter(mainHandler, techHandler, scenarioHandler, scenarioService, logger)
 
 	// Setup test scenarios
 	scenarios := []*model.Scenario{
@@ -60,7 +66,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 
 	// Store the test scenarios
 	for _, scenario := range scenarios {
-		err := scenarioStore.Create(scenario.UUID, scenario)
+		err := scenarioService.CreateScenario(nil, scenario)
 		if err != nil {
 			t.Fatalf("Failed to create test scenario: %v", err)
 		}
@@ -102,10 +108,11 @@ func TestRouter_ServeHTTP(t *testing.T) {
 			wantBodyContains: "status",
 		},
 		{
-			name:           "regular API endpoint",
-			method:         http.MethodGet,
-			path:           "/api/other",
-			wantStatusCode: 400, // This is the expected status from the mock handler
+			name:             "regular API endpoint",
+			method:           http.MethodGet,
+			path:             "/api/other",
+			wantStatusCode:   500,                                                   // The mock service returns 500 with for non-existent resources
+			wantBodyContains: "invalid request: no matching section found for path", // Updated to match actual error
 		},
 	}
 

@@ -3,7 +3,6 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -11,14 +10,16 @@ import (
 	"testing"
 
 	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 )
 
 func TestScenarioHandler_Create(t *testing.T) {
-	// Create a new storage for testing
-	storage := storage.NewScenarioStorage()
+	// Create a new storage and service for testing
+	store := storage.NewScenarioStorage()
+	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(storage, logger)
+	handler := NewScenarioHandler(scenarioService, logger)
 
 	// Create a new scenario
 	scenario := model.Scenario{
@@ -71,10 +72,11 @@ func TestScenarioHandler_Create(t *testing.T) {
 }
 
 func TestScenarioHandler_Get(t *testing.T) {
-	// Create a new storage for testing
-	storage := storage.NewScenarioStorage()
+	// Create a new storage and service for testing
+	store := storage.NewScenarioStorage()
+	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(storage, logger)
+	handler := NewScenarioHandler(scenarioService, logger)
 
 	// Create a new scenario
 	scenario := model.Scenario{
@@ -127,10 +129,11 @@ func TestScenarioHandler_Get(t *testing.T) {
 }
 
 func TestScenarioHandler_List(t *testing.T) {
-	// Create a new storage for testing
-	storage := storage.NewScenarioStorage()
+	// Create a new storage and service for testing
+	store := storage.NewScenarioStorage()
+	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(storage, logger)
+	handler := NewScenarioHandler(scenarioService, logger)
 
 	// Create multiple scenarios
 	scenarios := []model.Scenario{
@@ -185,10 +188,11 @@ func TestScenarioHandler_List(t *testing.T) {
 }
 
 func TestScenarioHandler_Update(t *testing.T) {
-	// Create a new storage for testing
-	storage := storage.NewScenarioStorage()
+	// Create a new storage and service for testing
+	store := storage.NewScenarioStorage()
+	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(storage, logger)
+	handler := NewScenarioHandler(scenarioService, logger)
 
 	// Create a new scenario
 	scenario := model.Scenario{
@@ -211,27 +215,13 @@ func TestScenarioHandler_Update(t *testing.T) {
 	uuid := createdScenario.UUID
 
 	// Update the scenario
-	updatedScenario := model.Scenario{
-		UUID:        uuid,
-		RequestPath: "PUT /api/test-updated",
-		StatusCode:  201,
-		ContentType: "application/json",
-		Data:        `{"message":"Updated message"}`,
-	}
+	updatedScenario := createdScenario
+	updatedScenario.StatusCode = 201
+	updatedScenario.Data = `{"message":"Updated World!"}`
 
-	// Convert updated scenario to JSON
-	body, err := json.Marshal(updatedScenario)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a request to update
-	req, err = http.NewRequest("PUT", "/_uni/scenarios/"+uuid, bytes.NewBuffer(body))
-	if err != nil {
-		t.Fatal(err)
-	}
+	body, _ = json.Marshal(updatedScenario)
+	req, _ = http.NewRequest("PUT", "/_uni/scenarios/"+uuid, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -240,30 +230,28 @@ func TestScenarioHandler_Update(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	// Check response
-	var response model.Scenario
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatalf("Could not unmarshal response: %v", err)
-	}
+	// Verify the scenario was updated
+	req, _ = http.NewRequest("GET", "/_uni/scenarios/"+uuid, nil)
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
 
-	// Verify the updated fields
-	if response.RequestPath != updatedScenario.RequestPath {
-		t.Errorf("Expected requestPath %s, got %s", updatedScenario.RequestPath, response.RequestPath)
+	var updated model.Scenario
+	json.Unmarshal(rr.Body.Bytes(), &updated)
+
+	if updated.StatusCode != 201 {
+		t.Errorf("Expected StatusCode 201, got %d", updated.StatusCode)
 	}
-	if response.StatusCode != updatedScenario.StatusCode {
-		t.Errorf("Expected status code %d, got %d", updatedScenario.StatusCode, response.StatusCode)
-	}
-	if response.Data != updatedScenario.Data {
-		t.Errorf("Expected data %s, got %s", updatedScenario.Data, response.Data)
+	if updated.Data != `{"message":"Updated World!"}` {
+		t.Errorf(`Expected Data {"message":"Updated World!"}, got %s`, updated.Data)
 	}
 }
 
 func TestScenarioHandler_Delete(t *testing.T) {
-	// Create a new storage for testing
-	storage := storage.NewScenarioStorage()
+	// Create a new storage and service for testing
+	store := storage.NewScenarioStorage()
+	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(storage, logger)
+	handler := NewScenarioHandler(scenarioService, logger)
 
 	// Create a new scenario
 	scenario := model.Scenario{
@@ -285,12 +273,8 @@ func TestScenarioHandler_Delete(t *testing.T) {
 	json.Unmarshal(rr.Body.Bytes(), &createdScenario)
 	uuid := createdScenario.UUID
 
-	// Delete the scenario
-	req, err := http.NewRequest("DELETE", "/_uni/scenarios/"+uuid, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	// Now delete the scenario
+	req, _ = http.NewRequest("DELETE", "/_uni/scenarios/"+uuid, nil)
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -299,33 +283,25 @@ func TestScenarioHandler_Delete(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
 	}
 
-	// Try to get the deleted scenario
-	req, err = http.NewRequest("GET", "/_uni/scenarios/"+uuid, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	// Try to get the deleted scenario - should return 404
+	req, _ = http.NewRequest("GET", "/_uni/scenarios/"+uuid, nil)
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	// Check that the scenario is gone (should get 404)
 	if status := rr.Code; status != http.StatusNotFound {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
 	}
 }
 
 func TestScenarioHandler_NotFound(t *testing.T) {
-	// Create a new storage for testing
-	storage := storage.NewScenarioStorage()
+	// Create a new storage and service for testing
+	store := storage.NewScenarioStorage()
+	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(storage, logger)
+	handler := NewScenarioHandler(scenarioService, logger)
 
-	// Create a request with a non-existent UUID
-	req, err := http.NewRequest("GET", "/_uni/scenarios/non-existent-uuid", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	// Request a non-existent scenario
+	req, _ := http.NewRequest("GET", "/_uni/scenarios/non-existent", nil)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -336,125 +312,98 @@ func TestScenarioHandler_NotFound(t *testing.T) {
 }
 
 func TestScenarioHandler_InvalidJSON(t *testing.T) {
-	// Create a new storage for testing
-	storage := storage.NewScenarioStorage()
+	// Create a new storage and service for testing
+	store := storage.NewScenarioStorage()
+	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(storage, logger)
+	handler := NewScenarioHandler(scenarioService, logger)
 
 	// Create a request with invalid JSON
-	req, err := http.NewRequest("POST", "/_uni/scenarios", bytes.NewBufferString(`{"invalid json`))
-	if err != nil {
-		t.Fatal(err)
-	}
+	req, _ := http.NewRequest("POST", "/_uni/scenarios", bytes.NewBufferString(`{"invalid JSON`))
 	req.Header.Set("Content-Type", "application/json")
-
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	// Check the status code
+	// Check the status code - should be BadRequest for invalid JSON
 	if status := rr.Code; status != http.StatusBadRequest {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
 	}
 }
 
 func TestGetScenarioByPath(t *testing.T) {
-	// Create a mock logger
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	// Create a new storage and service for testing
+	store := storage.NewScenarioStorage()
+	scenarioService := service.NewScenarioService(store)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	handler := NewScenarioHandler(scenarioService, logger)
 
 	// Create test scenarios
-	scenarios := []*model.Scenario{
+	scenarios := []model.Scenario{
 		{
-			UUID:        "123",
-			RequestPath: "GET /api/users",
+			RequestPath: "GET /api/test",
 			StatusCode:  200,
 			ContentType: "application/json",
-			Data:        `[{"id": 1, "name": "John"}]`,
+			Data:        `{"message":"GET"}`,
 		},
 		{
-			UUID:        "456",
-			RequestPath: "POST /api/products",
+			RequestPath: "POST /api/test",
 			StatusCode:  201,
 			ContentType: "application/json",
-			Data:        `[{"id": 1, "name": "Product A"}]`,
+			Data:        `{"message":"POST"}`,
 		},
 		{
-			UUID:        "789",
-			RequestPath: "GET /api/products",
+			RequestPath: "GET /api/users/*",
 			StatusCode:  200,
 			ContentType: "application/json",
-			Data:        `[{"id": 1, "name": "Product B"}]`,
+			Data:        `{"message":"GET_USERS_WILDCARD"}`,
 		},
 	}
 
-	// Create storage with test scenarios
-	store := storage.NewScenarioStorage()
-	for _, s := range scenarios {
-		_ = store.Create(s.UUID, s)
+	// Create each scenario
+	for _, scenario := range scenarios {
+		body, _ := json.Marshal(scenario)
+		req, _ := http.NewRequest("POST", "/_uni/scenarios", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
 	}
 
-	// Create scenario handler
-	handler := NewScenarioHandler(store, logger)
-
-	// Test cases
-	tests := []struct {
-		name     string
-		path     string
-		method   string
-		wantUUID string
-		wantNil  bool
-	}{
-		{
-			name:     "existing path with GET method",
-			path:     "/api/users",
-			method:   "GET",
-			wantUUID: "123",
-			wantNil:  false,
-		},
-		{
-			name:     "existing path with POST method",
-			path:     "/api/products",
-			method:   "POST",
-			wantUUID: "456",
-			wantNil:  false,
-		},
-		{
-			name:     "existing path with GET method 2",
-			path:     "/api/products",
-			method:   "GET",
-			wantUUID: "789",
-			wantNil:  false,
-		},
-		{
-			name:     "existing path with wrong method",
-			path:     "/api/users",
-			method:   "POST",
-			wantUUID: "",
-			wantNil:  true,
-		},
-		{
-			name:     "non-existing path",
-			path:     "/api/nonexistent",
-			method:   "GET",
-			wantUUID: "",
-			wantNil:  true,
-		},
+	// Test matching with exact path
+	scenario := scenarioService.GetScenarioByPath(nil, "/api/test", "GET")
+	if scenario == nil {
+		t.Fatal("Expected to find a matching scenario for GET /api/test, got nil")
+	}
+	if scenario.Data != `{"message":"GET"}` {
+		t.Errorf("Expected data %s, got %s", `{"message":"GET"}`, scenario.Data)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			scenario := handler.GetScenarioByPath(tt.path, tt.method)
+	// Test matching with wildcard
+	scenario = scenarioService.GetScenarioByPath(nil, "/api/users/123", "GET")
+	if scenario == nil {
+		t.Fatal("Expected to find a matching scenario for GET /api/users/123, got nil")
+	}
+	if scenario.Data != `{"message":"GET_USERS_WILDCARD"}` {
+		t.Errorf("Expected data %s, got %s", `{"message":"GET_USERS_WILDCARD"}`, scenario.Data)
+	}
 
-			if tt.wantNil {
-				if scenario != nil {
-					t.Errorf("GetScenarioByPath(%q, %q) = %v, want nil", tt.path, tt.method, scenario)
-				}
-			} else {
-				if scenario == nil {
-					t.Errorf("GetScenarioByPath(%q, %q) = nil, want scenario with UUID %q", tt.path, tt.method, tt.wantUUID)
-				} else if scenario.UUID != tt.wantUUID {
-					t.Errorf("GetScenarioByPath(%q, %q) = scenario with UUID %q, want scenario with UUID %q", tt.path, tt.method, scenario.UUID, tt.wantUUID)
-				}
-			}
-		})
+	// Test matching with different method on same path
+	scenario = scenarioService.GetScenarioByPath(nil, "/api/test", "POST")
+	if scenario == nil {
+		t.Fatal("Expected to find a matching scenario for POST /api/test, got nil")
+	}
+	if scenario.Data != `{"message":"POST"}` {
+		t.Errorf("Expected data %s, got %s", `{"message":"POST"}`, scenario.Data)
+	}
+
+	// Test non-matching path
+	scenario = scenarioService.GetScenarioByPath(nil, "/api/nonexistent", "GET")
+	if scenario != nil {
+		t.Errorf("Expected nil for non-matching path, got %+v", scenario)
+	}
+
+	// Test non-matching method
+	scenario = scenarioService.GetScenarioByPath(nil, "/api/test", "DELETE")
+	if scenario != nil {
+		t.Errorf("Expected nil for non-matching method, got %+v", scenario)
 	}
 }

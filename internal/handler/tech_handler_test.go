@@ -8,13 +8,15 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/bmcszk/unimock/internal/service"
 )
 
 func TestTechHandler_HealthCheck(t *testing.T) {
-	// Create a new tech handler
+	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	startTime := time.Now()
-	handler := NewTechHandler(logger, startTime)
+	techService := service.NewTechService(time.Now())
+	handler := NewTechHandler(techService, logger)
 
 	// Create a request to pass to our handler
 	req, err := http.NewRequest("GET", "/_uni/health", nil)
@@ -51,9 +53,10 @@ func TestTechHandler_HealthCheck(t *testing.T) {
 }
 
 func TestTechHandler_Metrics(t *testing.T) {
-	// Create a new tech handler
+	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewTechHandler(logger, time.Now())
+	techService := service.NewTechService(time.Now())
+	handler := NewTechHandler(techService, logger)
 
 	// Create a request to pass to our handler
 	req, err := http.NewRequest("GET", "/_uni/metrics", nil)
@@ -90,9 +93,10 @@ func TestTechHandler_Metrics(t *testing.T) {
 }
 
 func TestTechHandler_NotFound(t *testing.T) {
-	// Create a new tech handler
+	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewTechHandler(logger, time.Now())
+	techService := service.NewTechService(time.Now())
+	handler := NewTechHandler(techService, logger)
 
 	// Create a request to pass to our handler with an invalid path
 	req, err := http.NewRequest("GET", "/_uni/invalid", nil)
@@ -113,9 +117,10 @@ func TestTechHandler_NotFound(t *testing.T) {
 }
 
 func TestTechHandler_MethodNotAllowed(t *testing.T) {
-	// Create a new tech handler
+	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewTechHandler(logger, time.Now())
+	techService := service.NewTechService(time.Now())
+	handler := NewTechHandler(techService, logger)
 
 	// Create a request to pass to our handler with an invalid method
 	req, err := http.NewRequest("POST", "/_uni/health", nil)

@@ -5,26 +5,23 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"sync/atomic"
-	"time"
+
+	"github.com/bmcszk/unimock/internal/service"
 )
 
 // TechHandler handles technical endpoints like health checks and metrics
 type TechHandler struct {
-	prefix         string
-	logger         *slog.Logger
-	startTime      time.Time
-	requestCounter atomic.Int64
-	endpointStats  map[string]atomic.Int64
+	prefix  string
+	service service.TechService
+	logger  *slog.Logger
 }
 
 // NewTechHandler creates a new instance of TechHandler
-func NewTechHandler(logger *slog.Logger, startTime time.Time) *TechHandler {
+func NewTechHandler(service service.TechService, logger *slog.Logger) *TechHandler {
 	return &TechHandler{
-		prefix:        "/_uni/",
-		logger:        logger,
-		startTime:     startTime,
-		endpointStats: make(map[string]atomic.Int64),
+		prefix:  "/_uni/",
+		service: service,
+		logger:  logger,
 	}
 }
 
@@ -36,16 +33,7 @@ func (h *TechHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"path", r.URL.Path)
 
 	// Increment request counter
-	h.requestCounter.Add(1)
-
-	// Track endpoint stats
-	if stats, exists := h.endpointStats[r.URL.Path]; exists {
-		stats.Add(1)
-	} else {
-		var counter atomic.Int64
-		counter.Add(1)
-		h.endpointStats[r.URL.Path] = counter
-	}
+	h.service.IncrementRequestCount(r.Context(), r.URL.Path)
 
 	// Only allow GET method for technical endpoints
 	if r.Method != http.MethodGet {
@@ -67,14 +55,8 @@ func (h *TechHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // handleHealthCheck returns the health status of the service
 func (h *TechHandler) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
-	// Calculate uptime
-	uptime := time.Since(h.startTime).String()
-
-	// Create response
-	response := map[string]interface{}{
-		"status": "ok",
-		"uptime": uptime,
-	}
+	// Get health status from service
+	response := h.service.GetHealthStatus(r.Context())
 
 	// Write response
 	h.writeJSONResponse(w, response)
@@ -82,17 +64,8 @@ func (h *TechHandler) handleHealthCheck(w http.ResponseWriter, r *http.Request) 
 
 // handleMetrics returns metrics about the service
 func (h *TechHandler) handleMetrics(w http.ResponseWriter, r *http.Request) {
-	// Create API endpoint stats
-	apiEndpoints := make(map[string]int64)
-	for path, counter := range h.endpointStats {
-		apiEndpoints[path] = counter.Load()
-	}
-
-	// Create response
-	response := map[string]interface{}{
-		"request_count": h.requestCounter.Load(),
-		"api_endpoints": apiEndpoints,
-	}
+	// Get metrics from service
+	response := h.service.GetMetrics(r.Context())
 
 	// Write response
 	h.writeJSONResponse(w, response)

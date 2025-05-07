@@ -1,0 +1,460 @@
+package service
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
+	"github.com/antchfx/jsonquery"
+	"github.com/antchfx/xmlquery"
+	"github.com/bmcszk/unimock/internal/config"
+	"github.com/bmcszk/unimock/internal/errors"
+	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/google/uuid"
+)
+
+// mockService implements the MockService interface
+type mockService struct {
+	storage storage.MockStorage
+	cfg     *config.Config
+}
+
+// NewMockService creates a new instance of MockService
+func NewMockService(storage storage.MockStorage, cfg *config.Config) MockService {
+	return &mockService{
+		storage: storage,
+		cfg:     cfg,
+	}
+}
+
+// ExtractIDs extracts IDs from the request using configured paths
+func (s *mockService) ExtractIDs(ctx context.Context, req *http.Request) ([]string, error) {
+	// Find matching section
+	sectionName, section, err := s.cfg.MatchPath(req.URL.Path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to match path pattern: %w", err)
+	}
+	if section == nil {
+		return nil, fmt.Errorf("no matching section found for path: %s", req.URL.Path)
+	}
+
+	// For GET/PUT/DELETE requests, try to extract ID from path first
+	if req.Method == http.MethodGet || req.Method == http.MethodPut || req.Method == http.MethodDelete {
+		pathSegments := getPathInfo(req.URL.Path)
+		patternSegments := getPathInfo(section.PathPattern)
+
+		// Check if this is a resource path (contains an ID)
+		if len(pathSegments) > len(patternSegments) ||
+			(len(patternSegments) > 0 && len(pathSegments) > 0 &&
+				patternSegments[len(patternSegments)-1] == "*" &&
+				len(pathSegments) == len(patternSegments)) {
+
+			// Use the last path segment as the ID
+			lastSegment := pathSegments[len(pathSegments)-1]
+			if isValidID(lastSegment, sectionName) {
+				return []string{lastSegment}, nil
+			}
+		}
+
+		// If we got here, it's a collection path without an ID
+		return nil, nil
+	}
+
+	// For POST requests, try to extract ID from header first
+	if section.HeaderIDName != "" {
+		if id := req.Header.Get(section.HeaderIDName); id != "" {
+			return []string{id}, nil
+		}
+	}
+
+	// Try to extract ID from body
+	contentType := req.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") || strings.Contains(contentType, "application/xml") {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read request body: %w", err)
+		}
+		req.Body = io.NopCloser(bytes.NewBuffer(body)) // Restore body for later use
+
+		if len(body) == 0 {
+			return nil, nil
+		}
+
+		var ids []string
+		seenIDs := make(map[string]bool) // Track unique IDs
+
+		if strings.Contains(contentType, "application/json") {
+			ids, err = s.extractJSONIDs(body, section.BodyIDPaths, seenIDs)
+			if err != nil {
+				return nil, err
+			}
+		} else if strings.Contains(contentType, "application/xml") {
+			ids, err = s.extractXMLIDs(body, section.BodyIDPaths, seenIDs)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if len(ids) > 0 {
+			return ids, nil
+		}
+	}
+
+	// For non-JSON requests or if no IDs found in body, try to extract from path
+	pathSegments := getPathInfo(req.URL.Path)
+	if len(pathSegments) > 0 {
+		lastSegment := pathSegments[len(pathSegments)-1]
+		if isValidID(lastSegment, sectionName) {
+			return []string{lastSegment}, nil
+		}
+	}
+
+	return nil, nil
+}
+
+// HandleRequest processes the HTTP request and returns appropriate response
+func (s *mockService) HandleRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
+	// Validate content type for POST and PUT requests
+	if req.Method == http.MethodPost || req.Method == http.MethodPut {
+		contentType := req.Header.Get("Content-Type")
+		if contentType != "application/json" && contentType != "application/xml" {
+			return nil, errors.NewInvalidRequestError(fmt.Sprintf("unsupported content type: %s", contentType))
+		}
+	}
+
+	// Get section configuration for this path
+	_, section, err := s.cfg.MatchPath(req.URL.Path)
+	if err != nil {
+		return nil, errors.NewInvalidRequestError(err.Error())
+	}
+	if section == nil {
+		return nil, errors.NewInvalidRequestError("no matching section found for path: " + req.URL.Path)
+	}
+
+	// Extract IDs from the request
+	ids, err := s.ExtractIDs(ctx, req)
+	if err != nil {
+		return nil, errors.NewInvalidRequestError(err.Error())
+	}
+
+	switch req.Method {
+	case http.MethodGet:
+		if len(ids) > 0 {
+			// For GET requests with an ID, first check if the resource exists
+			_, err = s.storage.Get(ids[0])
+			if err != nil {
+				return nil, fmt.Errorf("resource not found")
+			}
+
+			data, err := s.GetResource(ctx, req.URL.Path, ids[0])
+			if err != nil {
+				return nil, err
+			}
+			return createResourceResponse(data), nil
+		}
+		data, err := s.GetResourcesByPath(ctx, req.URL.Path)
+		if err != nil {
+			return nil, err
+		}
+		return createCollectionResponse(data), nil
+
+	case http.MethodPost:
+		// For POST requests, need to extract ID from body or generate one
+		if len(ids) == 0 {
+			// If no ID in the request, try to extract from the body
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				return nil, errors.NewInvalidRequestError(fmt.Sprintf("failed to read request body: %v", err))
+			}
+			req.Body = io.NopCloser(bytes.NewBuffer(body)) // Restore body for later use
+
+			// Try to extract ID from JSON body
+			contentType := req.Header.Get("Content-Type")
+			if contentType == "application/json" {
+				var jsonData map[string]interface{}
+				if err := json.Unmarshal(body, &jsonData); err == nil {
+					if id, ok := jsonData["id"].(string); ok && id != "" {
+						ids = []string{id}
+					}
+				}
+			}
+
+			// If still no ID, generate one
+			if len(ids) == 0 {
+				ids = []string{uuid.New().String()}
+			}
+		}
+
+		// Check if an ID already exists before creating
+		for _, id := range ids {
+			if _, err := s.storage.Get(id); err == nil {
+				// Resource with this ID already exists
+				return nil, fmt.Errorf("resource already exists")
+			}
+		}
+
+		// Now create the resource
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, errors.NewInvalidRequestError(fmt.Sprintf("failed to read request body: %v", err))
+		}
+
+		data := &model.MockData{
+			Path:        req.URL.Path,
+			ContentType: req.Header.Get("Content-Type"),
+			Body:        body,
+		}
+
+		if err := s.CreateResource(ctx, req.URL.Path, ids, data); err != nil {
+			return nil, err
+		}
+
+		return createCreatedResponse(data), nil
+
+	case http.MethodPut:
+		if len(ids) == 0 {
+			return nil, errors.NewInvalidRequestError("no ID provided for PUT request")
+		}
+
+		// Check if resource exists directly with storage
+		_, err = s.storage.Get(ids[0])
+		if err != nil {
+			return nil, fmt.Errorf("resource not found")
+		}
+
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, errors.NewInvalidRequestError(fmt.Sprintf("failed to read request body: %v", err))
+		}
+
+		data := &model.MockData{
+			Path:        req.URL.Path,
+			ContentType: req.Header.Get("Content-Type"),
+			Body:        body,
+		}
+
+		if err := s.UpdateResource(ctx, req.URL.Path, ids[0], data); err != nil {
+			return nil, err
+		}
+
+		return createResourceResponse(data), nil
+
+	case http.MethodDelete:
+		if len(ids) == 0 {
+			return nil, errors.NewInvalidRequestError("no ID provided for DELETE request")
+		}
+
+		// Check if resource exists directly with storage
+		_, err = s.storage.Get(ids[0])
+		if err != nil {
+			return nil, fmt.Errorf("resource not found")
+		}
+
+		if err := s.DeleteResource(ctx, req.URL.Path, ids[0]); err != nil {
+			return nil, err
+		}
+
+		return createNoContentResponse(), nil
+
+	default:
+		return nil, fmt.Errorf("method %s not allowed", req.Method)
+	}
+}
+
+// GetResource retrieves a resource by path and ID
+func (s *mockService) GetResource(ctx context.Context, path string, id string) (*model.MockData, error) {
+	data, err := s.storage.Get(id)
+	if err != nil {
+		if _, ok := err.(*errors.NotFoundError); ok {
+			return nil, fmt.Errorf("resource not found")
+		}
+		if _, ok := err.(*errors.InvalidRequestError); ok {
+			return nil, err
+		}
+		return nil, fmt.Errorf("failed to get resource: %v", err)
+	}
+	return data, nil
+}
+
+// GetResourcesByPath retrieves all resources at a given path
+func (s *mockService) GetResourcesByPath(ctx context.Context, path string) ([]*model.MockData, error) {
+	data, err := s.storage.GetByPath(path)
+	if err != nil {
+		if _, ok := err.(*errors.NotFoundError); ok {
+			return nil, fmt.Errorf("resource not found")
+		}
+		if _, ok := err.(*errors.InvalidRequestError); ok {
+			return nil, err
+		}
+		return nil, fmt.Errorf("failed to get resources: %v", err)
+	}
+	return data, nil
+}
+
+// CreateResource creates a new resource
+func (s *mockService) CreateResource(ctx context.Context, path string, ids []string, data *model.MockData) error {
+	if len(ids) == 0 {
+		return errors.NewInvalidRequestError("no IDs found in request")
+	}
+	err := s.storage.Create(ids, data)
+	if err != nil {
+		if _, ok := err.(*errors.ConflictError); ok {
+			return fmt.Errorf("resource already exists")
+		}
+		if _, ok := err.(*errors.InvalidRequestError); ok {
+			return err
+		}
+		return fmt.Errorf("failed to create resource: %v", err)
+	}
+	return nil
+}
+
+// UpdateResource updates an existing resource
+func (s *mockService) UpdateResource(ctx context.Context, path string, id string, data *model.MockData) error {
+	err := s.storage.Update(id, data)
+	if err != nil {
+		if _, ok := err.(*errors.NotFoundError); ok {
+			return fmt.Errorf("resource not found")
+		}
+		if _, ok := err.(*errors.InvalidRequestError); ok {
+			return err
+		}
+		return fmt.Errorf("failed to update resource: %v", err)
+	}
+	return nil
+}
+
+// DeleteResource removes a resource
+func (s *mockService) DeleteResource(ctx context.Context, path string, id string) error {
+	err := s.storage.Delete(id)
+	if err != nil {
+		if _, ok := err.(*errors.NotFoundError); ok {
+			return fmt.Errorf("resource not found")
+		}
+		if _, ok := err.(*errors.InvalidRequestError); ok {
+			return err
+		}
+		return fmt.Errorf("failed to delete resource: %v", err)
+	}
+	return nil
+}
+
+// Helper functions
+
+func getPathInfo(path string) []string {
+	return strings.Split(strings.Trim(path, "/"), "/")
+}
+
+func isValidID(segment string, sectionName string) bool {
+	// Check if it's a valid JSON string and not the section name
+	_, err := json.Marshal(segment)
+	return err == nil && segment != sectionName
+}
+
+func (s *mockService) extractJSONIDs(body []byte, paths []string, seenIDs map[string]bool) ([]string, error) {
+	doc, err := jsonquery.Parse(bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse JSON body: %w", err)
+	}
+
+	var ids []string
+	for _, path := range paths {
+		nodes, err := jsonquery.QueryAll(doc, path)
+		if err != nil {
+			continue
+		}
+		for _, node := range nodes {
+			if id := fmt.Sprintf("%v", node.Value()); id != "" && !seenIDs[id] {
+				ids = append(ids, id)
+				seenIDs[id] = true
+			}
+		}
+	}
+
+	return ids, nil
+}
+
+func (s *mockService) extractXMLIDs(body []byte, paths []string, seenIDs map[string]bool) ([]string, error) {
+	doc, err := xmlquery.Parse(bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse XML body: %w", err)
+	}
+
+	var ids []string
+	for _, path := range paths {
+		nodes, err := xmlquery.QueryAll(doc, path)
+		if err != nil {
+			continue
+		}
+		for _, node := range nodes {
+			if id := node.InnerText(); id != "" && !seenIDs[id] {
+				ids = append(ids, id)
+				seenIDs[id] = true
+			}
+		}
+	}
+
+	return ids, nil
+}
+
+func createResourceResponse(data *model.MockData) *http.Response {
+	body, err := json.Marshal(data)
+	if err != nil {
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+		}
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header: map[string][]string{
+			"Content-Type": {"application/json"},
+		},
+		Body: io.NopCloser(bytes.NewReader(body)),
+	}
+}
+
+func createCollectionResponse(data []*model.MockData) *http.Response {
+	body, err := json.Marshal(data)
+	if err != nil {
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+		}
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header: map[string][]string{
+			"Content-Type": {"application/json"},
+		},
+		Body: io.NopCloser(bytes.NewReader(body)),
+	}
+}
+
+func createCreatedResponse(data *model.MockData) *http.Response {
+	body, err := json.Marshal(data)
+	if err != nil {
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+		}
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusCreated,
+		Header: map[string][]string{
+			"Content-Type": {"application/json"},
+		},
+		Body: io.NopCloser(bytes.NewReader(body)),
+	}
+}
+
+func createNoContentResponse() *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusNoContent,
+	}
+}

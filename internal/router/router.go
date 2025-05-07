@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bmcszk/unimock/internal/handler"
+	"github.com/bmcszk/unimock/internal/service"
 )
 
 // Router is a http.Handler that routes requests to the appropriate handler based on path prefix
@@ -13,15 +13,17 @@ type Router struct {
 	mainHandler     http.Handler
 	techHandler     http.Handler
 	scenarioHandler http.Handler
+	scenarioService service.ScenarioService
 	logger          *slog.Logger
 }
 
 // NewRouter creates a new Router instance
-func NewRouter(mainHandler, techHandler, scenarioHandler http.Handler, logger *slog.Logger) *Router {
+func NewRouter(mainHandler, techHandler, scenarioHandler http.Handler, scenarioService service.ScenarioService, logger *slog.Logger) *Router {
 	return &Router{
 		mainHandler:     mainHandler,
 		techHandler:     techHandler,
 		scenarioHandler: scenarioHandler,
+		scenarioService: scenarioService,
 		logger:          logger,
 	}
 }
@@ -29,7 +31,7 @@ func NewRouter(mainHandler, techHandler, scenarioHandler http.Handler, logger *s
 // ServeHTTP implements the http.Handler interface
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// First, check if there's a scenario matching this path and method
-	scenario := r.scenarioHandler.(*handler.ScenarioHandler).GetScenarioByPath(req.URL.Path, req.Method)
+	scenario := r.scenarioService.GetScenarioByPath(req.Context(), req.URL.Path, req.Method)
 	if scenario != nil {
 		r.logger.Info("found matching scenario",
 			"method", req.Method,

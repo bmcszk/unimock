@@ -12,6 +12,7 @@ import (
 	"github.com/bmcszk/unimock/internal/config"
 	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/router"
+	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 )
 
@@ -106,18 +107,18 @@ func main() {
 	// Create a new scenario storage
 	scenarioStore := storage.NewScenarioStorage()
 
-	// Create a new main handler
-	mainHandler := handler.NewMockHandler(store, cfg, logger)
+	// Create services
+	mockService := service.NewMockService(store, cfg)
+	scenarioService := service.NewScenarioService(scenarioStore)
+	techService := service.NewTechService(time.Now())
 
-	// Create a new tech handler
-	startTime := time.Now()
-	techHandler := handler.NewTechHandler(logger, startTime)
-
-	// Create a new scenario handler with dedicated scenario storage
-	scenarioHandler := handler.NewScenarioHandler(scenarioStore, logger)
+	// Create handlers with services
+	mainHandler := handler.NewMockHandler(mockService, logger)
+	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
+	techHandler := handler.NewTechHandler(techService, logger)
 
 	// Create a router
-	appRouter := router.NewRouter(mainHandler, techHandler, scenarioHandler, logger)
+	appRouter := router.NewRouter(mainHandler, techHandler, scenarioHandler, scenarioService, logger)
 
 	// Create server
 	srv := &http.Server{
