@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/bmcszk/unimock/internal/errors"
-	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/pkg/model"
 
 	"github.com/google/uuid"
 )

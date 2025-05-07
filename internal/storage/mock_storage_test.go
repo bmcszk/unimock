@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 func TestMockStorage_StoreAndGet(t *testing.T) {

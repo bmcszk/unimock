@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 func TestMockHandler_HandleRequest(t *testing.T) {
@@ -62,7 +62,7 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			method:         http.MethodGet,
 			path:           "/users/123",
 			expectedStatus: http.StatusOK,
-			expectedBody:   `"Path":"/users/123"`,
+			expectedBody:   `"path":"/users/123"`,
 		},
 		{
 			name:           "GET non-existent resource",

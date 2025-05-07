@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 // MockService handles the core mock functionality

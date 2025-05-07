@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/service"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 // ScenarioHandler handles endpoints for managing scenarios

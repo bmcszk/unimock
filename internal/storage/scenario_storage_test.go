@@ -3,7 +3,7 @@ package storage
 import (
 	"testing"
 
-	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 func TestScenarioStorage_CRUD(t *testing.T) {

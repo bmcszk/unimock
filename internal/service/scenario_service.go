@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/bmcszk/unimock/pkg/model"
 	"github.com/google/uuid"
 )
 

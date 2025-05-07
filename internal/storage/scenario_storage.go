@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/bmcszk/unimock/internal/errors"
-	"github.com/bmcszk/unimock/internal/model"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 // ScenarioStorage manages scenarios

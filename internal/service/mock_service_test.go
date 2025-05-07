@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 func TestMockService_ExtractIDs(t *testing.T) {
@@ -257,7 +257,7 @@ func TestMockService_HandleRequest(t *testing.T) {
 			method:         http.MethodGet,
 			path:           "/users/123",
 			expectedStatus: http.StatusOK,
-			expectedBody:   `{"Path":"/users/123","Location":"/users/123/123","ContentType":"application/json","Body":"eyJpZCI6ICIxMjMiLCAibmFtZSI6ICJ0ZXN0In0="}`,
+			expectedBody:   `{"path":"/users/123","location":"/users/123/123","content_type":"application/json","body":"eyJpZCI6ICIxMjMiLCAibmFtZSI6ICJ0ZXN0In0="}`,
 		},
 		{
 			name:          "GET non-existent resource",
@@ -271,7 +271,7 @@ func TestMockService_HandleRequest(t *testing.T) {
 			method:         http.MethodGet,
 			path:           "/users",
 			expectedStatus: http.StatusOK,
-			expectedBody:   `[{"Path":"/users/123","Location":"/users/123/123","ContentType":"application/json","Body":"eyJpZCI6ICIxMjMiLCAibmFtZSI6ICJ0ZXN0In0="}]`,
+			expectedBody:   `[{"path":"/users/123","location":"/users/123/123","content_type":"application/json","body":"eyJpZCI6ICIxMjMiLCAibmFtZSI6ICJ0ZXN0In0="}]`,
 		},
 		{
 			name:           "POST new resource",
@@ -280,7 +280,7 @@ func TestMockService_HandleRequest(t *testing.T) {
 			contentType:    "application/json",
 			body:           `{"id": "789", "name": "new"}`, // Use ID that doesn't exist yet
 			expectedStatus: http.StatusCreated,
-			expectedBody:   `{"Path":"/users","Location":"/users/789","ContentType":"application/json","Body":"eyJpZCI6ICI3ODkiLCAibmFtZSI6ICJuZXcifQ=="}`,
+			expectedBody:   `{"path":"/users","location":"/users/789","content_type":"application/json","body":"eyJpZCI6ICI3ODkiLCAibmFtZSI6ICJuZXcifQ=="}`,
 		},
 		{
 			name:           "PUT existing resource",
@@ -289,7 +289,7 @@ func TestMockService_HandleRequest(t *testing.T) {
 			contentType:    "application/json",
 			body:           `{"id": "123", "name": "updated"}`,
 			expectedStatus: http.StatusOK,
-			expectedBody:   `{"Path":"/users/123","Location":"","ContentType":"application/json","Body":"eyJpZCI6ICIxMjMiLCAibmFtZSI6ICJ1cGRhdGVkIn0="}`,
+			expectedBody:   `{"path":"/users/123","content_type":"application/json","body":"eyJpZCI6ICIxMjMiLCAibmFtZSI6ICJ1cGRhdGVkIn0="}`,
 		},
 		{
 			name:          "PUT non-existent resource",

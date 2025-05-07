@@ -13,9 +13,9 @@ import (
 	"github.com/antchfx/jsonquery"
 	"github.com/antchfx/xmlquery"
 	"github.com/bmcszk/unimock/internal/errors"
-	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
+	"github.com/bmcszk/unimock/pkg/model"
 	"github.com/google/uuid"
 )
 

@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/bmcszk/unimock/internal/handler"
-	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 func TestRouter_ServeHTTP(t *testing.T) {

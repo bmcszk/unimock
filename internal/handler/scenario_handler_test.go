@@ -9,9 +9,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 func TestScenarioHandler_Create(t *testing.T) {

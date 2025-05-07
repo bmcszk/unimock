@@ -5,8 +5,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 func TestScenarioService_GetScenarioByPath(t *testing.T) {
