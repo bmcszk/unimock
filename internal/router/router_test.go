@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bmcszk/unimock/internal/config"
 	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/bmcszk/unimock/pkg/config"
 )
 
 func TestRouter_ServeHTTP(t *testing.T) {
@@ -25,7 +25,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 	scenarioStore := storage.NewScenarioStorage()
 
 	// Create test config
-	cfg := &config.Config{
+	cfg := &config.MockConfig{
 		Sections: map[string]config.Section{
 			"api": {
 				PathPattern: "/api",

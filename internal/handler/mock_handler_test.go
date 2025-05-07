@@ -10,17 +10,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bmcszk/unimock/internal/config"
 	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/bmcszk/unimock/pkg/config"
 )
 
 func TestMockHandler_HandleRequest(t *testing.T) {
 	// Setup
 	store := storage.NewMockStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	cfg := &config.Config{
+	cfg := &config.MockConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern: "/users/*",

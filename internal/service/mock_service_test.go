@@ -9,14 +9,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bmcszk/unimock/internal/config"
 	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/bmcszk/unimock/pkg/config"
 )
 
 func TestMockService_ExtractIDs(t *testing.T) {
 	// Create test config
-	cfg := &config.Config{
+	cfg := &config.MockConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern:  "/users/*",
@@ -203,7 +203,7 @@ func TestMockService_ExtractIDs(t *testing.T) {
 
 func TestMockService_HandleRequest(t *testing.T) {
 	// Create test config
-	cfg := &config.Config{
+	cfg := &config.MockConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern: "/users/*",

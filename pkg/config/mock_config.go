@@ -8,16 +8,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config represents the main configuration structure
-type Config struct {
-	Sections map[string]Section `yaml:",inline"`
+// MockConfig represents the configuration for mock behavior
+// It defines how Unimock handles different API endpoints and extracts IDs
+// from various parts of HTTP requests.
+type MockConfig struct {
+	// Sections contains configuration for different API endpoint patterns
+	// The map keys are section names (usually API resource names like "users" or "orders")
+	// and the values are Section structs defining how to handle requests to those endpoints.
+	Sections map[string]Section `yaml:",inline" json:"sections"`
 }
 
 // Section represents a configuration section for a specific API endpoint pattern
 type Section struct {
 	// PathPattern defines the URL pattern to match against.
 	// Use * as a wildcard for ID segments, e.g. "/users/*" or "/users/*/orders/*"
-	PathPattern string `yaml:"path_pattern"`
+	PathPattern string `yaml:"path_pattern" json:"path_pattern"`
 
 	// BodyIDPaths defines the XPath-like paths to extract IDs from request bodies.
 	// For JSON:
@@ -46,31 +51,28 @@ type Section struct {
 	//   - "/root/items/item/id" - extracts IDs from nested elements
 	//   - "/root/*/id" - extracts IDs from any direct child
 	//   - "//id[text()='123']" - extracts ID with specific value
-	BodyIDPaths []string `yaml:"body_id_paths"`
+	BodyIDPaths []string `yaml:"body_id_paths" json:"body_id_paths"`
 
 	// HeaderIDName specifies the HTTP header name to extract IDs from.
 	// If empty, no header-based ID extraction will be performed.
-	HeaderIDName string `yaml:"header_id_name"`
+	HeaderIDName string `yaml:"header_id_name" json:"header_id_name"`
 }
 
-// ConfigLoader defines the interface for loading configuration
-type ConfigLoader interface {
-	Load(path string) (*Config, error)
+// NewMockConfig creates an empty MockConfig with an initialized Sections map
+func NewMockConfig() *MockConfig {
+	return &MockConfig{
+		Sections: make(map[string]Section),
+	}
 }
 
-// YAMLConfigLoader implements ConfigLoader for YAML files
-type YAMLConfigLoader struct{}
-
-// Load implements ConfigLoader interface for YAML files
-func (l *YAMLConfigLoader) Load(path string) (*Config, error) {
+// LoadFromYAML loads a MockConfig from a YAML file at the given path
+func LoadFromYAML(path string) (*MockConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	config := &Config{
-		Sections: make(map[string]Section),
-	}
+	config := NewMockConfig()
 
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true) // Enable strict mode
@@ -119,7 +121,7 @@ func isPatternMatch(pattern, path string) bool {
 }
 
 // MatchPath finds the section that matches the given path
-func (c *Config) MatchPath(path string) (string, *Section, error) {
+func (c *MockConfig) MatchPath(path string) (string, *Section, error) {
 	// Remove leading and trailing slashes for consistent matching
 	path = strings.Trim(path, "/")
 

@@ -3,137 +3,48 @@ package main
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/bmcszk/unimock/internal/config"
-	"github.com/bmcszk/unimock/internal/handler"
-	"github.com/bmcszk/unimock/internal/router"
-	"github.com/bmcszk/unimock/internal/service"
-	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/bmcszk/unimock/pkg"
+	"github.com/bmcszk/unimock/pkg/config"
 )
 
-type Envs struct {
-	port       string
-	configPath string
-	logLevel   string
-}
-
-func parseConfig() *Envs {
-	envs := &Envs{}
-
-	// Get port from environment variable, default to 8080
-	if port := os.Getenv("UNIMOCK_PORT"); port != "" {
-		envs.port = port
-	} else {
-		envs.port = "8080"
-	}
-
-	// Get config path from environment variable, default to config.yaml
-	if configPath := os.Getenv("UNIMOCK_CONFIG"); configPath != "" {
-		envs.configPath = configPath
-	} else {
-		envs.configPath = "config.yaml"
-	}
-
-	// Get log level from environment variable, default to info
-	if logLevel := os.Getenv("UNIMOCK_LOG_LEVEL"); logLevel != "" {
-		envs.logLevel = logLevel
-	} else {
-		envs.logLevel = "info"
-	}
-
-	return envs
-}
-
-func setupLogger(level string) *slog.Logger {
-	var logLevel slog.Level
-	switch level {
-	case "debug":
-		logLevel = slog.LevelDebug
-	case "info":
-		logLevel = slog.LevelInfo
-	case "warn":
-		logLevel = slog.LevelWarn
-	case "error":
-		logLevel = slog.LevelError
-	default:
-		logLevel = slog.LevelInfo
-	}
-
-	opts := &slog.HandlerOptions{
-		Level: logLevel,
-	}
-	handler := slog.NewJSONHandler(os.Stdout, opts)
-	return slog.New(handler)
-}
-
 func main() {
-	// Parse configuration
-	envs := parseConfig()
+	// Create a logger for main program logs
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
 
-	// Setup logger
-	logger := setupLogger(envs.logLevel)
-	logger.Info("starting server",
-		"port", envs.port,
-		"config_path", envs.configPath,
-		"log_level", envs.logLevel)
+	// Load configuration from environment variables
+	serverConfig := config.FromEnv()
 
-	// Load configuration
-	configLoader := &config.YAMLConfigLoader{}
-	cfg, err := configLoader.Load(envs.configPath)
+	logger.Info("starting unimock server",
+		"port", serverConfig.Port,
+		"config_path", serverConfig.ConfigPath,
+		"log_level", serverConfig.LogLevel)
+
+	// Load mock configuration from file
+	mockConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
 	if err != nil {
-		logger.Error("failed to load configuration",
-			"error", err)
+		logger.Error("failed to load configuration", "error", err)
 		panic(err)
 	}
 
-	// Validate configuration
-	if cfg == nil {
-		logger.Error("configuration is nil")
-		panic("configuration is nil")
-	}
-	if len(cfg.Sections) == 0 {
-		logger.Error("no sections defined in configuration")
-		panic("no sections defined in configuration")
-	}
-
-	// Create a new storage
-	store := storage.NewMockStorage()
-
-	// Create a new scenario storage
-	scenarioStore := storage.NewScenarioStorage()
-
-	// Create services
-	mockService := service.NewMockService(store, cfg)
-	scenarioService := service.NewScenarioService(scenarioStore)
-	techService := service.NewTechService(time.Now())
-
-	// Create handlers with services
-	mainHandler := handler.NewMockHandler(mockService, logger)
-	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
-	techHandler := handler.NewTechHandler(techService, logger)
-
-	// Create a router
-	appRouter := router.NewRouter(mainHandler, techHandler, scenarioHandler, scenarioService, logger)
-
-	// Create server
-	srv := &http.Server{
-		Addr:         ":" + envs.port,
-		Handler:      appRouter,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  120 * time.Second,
+	// Start the server
+	srv, err := pkg.NewServer(serverConfig, mockConfig)
+	if err != nil {
+		logger.Error("failed to initialize server", "error", err)
+		panic(err)
 	}
 
 	// Start server in a goroutine
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("failed to start server",
-				"error", err)
+		logger.Info("server listening", "address", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && err != context.Canceled {
+			logger.Error("failed to start server", "error", err)
 			panic(err)
 		}
 	}()
@@ -151,8 +62,7 @@ func main() {
 
 	// Attempt graceful shutdown
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Error("server forced to shutdown",
-			"error", err)
+		logger.Error("server forced to shutdown", "error", err)
 		panic(err)
 	}
 

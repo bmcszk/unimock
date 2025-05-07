@@ -21,6 +21,55 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 go get github.com/bmcszk/unimock
 ```
 
+## Usage Options
+
+Unimock can be used in two ways:
+
+### 1. As a Standalone Application
+
+Run the mock server directly:
+
+```bash
+# Using environment variables for configuration
+UNIMOCK_PORT=8080 UNIMOCK_CONFIG=config.yaml go run main.go
+```
+
+### 2. As a Library in Your Go Code
+
+Import Unimock in your Go application:
+
+```go
+import (
+    "github.com/bmcszk/unimock/pkg"
+    "github.com/bmcszk/unimock/pkg/config"
+)
+
+// Load or create configuration
+serverConfig := config.FromEnv()
+mockConfig := &config.MockConfig{
+    Sections: map[string]config.Section{
+        "users": {
+            PathPattern:  "/users/*",
+            BodyIDPaths:  []string{"/id"},
+            HeaderIDName: "X-User-ID",
+        },
+    },
+}
+
+// Initialize and start the server
+srv, err := pkg.NewServer(serverConfig, mockConfig)
+if err != nil {
+    log.Fatalf("Failed to initialize server: %v", err)
+}
+
+// Start the server
+if err := srv.ListenAndServe(); err != nil {
+    log.Fatalf("Server error: %v", err)
+}
+```
+
+See the [example directory](./example) for a complete working example of using Unimock as a library.
+
 ## Quick Start
 
 To run the mock server:

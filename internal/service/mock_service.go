@@ -6,47 +6,64 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/antchfx/jsonquery"
 	"github.com/antchfx/xmlquery"
-	"github.com/bmcszk/unimock/internal/config"
 	"github.com/bmcszk/unimock/internal/errors"
 	"github.com/bmcszk/unimock/internal/model"
 	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/google/uuid"
 )
 
 // mockService implements the MockService interface
 type mockService struct {
 	storage storage.MockStorage
-	cfg     *config.Config
+	mockCfg *config.MockConfig
+	logger  *slog.Logger
 }
 
 // NewMockService creates a new instance of MockService
-func NewMockService(storage storage.MockStorage, cfg *config.Config) MockService {
+func NewMockService(storage storage.MockStorage, cfg *config.MockConfig) MockService {
 	return &mockService{
 		storage: storage,
-		cfg:     cfg,
+		mockCfg: cfg,
 	}
 }
 
 // ExtractIDs extracts IDs from the request using configured paths
 func (s *mockService) ExtractIDs(ctx context.Context, req *http.Request) ([]string, error) {
 	// Find matching section
-	sectionName, section, err := s.cfg.MatchPath(req.URL.Path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to match path pattern: %w", err)
-	}
-	if section == nil {
-		return nil, fmt.Errorf("no matching section found for path: %s", req.URL.Path)
+	var sectionName string
+	var pathPattern string
+	var bodyIDPaths []string
+	var headerIDName string
+
+	if s.mockCfg != nil {
+		// Use the config
+		var section *config.Section
+		var err error
+		sectionName, section, err = s.mockCfg.MatchPath(req.URL.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to match path pattern: %w", err)
+		}
+		if section == nil {
+			return nil, fmt.Errorf("no matching section found for path: %s", req.URL.Path)
+		}
+		pathPattern = section.PathPattern
+		bodyIDPaths = section.BodyIDPaths
+		headerIDName = section.HeaderIDName
+	} else {
+		return nil, fmt.Errorf("service configuration is missing")
 	}
 
 	// For GET/PUT/DELETE requests, try to extract ID from path first
 	if req.Method == http.MethodGet || req.Method == http.MethodPut || req.Method == http.MethodDelete {
 		pathSegments := getPathInfo(req.URL.Path)
-		patternSegments := getPathInfo(section.PathPattern)
+		patternSegments := getPathInfo(pathPattern)
 
 		// Check if this is a resource path (contains an ID)
 		if len(pathSegments) > len(patternSegments) ||
@@ -66,8 +83,8 @@ func (s *mockService) ExtractIDs(ctx context.Context, req *http.Request) ([]stri
 	}
 
 	// For POST requests, try to extract ID from header first
-	if section.HeaderIDName != "" {
-		if id := req.Header.Get(section.HeaderIDName); id != "" {
+	if headerIDName != "" {
+		if id := req.Header.Get(headerIDName); id != "" {
 			return []string{id}, nil
 		}
 	}
@@ -89,12 +106,12 @@ func (s *mockService) ExtractIDs(ctx context.Context, req *http.Request) ([]stri
 		seenIDs := make(map[string]bool) // Track unique IDs
 
 		if strings.Contains(contentType, "application/json") {
-			ids, err = s.extractJSONIDs(body, section.BodyIDPaths, seenIDs)
+			ids, err = s.extractJSONIDs(body, bodyIDPaths, seenIDs)
 			if err != nil {
 				return nil, err
 			}
 		} else if strings.Contains(contentType, "application/xml") {
-			ids, err = s.extractXMLIDs(body, section.BodyIDPaths, seenIDs)
+			ids, err = s.extractXMLIDs(body, bodyIDPaths, seenIDs)
 			if err != nil {
 				return nil, err
 			}
@@ -128,12 +145,22 @@ func (s *mockService) HandleRequest(ctx context.Context, req *http.Request) (*ht
 	}
 
 	// Get section configuration for this path
-	_, section, err := s.cfg.MatchPath(req.URL.Path)
-	if err != nil {
-		return nil, errors.NewInvalidRequestError(err.Error())
+	var sectionExists bool
+	if s.mockCfg != nil {
+		_, section, err := s.mockCfg.MatchPath(req.URL.Path)
+		if err != nil {
+			return nil, errors.NewInvalidRequestError(err.Error())
+		}
+		if section == nil {
+			return nil, errors.NewInvalidRequestError("no matching section found for path: " + req.URL.Path)
+		}
+		sectionExists = true
+	} else {
+		return nil, errors.NewInvalidRequestError("service configuration is missing")
 	}
-	if section == nil {
-		return nil, errors.NewInvalidRequestError("no matching section found for path: " + req.URL.Path)
+
+	if !sectionExists {
+		return nil, errors.NewInvalidRequestError("service configuration is missing")
 	}
 
 	// Extract IDs from the request
