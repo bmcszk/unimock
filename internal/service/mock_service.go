@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/antchfx/jsonquery"
@@ -91,7 +92,8 @@ func (s *mockService) ExtractIDs(ctx context.Context, req *http.Request) ([]stri
 
 	// Try to extract ID from body
 	contentType := req.Header.Get("Content-Type")
-	if strings.Contains(contentType, "application/json") || strings.Contains(contentType, "application/xml") {
+	contentTypeLower := strings.ToLower(contentType)
+	if strings.Contains(contentTypeLower, "json") || strings.Contains(contentTypeLower, "xml") {
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read request body: %w", err)
@@ -105,12 +107,12 @@ func (s *mockService) ExtractIDs(ctx context.Context, req *http.Request) ([]stri
 		var ids []string
 		seenIDs := make(map[string]bool) // Track unique IDs
 
-		if strings.Contains(contentType, "application/json") {
+		if strings.Contains(contentTypeLower, "json") {
 			ids, err = s.extractJSONIDs(body, bodyIDPaths, seenIDs)
 			if err != nil {
 				return nil, err
 			}
-		} else if strings.Contains(contentType, "application/xml") {
+		} else if strings.Contains(contentTypeLower, "xml") {
 			ids, err = s.extractXMLIDs(body, bodyIDPaths, seenIDs)
 			if err != nil {
 				return nil, err
@@ -139,7 +141,8 @@ func (s *mockService) HandleRequest(ctx context.Context, req *http.Request) (*ht
 	// Validate content type for POST and PUT requests
 	if req.Method == http.MethodPost || req.Method == http.MethodPut {
 		contentType := req.Header.Get("Content-Type")
-		if contentType != "application/json" && contentType != "application/xml" {
+		contentTypeLower := strings.ToLower(contentType)
+		if !strings.Contains(contentTypeLower, "json") && !strings.Contains(contentTypeLower, "xml") {
 			return nil, errors.NewInvalidRequestError(fmt.Sprintf("unsupported content type: %s", contentType))
 		}
 	}
@@ -202,7 +205,8 @@ func (s *mockService) HandleRequest(ctx context.Context, req *http.Request) (*ht
 
 			// Try to extract ID from JSON body
 			contentType := req.Header.Get("Content-Type")
-			if contentType == "application/json" {
+			contentTypeLower := strings.ToLower(contentType)
+			if strings.Contains(contentTypeLower, "json") {
 				var jsonData map[string]interface{}
 				if err := json.Unmarshal(body, &jsonData); err == nil {
 					if id, ok := jsonData["id"].(string); ok && id != "" {
@@ -313,7 +317,8 @@ func (s *mockService) GetResourcesByPath(ctx context.Context, path string) ([]*m
 	data, err := s.storage.GetByPath(path)
 	if err != nil {
 		if _, ok := err.(*errors.NotFoundError); ok {
-			return nil, fmt.Errorf("resource not found")
+			// Return empty array instead of error for collection endpoints
+			return []*model.MockData{}, nil
 		}
 		if _, ok := err.(*errors.InvalidRequestError); ok {
 			return nil, err
@@ -430,53 +435,80 @@ func (s *mockService) extractXMLIDs(body []byte, paths []string, seenIDs map[str
 }
 
 func createResourceResponse(data *model.MockData) *http.Response {
-	body, err := json.Marshal(data)
-	if err != nil {
-		return &http.Response{
-			StatusCode: http.StatusInternalServerError,
-		}
+	headers := map[string][]string{
+		"Content-Type": {data.ContentType},
+	}
+
+	// Add location header if it exists
+	if data.Location != "" {
+		headers["Location"] = []string{data.Location}
 	}
 
 	return &http.Response{
 		StatusCode: http.StatusOK,
-		Header: map[string][]string{
-			"Content-Type": {"application/json"},
-		},
-		Body: io.NopCloser(bytes.NewReader(body)),
+		Header:     headers,
+		Body:       io.NopCloser(bytes.NewReader(data.Body)),
 	}
 }
 
 func createCollectionResponse(data []*model.MockData) *http.Response {
-	body, err := json.Marshal(data)
+	// Sort the data by path to ensure consistent ordering
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].Path < data[j].Path
+	})
+
+	// Create a JSON array with the bodies from each MockData
+	var rawBodies []interface{}
+
+	for _, item := range data {
+		// More flexible content type handling - treat any content type containing "json" as JSON
+		if strings.Contains(strings.ToLower(item.ContentType), "json") {
+			// For JSON content, parse it directly
+			var jsonData interface{}
+			if err := json.Unmarshal(item.Body, &jsonData); err == nil {
+				rawBodies = append(rawBodies, jsonData)
+			} else {
+				// If JSON parsing fails, use as string
+				rawBodies = append(rawBodies, string(item.Body))
+			}
+		}
+		// XML content types will be supported in future updates
+	}
+
+	// Marshal the array of bodies
+	body, err := json.Marshal(rawBodies)
 	if err != nil {
 		return &http.Response{
 			StatusCode: http.StatusInternalServerError,
 		}
+	}
+
+	// For collection responses, we use a default content type of application/json
+	headers := map[string][]string{
+		"Content-Type": {"application/json"},
 	}
 
 	return &http.Response{
 		StatusCode: http.StatusOK,
-		Header: map[string][]string{
-			"Content-Type": {"application/json"},
-		},
-		Body: io.NopCloser(bytes.NewReader(body)),
+		Header:     headers,
+		Body:       io.NopCloser(bytes.NewReader(body)),
 	}
 }
 
 func createCreatedResponse(data *model.MockData) *http.Response {
-	body, err := json.Marshal(data)
-	if err != nil {
-		return &http.Response{
-			StatusCode: http.StatusInternalServerError,
-		}
+	headers := map[string][]string{
+		"Content-Type": {data.ContentType},
+	}
+
+	// Add location header if it exists
+	if data.Location != "" {
+		headers["Location"] = []string{data.Location}
 	}
 
 	return &http.Response{
 		StatusCode: http.StatusCreated,
-		Header: map[string][]string{
-			"Content-Type": {"application/json"},
-		},
-		Body: io.NopCloser(bytes.NewReader(body)),
+		Header:     headers,
+		Body:       io.NopCloser(bytes.NewReader(data.Body)),
 	}
 }
 

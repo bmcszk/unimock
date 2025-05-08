@@ -62,7 +62,7 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			method:         http.MethodGet,
 			path:           "/users/123",
 			expectedStatus: http.StatusOK,
-			expectedBody:   `"path":"/users/123"`,
+			expectedBody:   `{"id": "123", "name": "test"}`,
 		},
 		{
 			name:           "GET non-existent resource",
