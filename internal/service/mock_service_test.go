@@ -288,6 +288,11 @@ func TestMockService_HandleRequest(t *testing.T) {
 		}
 	}
 
+	// Create a non-existing path for testing
+	nonExistentPath := "/users/999"
+	// Make sure the path doesn't already exist
+	store.Delete(nonExistentPath)
+
 	tests := []struct {
 		name           string
 		method         string
@@ -298,6 +303,7 @@ func TestMockService_HandleRequest(t *testing.T) {
 		expectedBody   string
 		expectError    bool
 		errorContains  string
+		skipBodyCheck  bool // Skip the body check for cases where we don't care about the exact content
 	}{
 		{
 			name:           "GET existing resource",
@@ -307,11 +313,11 @@ func TestMockService_HandleRequest(t *testing.T) {
 			expectedBody:   `{"id": "123", "name": "test"}`,
 		},
 		{
-			name:          "GET non-existent resource",
-			method:        http.MethodGet,
-			path:          "/users/999", // Using ID that doesn't exist
-			expectError:   true,
-			errorContains: "resource not found",
+			name:           "GET non-existent resource",
+			method:         http.MethodGet,
+			path:           nonExistentPath,
+			expectedStatus: http.StatusOK,
+			skipBodyCheck:  true, // Skip body check since we just want to verify it doesn't error
 		},
 		{
 			name:           "GET collection",
@@ -356,9 +362,10 @@ func TestMockService_HandleRequest(t *testing.T) {
 		{
 			name:          "DELETE non-existent resource",
 			method:        http.MethodDelete,
-			path:          "/users/999", // Using ID that doesn't exist
-			expectError:   true,
-			errorContains: "resource not found",
+			path:          nonExistentPath,
+			skipBodyCheck: true, // We don't care about the response body for DELETE
+			expectError:   true, // We still expect an error
+			errorContains: "failed to delete resource",
 		},
 		{
 			name:          "invalid method",
@@ -449,7 +456,7 @@ func TestMockService_HandleRequest(t *testing.T) {
 				t.Errorf("status code = %d, want %d", resp.StatusCode, tt.expectedStatus)
 			}
 
-			if tt.expectedBody != "" {
+			if tt.expectedBody != "" && !tt.skipBodyCheck {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
 					t.Errorf("failed to read response body: %v", err)
@@ -787,4 +794,274 @@ func TestMockService_GetCollection(t *testing.T) {
 			}
 		})
 	}
+}
+
+// createTestConfig creates a config for testing
+func createTestConfig() *config.MockConfig {
+	return &config.MockConfig{
+		Sections: map[string]config.Section{
+			"users": {
+				PathPattern: "/api/users/*",
+				BodyIDPaths: []string{"/id"},
+			},
+			"user_items": {
+				PathPattern: "/api/users/*/items",
+				BodyIDPaths: []string{"/id"},
+			},
+			"items_collection": {
+				PathPattern: "/api/items/collection/*",
+				BodyIDPaths: []string{"/id"},
+			},
+			"collections": {
+				PathPattern: "/api/collections/*",
+				BodyIDPaths: []string{"/id"},
+			},
+			"section_collections": {
+				PathPattern: "/api/collections/section/*",
+				BodyIDPaths: []string{"/id"},
+			},
+			"orders": {
+				PathPattern: "/api/orders/*",
+			},
+			"products": {
+				PathPattern: "/api/products/*",
+				BodyIDPaths: []string{"/id"},
+			},
+		},
+	}
+}
+
+func TestPostWithNumericPathAndGetCollection(t *testing.T) {
+	// Create mock storage and service
+	store := storage.NewMockStorage()
+	cfg := createTestConfig()
+	service := NewMockService(store, cfg)
+
+	// Path ending with a numeric value (e.g. a collection ID)
+	path := "/api/collections/123"
+
+	// Create two items directly in the storage
+	firstItem := &model.MockData{
+		Path:        path,
+		ContentType: "application/json",
+		Body:        []byte(`{"id":"item1","name":"First Item"}`),
+	}
+
+	secondItem := &model.MockData{
+		Path:        path,
+		ContentType: "application/json",
+		Body:        []byte(`{"id":"item2","name":"Second Item"}`),
+	}
+
+	// Store the items
+	err := store.Create([]string{"item1"}, firstItem)
+	if err != nil {
+		t.Fatalf("Failed to store first item: %v", err)
+	}
+
+	err = store.Create([]string{"item2"}, secondItem)
+	if err != nil {
+		t.Fatalf("Failed to store second item: %v", err)
+	}
+
+	// Now make GET request to retrieve the collection
+	req, err := http.NewRequest(http.MethodGet, path, nil)
+	if err != nil {
+		t.Fatalf("Failed to create GET request: %v", err)
+	}
+
+	ctx := context.Background()
+	resp, err := service.HandleRequest(ctx, req)
+	if err != nil {
+		t.Fatalf("Failed to handle GET request: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+
+	// Read response body
+	var respBody []byte
+	if resp.Body != nil {
+		respBody, err = io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+		_ = resp.Body.Close()
+	}
+
+	t.Logf("Response body: %s", string(respBody))
+
+	// Verify the response contains both items
+	if !strings.Contains(string(respBody), "item1") || !strings.Contains(string(respBody), "First Item") {
+		t.Errorf("Response body doesn't contain first item: %s", string(respBody))
+	}
+	if !strings.Contains(string(respBody), "item2") || !strings.Contains(string(respBody), "Second Item") {
+		t.Errorf("Response body doesn't contain second item: %s", string(respBody))
+	}
+
+	// Parse the JSON to verify it's a collection
+	var collection []map[string]interface{}
+	err = json.Unmarshal(respBody, &collection)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal collection: %v", err)
+	}
+
+	// Verify the collection has exactly 2 items
+	if len(collection) != 2 {
+		t.Errorf("Expected collection with 2 items, got %d items", len(collection))
+	}
+
+	// Verify each item has the expected ID and name
+	foundItem1 := false
+	foundItem2 := false
+	for _, item := range collection {
+		if id, ok := item["id"].(string); ok {
+			if id == "item1" {
+				foundItem1 = true
+				if name, ok := item["name"].(string); !ok || name != "First Item" {
+					t.Errorf("Item with id 'item1' has incorrect name: %v", item["name"])
+				}
+			} else if id == "item2" {
+				foundItem2 = true
+				if name, ok := item["name"].(string); !ok || name != "Second Item" {
+					t.Errorf("Item with id 'item2' has incorrect name: %v", item["name"])
+				}
+			}
+		}
+	}
+
+	if !foundItem1 {
+		t.Errorf("Item with id 'item1' not found in collection")
+	}
+	if !foundItem2 {
+		t.Errorf("Item with id 'item2' not found in collection")
+	}
+}
+
+func TestGetAndDeleteWithPathFallback(t *testing.T) {
+	// Create mock storage and service
+	store := storage.NewMockStorage()
+	cfg := createTestConfig()
+	service := NewMockService(store, cfg)
+
+	// Create collection path with numeric ID at the end
+	collectionPath := "/api/collections/123"
+	ctx := context.Background()
+
+	// Store multiple items at this path directly
+	items := []*model.MockData{
+		{
+			Path:        collectionPath,
+			ContentType: "application/json",
+			Body:        []byte(`{"id":"item1","name":"First Item"}`),
+		},
+		{
+			Path:        collectionPath,
+			ContentType: "application/json",
+			Body:        []byte(`{"id":"item2","name":"Second Item"}`),
+		},
+	}
+
+	// Add the items to storage with their item IDs
+	for i, item := range items {
+		itemID := fmt.Sprintf("item%d", i+1)
+		err := store.Create([]string{itemID}, item)
+		if err != nil {
+			t.Fatalf("Failed to add item %s to storage: %v", itemID, err)
+		}
+	}
+
+	// Test 1: GET should fall back to path-based retrieval
+	t.Run("GET with path fallback", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, collectionPath, nil)
+		if err != nil {
+			t.Fatalf("Failed to create GET request: %v", err)
+		}
+
+		resp, err := service.HandleRequest(ctx, req)
+		if err != nil {
+			t.Fatalf("Failed to handle GET request: %v", err)
+		}
+
+		// Verify status code
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+		}
+
+		// Read response
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+		resp.Body.Close()
+
+		// Verify it contains both items
+		if !strings.Contains(string(body), "item1") || !strings.Contains(string(body), "First Item") {
+			t.Errorf("Response doesn't contain first item: %s", string(body))
+		}
+		if !strings.Contains(string(body), "item2") || !strings.Contains(string(body), "Second Item") {
+			t.Errorf("Response doesn't contain second item: %s", string(body))
+		}
+
+		// Parse as JSON array
+		var collection []map[string]interface{}
+		err = json.Unmarshal(body, &collection)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal response as JSON array: %v", err)
+		}
+
+		// Should have exactly 2 items
+		if len(collection) != 2 {
+			t.Errorf("Expected 2 items in collection, got %d", len(collection))
+		}
+	})
+
+	// Test 2: DELETE should fall back to path-based deletion
+	t.Run("DELETE with path fallback", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodDelete, collectionPath, nil)
+		if err != nil {
+			t.Fatalf("Failed to create DELETE request: %v", err)
+		}
+
+		resp, err := service.HandleRequest(ctx, req)
+		if err != nil {
+			t.Fatalf("Failed to handle DELETE request: %v", err)
+		}
+
+		// Verify status code
+		if resp.StatusCode != http.StatusNoContent {
+			t.Errorf("Expected status code %d, got %d", http.StatusNoContent, resp.StatusCode)
+		}
+
+		// Verify items were deleted
+		// Try to GET the same path - should return empty collection
+		reqGet, err := http.NewRequest(http.MethodGet, collectionPath, nil)
+		if err != nil {
+			t.Fatalf("Failed to create GET request: %v", err)
+		}
+
+		respGet, err := service.HandleRequest(ctx, reqGet)
+		if err != nil {
+			t.Fatalf("Failed to handle GET request after DELETE: %v", err)
+		}
+
+		// Read response
+		body, err := io.ReadAll(respGet.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+		respGet.Body.Close()
+
+		// Should be an empty array
+		var collection []map[string]interface{}
+		err = json.Unmarshal(body, &collection)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal response as JSON array: %v", err)
+		}
+
+		if len(collection) != 0 {
+			t.Errorf("Expected empty collection after DELETE, got %d items", len(collection))
+		}
+	})
 }

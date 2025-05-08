@@ -174,19 +174,16 @@ func (s *mockService) HandleRequest(ctx context.Context, req *http.Request) (*ht
 
 	switch req.Method {
 	case http.MethodGet:
+		// First try to get by ID if available
 		if len(ids) > 0 {
-			// For GET requests with an ID, first check if the resource exists
-			_, err = s.storage.Get(ids[0])
-			if err != nil {
-				return nil, fmt.Errorf("resource not found")
-			}
-
 			data, err := s.GetResource(ctx, req.URL.Path, ids[0])
-			if err != nil {
-				return nil, err
+			if err == nil {
+				return createResourceResponse(data), nil
 			}
-			return createResourceResponse(data), nil
+			// If specific ID lookup fails, continue to path-based lookup
 		}
+
+		// Fallback to path-based retrieval
 		data, err := s.GetResourcesByPath(ctx, req.URL.Path)
 		if err != nil {
 			return nil, err
@@ -280,17 +277,23 @@ func (s *mockService) HandleRequest(ctx context.Context, req *http.Request) (*ht
 			return nil, errors.NewInvalidRequestError("no ID provided for DELETE request")
 		}
 
-		// Check if resource exists directly with storage
-		_, err = s.storage.Get(ids[0])
-		if err != nil {
-			return nil, fmt.Errorf("resource not found")
+		// First try to delete by ID
+		err = s.DeleteResource(ctx, req.URL.Path, ids[0])
+		if err == nil {
+			return createNoContentResponse(), nil
 		}
 
-		if err := s.DeleteResource(ctx, req.URL.Path, ids[0]); err != nil {
-			return nil, err
+		// If ID-based deletion fails, try path-based deletion
+		if strings.Contains(err.Error(), "resource not found") {
+			// Try deleting by path
+			err = s.storage.Delete(req.URL.Path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to delete resource: %v", err)
+			}
+			return createNoContentResponse(), nil
 		}
 
-		return createNoContentResponse(), nil
+		return nil, err
 
 	default:
 		return nil, fmt.Errorf("method %s not allowed", req.Method)
