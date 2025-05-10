@@ -1,18 +1,9 @@
 package service
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
-	"net/http"
-	"sort"
-	"strings"
 
-	"github.com/antchfx/jsonquery"
-	"github.com/antchfx/xmlquery"
 	"github.com/bmcszk/unimock/internal/errors"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
@@ -23,7 +14,7 @@ import (
 type mockService struct {
 	storage storage.MockStorage
 	mockCfg *config.MockConfig
-	logger  *slog.Logger
+	// logger  *slog.Logger // Logger is currently unused in the service
 }
 
 // NewMockService creates a new instance of MockService
@@ -31,6 +22,7 @@ func NewMockService(storage storage.MockStorage, cfg *config.MockConfig) MockSer
 	return &mockService{
 		storage: storage,
 		mockCfg: cfg,
+		// logger: slog.New(slog.NewJSONHandler(os.Stdout, nil)), // Example initialization if used
 	}
 }
 
@@ -113,8 +105,8 @@ func (s *mockService) DeleteResource(ctx context.Context, path string, id string
 	return nil
 }
 
-// Helper functions
-
+// Helper functions (These were moved to handler or are no longer needed)
+/*
 func getPathInfo(path string) []string {
 	return strings.Split(strings.Trim(path, "/"), "/")
 }
@@ -170,7 +162,11 @@ func (s *mockService) extractXMLIDs(body []byte, paths []string, seenIDs map[str
 
 	return ids, nil
 }
+*/
 
+// Response creation functions are no longer used in the service layer.
+// They were specific to an older handler implementation or example.
+/*
 func createResourceResponse(data *model.MockData) *http.Response {
 	headers := map[string][]string{
 		"Content-Type": {data.ContentType},
@@ -254,3 +250,4 @@ func createNoContentResponse() *http.Response {
 		StatusCode: http.StatusNoContent,
 	}
 }
+*/

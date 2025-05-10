@@ -33,12 +33,18 @@ func NewRouter(mockHandler, techHandler, scenarioHandler http.Handler, scenarioS
 
 // ServeHTTP implements the http.Handler interface
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Normalize path once
+	requestPath := strings.TrimSuffix(req.URL.Path, "/")
+	if requestPath == "" { // Handle case of request to "/"
+		requestPath = "/" // Or some other defined root behavior
+	}
+
 	// First, check if there's a scenario matching this path and method
-	scenario := r.scenarioService.GetScenarioByPath(req.Context(), req.URL.Path, req.Method)
+	scenario := r.scenarioService.GetScenarioByPath(req.Context(), requestPath, req.Method)
 	if scenario != nil {
 		r.logger.Info("found matching scenario",
 			"method", req.Method,
-			"path", req.URL.Path,
+			"path", requestPath,
 			"uuid", scenario.UUID)
 
 		// Set the status code and content type from the scenario
@@ -50,26 +56,37 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if strings.HasPrefix(req.URL.Path, "/_uni/scenarios") {
-		r.logger.Debug("routing to scenario handler", "path", req.URL.Path)
+	if strings.HasPrefix(requestPath, "/_uni/scenarios") {
+		r.logger.Debug("routing to scenario handler", "path", requestPath)
 		r.scenarioHandler.ServeHTTP(w, req)
 		return
 	}
 
-	if strings.HasPrefix(req.URL.Path, "/_uni/") {
-		r.logger.Debug("routing to technical handler", "path", req.URL.Path)
+	if strings.HasPrefix(requestPath, "/_uni/") {
+		r.logger.Debug("routing to technical handler", "path", requestPath)
 		r.techHandler.ServeHTTP(w, req)
 		return
 	}
 
 	// Check if the path matches any section pattern
 	if cfg := r.mockConfig; cfg != nil {
-		if _, section, err := cfg.MatchPath(req.URL.Path); err != nil || section == nil {
+		_, section, err := cfg.MatchPath(requestPath)
+		if err != nil {
+			r.logger.Error("error matching path in router", "path", requestPath, "error", err)
+			http.Error(w, "error processing request path configuration", http.StatusInternalServerError)
+			return
+		}
+		if section == nil {
+			r.logger.Warn("no matching section found for path in router", "path", requestPath)
 			http.Error(w, "no matching section found for path", http.StatusBadRequest)
 			return
 		}
+	} else {
+		r.logger.Error("router's mockConfig is nil", "path", requestPath)
+		http.Error(w, "server configuration error", http.StatusInternalServerError)
+		return
 	}
 
-	r.logger.Debug("routing to mock handler", "path", req.URL.Path)
+	r.logger.Debug("routing to mock handler", "path", requestPath)
 	r.mockHandler.ServeHTTP(w, req)
 }

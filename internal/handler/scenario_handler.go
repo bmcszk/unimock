@@ -111,7 +111,13 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	// Create the scenario
 	if err := h.service.CreateScenario(r.Context(), &scenario); err != nil {
 		h.logger.Error("failed to create scenario", "error", err, "uuid", scenario.UUID)
-		http.Error(w, "Failed to create scenario", http.StatusConflict)
+		if strings.Contains(err.Error(), "already exists") {
+			http.Error(w, "Scenario already exists", http.StatusConflict)
+		} else if strings.Contains(err.Error(), "invalid") { // Covers validation errors from service
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, "Failed to create scenario", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -149,7 +155,13 @@ func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, u
 	// Update the scenario
 	if err := h.service.UpdateScenario(r.Context(), uuid, &scenario); err != nil {
 		h.logger.Error("failed to update scenario", "error", err, "uuid", uuid)
-		http.Error(w, "Failed to update scenario", http.StatusInternalServerError)
+		if strings.Contains(err.Error(), "not found") {
+			http.Error(w, "Scenario not found", http.StatusNotFound)
+		} else if strings.Contains(err.Error(), "invalid") || strings.Contains(err.Error(), "mismatch") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, "Failed to update scenario", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -165,7 +177,13 @@ func (h *ScenarioHandler) handleDelete(w http.ResponseWriter, r *http.Request, u
 	// Delete the scenario
 	if err := h.service.DeleteScenario(r.Context(), uuid); err != nil {
 		h.logger.Error("failed to delete scenario", "error", err, "uuid", uuid)
-		http.Error(w, "Failed to delete scenario", http.StatusInternalServerError)
+		if strings.Contains(err.Error(), "not found") {
+			http.Error(w, "Scenario not found", http.StatusNotFound)
+		} else if strings.Contains(err.Error(), "invalid") { // e.g. invalid UUID format if service checked
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			http.Error(w, "Failed to delete scenario", http.StatusInternalServerError)
+		}
 		return
 	}
 

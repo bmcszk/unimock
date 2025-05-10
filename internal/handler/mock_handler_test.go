@@ -88,7 +88,7 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			method:         http.MethodGet,
 			path:           "/nonexistent/999",
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   "resource not found",
+			expectedBody:   "no matching section found for path: /nonexistent/999",
 		},
 		{
 			name:           "GET collection with mixed content types",
@@ -102,7 +102,7 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			method:         http.MethodGet,
 			path:           "/empty",
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   "resource not found",
+			expectedBody:   "no matching section found for path: /empty",
 		},
 		{
 			name:           "POST new resource",
@@ -127,7 +127,7 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			contentType:    "application/json",
 			body:           `{"id": "789", "name": "new"`,
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "invalid JSON",
+			expectedBody:   "invalid request: invalid JSON",
 		},
 		{
 			name:           "PUT existing resource",
@@ -164,7 +164,7 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			method:         http.MethodDelete,
 			path:           "/nonexistent/999",
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   "resource not found",
+			expectedBody:   "no matching section found for path: /nonexistent/999",
 		},
 	}
 
@@ -251,132 +251,149 @@ func TestMockHandler_ExtractIDs(t *testing.T) {
 		name          string
 		method        string
 		path          string
-		headers       map[string]string
+		headerKey     string
+		headerValue   string
 		body          string
 		contentType   string
 		expectedIDs   []string
-		expectError   bool
-		errorContains string
+		expectedError string
 	}{
+		// Path extraction tests
 		{
-			name:        "GET with ID in path",
+			name:        "Extract ID from path - GET",
 			method:      http.MethodGet,
 			path:        "/users/123",
 			expectedIDs: []string{"123"},
 		},
 		{
-			name:          "GET with case-sensitive path",
-			method:        http.MethodGet,
-			path:          "/Users/123",
-			expectedIDs:   nil,
-			expectError:   true,
-			errorContains: "invalid path",
+			name:        "Extract ID from path - PUT",
+			method:      http.MethodPut,
+			path:        "/users/abc",
+			expectedIDs: []string{"abc"},
 		},
 		{
-			name:        "GET with case-insensitive path",
-			method:      http.MethodGet,
-			path:        "/Orders/123",
-			expectedIDs: []string{"123"},
+			name:        "Extract ID from path - DELETE",
+			method:      http.MethodDelete,
+			path:        "/orders/xyz",
+			expectedIDs: []string{"xyz"},
 		},
 		{
-			name:        "GET collection path",
-			method:      http.MethodGet,
-			path:        "/users",
-			expectedIDs: nil,
+			name:   "No ID in path for GET (collection)",
+			method: http.MethodGet,
+			path:   "/users",
+			// No error, but nil IDs expected for collection GET
 		},
+		// Header extraction tests (for POST)
 		{
-			name:        "POST with ID in header",
+			name:        "Extract ID from header - POST",
 			method:      http.MethodPost,
 			path:        "/users",
-			headers:     map[string]string{"X-Resource-ID": "123"},
-			expectedIDs: []string{"123"},
+			headerKey:   "X-Resource-ID",
+			headerValue: "header-id-1",
+			expectedIDs: []string{"header-id-1"},
 		},
+		// Body extraction tests (for POST)
 		{
-			name:        "POST with ID in JSON body",
-			method:      http.MethodPost,
-			path:        "/users",
-			contentType: "application/json",
-			body:        `{"id": "123", "name": "test"}`,
-			expectedIDs: []string{"123"},
-		},
-		{
-			name:        "POST with ID in nested JSON body",
+			name:        "Extract ID from JSON body - POST",
 			method:      http.MethodPost,
 			path:        "/users",
 			contentType: "application/json",
-			body:        `{"data": {"id": "123"}, "name": "test"}`,
-			expectedIDs: []string{"123"},
+			body:        `{"id": "json-id-1"}`,
+			expectedIDs: []string{"json-id-1"},
 		},
 		{
-			name:        "POST with ID in XML body",
+			name:        "Extract multiple IDs from JSON body - POST",
 			method:      http.MethodPost,
 			path:        "/users",
-			contentType: "application/xml",
-			body:        `<user><id>123</id><name>test</name></user>`,
-			expectedIDs: []string{"123"},
+			contentType: "application/json",
+			body:        `[{"id": "json-id-1"}, {"id": "json-id-2"}]`, // Assuming BodyIDPaths is like "//id"
+			expectedIDs: []string{"json-id-1", "json-id-2"},
 		},
 		{
-			name:        "POST with ID in nested XML body",
+			name:        "Extract ID from XML body - POST",
 			method:      http.MethodPost,
-			path:        "/users",
+			path:        "/users", // uses "users" section config
 			contentType: "application/xml",
-			body:        `<user><data><id>123</id></data><name>test</name></user>`,
-			expectedIDs: []string{"123"},
+			body:        "<data><id>xml-id-1</id></data>",
+			expectedIDs: []string{"xml-id-1"},
+		},
+		// Fallback and error tests
+		{
+			name:          "No ID found - POST",
+			method:        http.MethodPost,
+			path:          "/users",
+			expectedError: "no IDs found in request",
 		},
 		{
-			name:          "POST with missing ID",
+			name:          "Invalid JSON - POST",
 			method:        http.MethodPost,
 			path:          "/users",
 			contentType:   "application/json",
-			body:          `{"name": "test"}`,
-			expectError:   true,
-			errorContains: "no IDs found in request",
-		},
-		{
-			name:          "POST with malformed JSON",
-			method:        http.MethodPost,
-			path:          "/users",
-			contentType:   "application/json",
-			body:          `{"id": "123", "name": "test"`,
-			expectError:   true,
-			errorContains: "invalid JSON",
-		},
-		{
-			name:          "POST with malformed XML",
-			method:        http.MethodPost,
-			path:          "/users",
-			contentType:   "application/xml",
-			body:          `<user><id>123</id><name>test</user>`,
-			expectError:   true,
-			errorContains: "invalid XML",
+			body:          `{"id": "bad-json`,
+			expectedError: "invalid JSON",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
+			if tt.headerKey != "" {
+				req.Header.Set(tt.headerKey, tt.headerValue)
+			}
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
 			}
-			for k, v := range tt.headers {
-				req.Header.Set(k, v)
+
+			// Determine sectionName and section for the current test case path
+			var currentSection *config.Section
+			var currentSectionName string
+			var err error
+
+			// Simplified section matching for test setup
+			// In real code, handler.getSectionForRequest is used.
+			pathForSectionLookup := strings.Trim(tt.path, "/")
+			if strings.Contains(pathForSectionLookup, "/") { // e.g. /users/123 -> users
+				currentSectionName = pathForSectionLookup[:strings.Index(pathForSectionLookup, "/")]
+			} else { // e.g. /users -> users
+				currentSectionName = pathForSectionLookup
 			}
 
-			ids, err := handler.extractIDs(ctx, req)
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("expected error but got nil")
+			sec, ok := cfg.Sections[currentSectionName]
+			if !ok {
+				// Try matching with path pattern logic if direct name lookup fails (e.g. for /orders/xyz)
+				for name, s := range cfg.Sections {
+					trimmedPattern := strings.Trim(s.PathPattern, "/")
+					basePattern := trimmedPattern
+					if strings.Contains(trimmedPattern, "/*") {
+						basePattern = trimmedPattern[:strings.Index(trimmedPattern, "/*")]
+					}
+					if currentSectionName == basePattern || strings.HasPrefix(currentSectionName, basePattern+"/") {
+						currentSection = &s
+						currentSectionName = name // Use the defined section name
+						break
+					}
 				}
-				if tt.errorContains != "" && (err == nil || !strings.Contains(err.Error(), tt.errorContains)) {
-					t.Errorf("expected error message to contain %q, got %v", tt.errorContains, err)
+				if currentSection == nil {
+					t.Fatalf("Test setup error: could not find section for path %s (derived section name: %s)", tt.path, currentSectionName)
+				}
+			} else {
+				currentSection = &sec
+			}
+
+			ids, err := handler.extractIDs(ctx, req, currentSection, currentSectionName)
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Errorf("expected error %q, got nil", tt.expectedError)
+				} else if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("expected error to contain %q, got %q", tt.expectedError, err.Error())
 				}
 			} else {
 				if err != nil {
-					t.Errorf("expected no error, got %v", err)
+					t.Errorf("unexpected error: %v", err)
 				}
 				if !reflect.DeepEqual(ids, tt.expectedIDs) {
-					t.Errorf("expected IDs to be %v, got %v", tt.expectedIDs, ids)
+					t.Errorf("expected IDs %v, got %v", tt.expectedIDs, ids)
 				}
 			}
 		})

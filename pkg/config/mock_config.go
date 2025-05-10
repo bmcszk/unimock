@@ -137,38 +137,42 @@ func isPatternMatch(pattern, path string, caseSensitive bool) bool {
 // MatchPath finds the section that matches the given path
 func (c *MockConfig) MatchPath(path string) (string, *Section, error) {
 	// Remove leading and trailing slashes for consistent matching
-	path = strings.Trim(path, "/")
+	normalizedPath := strings.Trim(path, "/")
 
-	// First prioritize exact matches
+	// First prioritize exact matches (patterns without wildcards)
 	for name, section := range c.Sections {
 		pattern := strings.Trim(section.PathPattern, "/")
-		if isPatternMatch(pattern, path, section.CaseSensitive) {
-			return name, &section, nil
-		}
-	}
-
-	// Then try to find wildcard matches, prioritizing longer patterns first
-	var matchingName string
-	var matchingSection *Section
-	var maxSegments int
-
-	for name, section := range c.Sections {
-		pattern := strings.Trim(section.PathPattern, "/")
-
-		if strings.Contains(pattern, "*") && isPatternMatch(pattern, path, section.CaseSensitive) {
-			// Count pattern segments to prioritize deeper/more specific paths
-			segments := len(strings.Split(pattern, "/"))
-			if segments > maxSegments {
-				maxSegments = segments
-				matchingName = name
-				matchingSection = &section
+		if !strings.Contains(pattern, "*") { // Only consider non-wildcard patterns here
+			if isPatternMatch(pattern, normalizedPath, section.CaseSensitive) {
+				// Must return a pointer to a copy or a re-fetched section, not the loop variable's address
+				s := section // Create a local copy
+				return name, &s, nil
 			}
 		}
 	}
 
-	if matchingSection != nil {
-		return matchingName, matchingSection, nil
+	// Then try to find wildcard matches, prioritizing longer patterns first
+	var bestMatchName string
+	var bestMatchNumSegments int = -1 // Use -1 to indicate no match found yet
+
+	for name, section := range c.Sections {
+		pattern := strings.Trim(section.PathPattern, "/")
+		if strings.Contains(pattern, "*") { // Only consider wildcard patterns here
+			if isPatternMatch(pattern, normalizedPath, section.CaseSensitive) {
+				numSegments := len(strings.Split(pattern, "/"))
+				if numSegments > bestMatchNumSegments {
+					bestMatchNumSegments = numSegments
+					bestMatchName = name
+				}
+			}
+		}
 	}
 
-	return "", nil, nil
+	if bestMatchName != "" {
+		// Retrieve the actual section using the determined bestMatchName to avoid pointer issues with loop variable
+		matchedSection := c.Sections[bestMatchName]
+		return bestMatchName, &matchedSection, nil
+	}
+
+	return "", nil, nil // No match found
 }

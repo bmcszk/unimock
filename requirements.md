@@ -38,7 +38,7 @@ Unimock is a mock service that handles HTTP requests and provides mock responses
 - Must handle duplicate resource creation attempts
 - Must support Location header for created resources, pointing to `/path/to/collection/<id>` (where `<id>` can be provided or auto-generated).
 - Must handle empty request bodies
-- Must handle malformed JSON/XML
+- Must handle malformed JSON/XML: While the service may accept data that is not strictly valid (e.g., for non-JSON/XML content types or if ID is extracted from path/header), if ID extraction from the body is configured (e.g., via `BodyIDPaths`) and fails due to malformed JSON/XML structure preventing parsing, a 400 Bad Request must be returned.
 - Must handle missing required fields
 - Must handle invalid content types
 

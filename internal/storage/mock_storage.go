@@ -125,13 +125,21 @@ func (s *mockStorage) Update(id string, data *model.MockData) error {
 
 	// Get old data for path cleanup
 	oldData := s.data[storageID]
+	if oldData == nil { // Should not happen if storageID exists, but as a safeguard
+		return errors.NewNotFoundError(id, "data integrity issue: storageID exists but no data")
+	}
 
-	// Update the data
+	// Determine old and new id-specific paths
+	oldIDPath := path.Join(oldData.Path, id)
+	newIDPath := path.Join(data.Path, id)
+
+	// Update the data itself
 	s.data[storageID] = data
 
-	// Update pathMap
-	if oldData != nil && oldData.Path != data.Path {
-		// Remove from old path
+	// Update pathMap if the base path or the full path (if id changed, though id is fixed here) has changed
+	// This handles the case where the resource is moved to a different collection path.
+	if oldData.Path != data.Path {
+		// Remove from old base path in pathMap
 		if pathIDs, ok := s.pathMap[oldData.Path]; ok {
 			for i, sid := range pathIDs {
 				if sid == storageID {
@@ -139,11 +147,32 @@ func (s *mockStorage) Update(id string, data *model.MockData) error {
 					break
 				}
 			}
+			if len(s.pathMap[oldData.Path]) == 0 {
+				delete(s.pathMap, oldData.Path)
+			}
 		}
-	}
+		// Remove from old id-specific path in pathMap
+		if pathIDs, ok := s.pathMap[oldIDPath]; ok {
+			for i, sid := range pathIDs {
+				if sid == storageID {
+					s.pathMap[oldIDPath] = append(pathIDs[:i], pathIDs[i+1:]...)
+					break
+				}
+			}
+			if len(s.pathMap[oldIDPath]) == 0 {
+				delete(s.pathMap, oldIDPath)
+			}
+		}
 
-	// Add to new path
-	s.pathMap[data.Path] = append(s.pathMap[data.Path], storageID)
+		// Add to new base path in pathMap
+		s.pathMap[data.Path] = append(s.pathMap[data.Path], storageID)
+		// Add to new id-specific path in pathMap
+		s.pathMap[newIDPath] = append(s.pathMap[newIDPath], storageID)
+	} else if oldIDPath != newIDPath { // Path is same, but ID somehow changed - defensive
+		// This case should not happen if 'id' parameter to Update is the key externalID
+		// and it's not changing. If data.Location or similar implies ID change, this needs thought.
+		// For now, assume external 'id' is constant for an update call.
+	}
 
 	return nil
 }

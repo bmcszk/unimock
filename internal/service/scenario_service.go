@@ -102,14 +102,17 @@ func (s *scenarioService) CreateScenario(ctx context.Context, scenario *model.Sc
 
 // UpdateScenario updates an existing scenario
 func (s *scenarioService) UpdateScenario(ctx context.Context, uuid string, scenario *model.Scenario) error {
-	// Validate scenario
+	// Validate scenario basic fields first
 	if err := s.validateScenario(scenario); err != nil {
 		return err
 	}
 
-	// Ensure UUID matches
-	if uuid != scenario.UUID {
-		return fmt.Errorf("resource not found")
+	// Ensure UUID in path matches UUID in body. The UUID in path is authoritative.
+	if scenario.UUID == "" {
+		// If body UUID is empty, it's acceptable, we use the path UUID.
+		scenario.UUID = uuid
+	} else if uuid != scenario.UUID {
+		return fmt.Errorf("invalid request: UUID in path (%s) does not match UUID in scenario body (%s)", uuid, scenario.UUID)
 	}
 
 	err := s.storage.Update(uuid, scenario)
@@ -117,6 +120,23 @@ func (s *scenarioService) UpdateScenario(ctx context.Context, uuid string, scena
 		// Standardized error message for not found resources
 		return fmt.Errorf("resource not found")
 	}
+
+	// Validate status code
+	if scenario.StatusCode < 100 || scenario.StatusCode > 599 {
+		return fmt.Errorf("invalid status code")
+	}
+
+	// Validate content type - ensure it is not empty if provided, but don't restrict to application/*
+	// A more sophisticated validation (e.g. RFC media type format) could be added if needed.
+	if scenario.ContentType == "" {
+		// Allow empty ContentType if that's acceptable for some scenarios (e.g. 204 No Content)
+		// If ContentType is mandatory, this should be an error.
+		// For now, let's assume it's optional or can be empty for certain status codes.
+	} else if strings.ContainsAny(scenario.ContentType, " \t\n\r") {
+		// Basic check for obviously invalid characters, but very simplistic.
+		return fmt.Errorf("invalid content type: contains whitespace characters")
+	}
+
 	return nil
 }
 
@@ -157,18 +177,24 @@ func (s *scenarioService) validateScenario(scenario *model.Scenario) error {
 		"OPTIONS": true,
 	}
 	if !validMethods[method] {
-		return fmt.Errorf("invalid request path format")
+		// If method was already validated and part of RequestPath, this check might be redundant here
+		// but as a direct validation of scenario model, it's fine.
+		return fmt.Errorf("invalid HTTP method in request path: %s", method)
 	}
 
 	// Validate status code
 	if scenario.StatusCode < 100 || scenario.StatusCode > 599 {
-		return fmt.Errorf("invalid status code")
+		return fmt.Errorf("invalid status code: %d", scenario.StatusCode)
 	}
 
-	// Validate content type
-	if !strings.HasPrefix(scenario.ContentType, "application/") {
-		return fmt.Errorf("invalid content type")
+	// Validate content type - ensure it is not empty if a body is expected or content is relevant.
+	// For now, a very basic check: if ContentType is provided, it should not contain obvious invalid characters.
+	// An empty ContentType might be valid for responses like 204 No Content or redirects.
+	if scenario.ContentType != "" && strings.ContainsAny(scenario.ContentType, " \t\n\r") {
+		return fmt.Errorf("invalid content type: contains whitespace characters")
 	}
+
+	// Removed overly restrictive check: !strings.HasPrefix(scenario.ContentType, "application/")
 
 	return nil
 }

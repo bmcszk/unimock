@@ -52,26 +52,23 @@ func writeResourceResponse(w http.ResponseWriter, data []byte) error {
 	return err
 }
 
-// extractIDs extracts IDs from the request using configured paths
-func (h *MockHandler) extractIDs(ctx context.Context, req *http.Request) ([]string, error) {
-	// Find matching section
-	var sectionName string
-	var section *config.Section
-	var err error
-
-	if h.mockCfg != nil {
-		// Use the config
-		sectionName, section, err = h.mockCfg.MatchPath(req.URL.Path)
-		if err != nil {
-			return nil, fmt.Errorf("failed to match path pattern: %w", err)
-		}
-		if section == nil {
-			return nil, fmt.Errorf("invalid path")
-		}
-	} else {
-		return nil, fmt.Errorf("service configuration is missing")
+// getSectionForRequest finds the matching configuration section for a given request path.
+func (h *MockHandler) getSectionForRequest(reqPath string) (*config.Section, string, error) {
+	if h.mockCfg == nil {
+		return nil, "", fmt.Errorf("service configuration is missing")
 	}
+	sectionName, section, err := h.mockCfg.MatchPath(reqPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to match path pattern: %w", err)
+	}
+	if section == nil {
+		return nil, "", fmt.Errorf("no matching section found for path: %s", reqPath)
+	}
+	return section, sectionName, nil
+}
 
+// extractIDs extracts IDs from the request using configured paths
+func (h *MockHandler) extractIDs(ctx context.Context, req *http.Request, section *config.Section, sectionName string) ([]string, error) {
 	// For GET/PUT/DELETE requests, try to extract ID from path first
 	if req.Method == http.MethodGet || req.Method == http.MethodPut || req.Method == http.MethodDelete {
 		pathSegments := getPathInfo(req.URL.Path)
@@ -206,24 +203,15 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 	req.URL.Path = strings.TrimSuffix(req.URL.Path, "/")
 
 	// Find matching section
-	var section *config.Section
-	var sectionName string
-	var err error
-
-	if h.mockCfg != nil {
-		// Use the config
-		sectionName, section, err = h.mockCfg.MatchPath(req.URL.Path)
-		if err != nil {
-			return nil, fmt.Errorf("failed to match path pattern: %w", err)
-		}
-		if section == nil {
-			return &http.Response{
-				StatusCode: http.StatusNotFound,
-				Body:       io.NopCloser(strings.NewReader("resource not found")),
-			}, nil
-		}
-	} else {
-		return nil, fmt.Errorf("service configuration is missing")
+	section, sectionName, err := h.getSectionForRequest(req.URL.Path)
+	if err != nil {
+		// If no matching section, typically a 404 or specific error from getSectionForRequest
+		// The router should ideally prevent this, but if it happens:
+		h.logger.Warn("no matching section in HandleRequest", "path", req.URL.Path, "error", err)
+		return &http.Response{
+			StatusCode: http.StatusNotFound, // Or http.StatusBadRequest depending on error
+			Body:       io.NopCloser(strings.NewReader(err.Error())),
+		}, nil
 	}
 
 	// Handle different HTTP methods
@@ -282,30 +270,36 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 		}, nil
 
 	case http.MethodPost:
-		// Accept any content type
-		// Extract IDs from request
-		ids, err := h.extractIDs(ctx, req)
+		var id string                   // This will be the definitive ID for the resource
+		var createdResourceIDs []string // IDs to be used for storage
+
+		// Pass section and sectionName to extractIDs
+		idsFromExtractor, err := h.extractIDs(ctx, req, section, sectionName)
 		if err != nil {
 			if err.Error() == "no IDs found in request" {
-				// If no ID found, generate a new UUID
 				generatedUUID := uuid.New().String()
-				ids = []string{generatedUUID}
-				err = nil // Clear the error, as we've handled it by generating an ID
-				h.logger.Debug("POST: no ID found in request, generated new UUID", "uuid", generatedUUID)
+				id = generatedUUID                // Assign to id for Location header and logging
+				createdResourceIDs = []string{id} // Use generated ID for storage
+				err = nil                         // Clear the error, as we've handled it by generating an ID
+				h.logger.Debug("POST: no ID found in request, generated new UUID", "uuid", id)
 			} else {
-				// For other errors from extractIDs (e.g., invalid JSON), return BadRequest
-				return &http.Response{
-					StatusCode: http.StatusBadRequest,
-					Body:       io.NopCloser(strings.NewReader(err.Error())),
-				}, nil
+				h.logger.Error("failed to extract IDs for POST", "path", req.URL.Path, "error", err)
+				return &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(strings.NewReader("invalid request: " + err.Error()))}, nil
 			}
-		} else if len(ids) == 0 { // Should ideally be caught by extractIDs error, but as a safeguard
+		} else if len(idsFromExtractor) == 0 { // No error, but no IDs found (e.g. empty body for relevant content types)
 			generatedUUID := uuid.New().String()
-			ids = []string{generatedUUID}
-			h.logger.Debug("POST: extractIDs returned no error but empty IDs, generated new UUID", "uuid", generatedUUID)
+			id = generatedUUID                // Assign to id for Location header and logging
+			createdResourceIDs = []string{id} // Use generated ID for storage
+			h.logger.Debug("POST: extractIDs returned no error but empty IDs, generated new UUID", "uuid", id)
+		} else {
+			id = idsFromExtractor[0]              // Use the first ID for Location header and logging if multiple are found
+			createdResourceIDs = idsFromExtractor // Use all extracted IDs for storage if that's the intent for batch
+			if len(idsFromExtractor) > 1 {
+				h.logger.Warn("multiple IDs found in POST request, using the first for Location header, all for creation", "path", req.URL.Path, "all_ids", idsFromExtractor, "location_id", id)
+			}
 		}
 
-		// Read request body
+		// Read the body for storage
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read request body: %w", err)
@@ -319,45 +313,38 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 			Body:        body,
 		}
 
-		if err := h.service.CreateResource(ctx, req.URL.Path, ids, data); err != nil {
+		if err := h.service.CreateResource(ctx, req.URL.Path, createdResourceIDs, data); err != nil {
 			if strings.Contains(err.Error(), "already exists") {
 				return &http.Response{
 					StatusCode: http.StatusConflict,
 					Body:       io.NopCloser(strings.NewReader(err.Error())),
 				}, nil
 			}
-			return &http.Response{
-				StatusCode: http.StatusBadRequest,
-				Body:       io.NopCloser(strings.NewReader(err.Error())),
-			}, nil
+			h.logger.Error("failed to create resource for POST", "path", req.URL.Path, "id", id, "error", err)
+			return &http.Response{StatusCode: http.StatusInternalServerError, Body: io.NopCloser(strings.NewReader("failed to create resource"))}, nil
 		}
+		h.logger.Info("resource created via POST", "path", req.URL.Path, "id", id)
 
-		// Set Location header to the resource path
 		location := req.URL.Path
-		if len(ids) > 0 {
-			location = fmt.Sprintf("%s/%s", strings.TrimSuffix(location, "/"), ids[0])
-		}
+		// Ensure a single ID is used for the location header
+		location = fmt.Sprintf("%s/%s", strings.TrimSuffix(location, "/"), id)
+
+		// For Unimock, we'll return 201 with Location and empty body, consistent with typical REST APIs.
+		// The logic for handling CollectionJSON here was primarily for logging or specific response shaping
+		// if it were different from the standard POST response. Since POST creates a single resource,
+		// and the Location header points to that single resource, complex CollectionJSON logic isn't needed here.
 
 		return &http.Response{
 			StatusCode: http.StatusCreated,
 			Header:     http.Header{"Location": []string{location}},
+			Body:       io.NopCloser(strings.NewReader("")), // Empty body for 201
 		}, nil
 
 	case http.MethodPut:
-		// Try to update resource by ID
-		pathSegments := getPathInfo(req.URL.Path)
-		lastSegment := pathSegments[len(pathSegments)-1]
-
-		if lastSegment == "" || lastSegment == sectionName {
-			return &http.Response{
-				StatusCode: http.StatusNotFound,
-				Body:       io.NopCloser(strings.NewReader("resource not found")),
-			}, nil
-		}
-
-		existingResource, err := h.service.GetResource(ctx, req.URL.Path, lastSegment)
-
-		if err != nil || existingResource == nil {
+		// Pass section and sectionName to extractIDs
+		ids, err := h.extractIDs(ctx, req, section, sectionName)
+		if err != nil || len(ids) == 0 {
+			h.logger.Error("ID not found in PUT request", "path", req.URL.Path, "error", err)
 			return &http.Response{
 				StatusCode: http.StatusNotFound,
 				Body:       io.NopCloser(strings.NewReader("resource not found")),
@@ -371,7 +358,7 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 		}
 
 		// Try to update resource
-		err = h.service.UpdateResource(ctx, req.URL.Path, lastSegment, &model.MockData{
+		err = h.service.UpdateResource(ctx, req.URL.Path, ids[0], &model.MockData{
 			Path:        req.URL.Path,
 			ContentType: req.Header.Get("Content-Type"),
 			Body:        body,
@@ -392,20 +379,10 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 		}, nil
 
 	case http.MethodDelete:
-		// Try to delete resource by ID
-		pathSegments := getPathInfo(req.URL.Path)
-		lastSegment := pathSegments[len(pathSegments)-1]
-
-		if lastSegment == "" || lastSegment == sectionName {
-			return &http.Response{
-				StatusCode: http.StatusNotFound,
-				Body:       io.NopCloser(strings.NewReader("resource not found")),
-			}, nil
-		}
-
-		existingResource, err := h.service.GetResource(ctx, req.URL.Path, lastSegment)
-
-		if err != nil || existingResource == nil {
+		// Pass section and sectionName to extractIDs
+		ids, err := h.extractIDs(ctx, req, section, sectionName)
+		if err != nil || len(ids) == 0 {
+			h.logger.Error("ID not found in DELETE request", "path", req.URL.Path, "error", err)
 			return &http.Response{
 				StatusCode: http.StatusNotFound,
 				Body:       io.NopCloser(strings.NewReader("resource not found")),
@@ -413,7 +390,7 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 		}
 
 		// Try to delete resource
-		err = h.service.DeleteResource(ctx, req.URL.Path, lastSegment)
+		err = h.service.DeleteResource(ctx, req.URL.Path, ids[0])
 		if err != nil {
 			if err.Error() == "resource not found" {
 				return &http.Response{
