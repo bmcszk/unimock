@@ -1,13 +1,12 @@
 package handler
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/bmcszk/unimock/pkg/model"
+	"github.com/google/uuid"
 )
 
 func TestMockHandler_HandleRequest(t *testing.T) {
@@ -24,8 +24,9 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 	cfg := &config.MockConfig{
 		Sections: map[string]config.Section{
 			"users": {
-				PathPattern: "/users/*",
-				BodyIDPaths: []string{"/id"},
+				PathPattern:   "/users/*",
+				BodyIDPaths:   []string{"/id"},
+				CaseSensitive: true,
 			},
 		},
 	}
@@ -34,12 +35,22 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 	mockService := service.NewMockService(store, cfg)
 	handler := NewMockHandler(mockService, logger, cfg)
 
-	// Test data
+	// Test data with mixed content types
 	testData := []*model.MockData{
 		{
 			Path:        "/users/123",
 			ContentType: "application/json",
 			Body:        []byte(`{"id": "123", "name": "test"}`),
+		},
+		{
+			Path:        "/users/456",
+			ContentType: "application/xml",
+			Body:        []byte(`<user><id>456</id><name>test</name></user>`),
+		},
+		{
+			Path:        "/users/789",
+			ContentType: "application/octet-stream",
+			Body:        []byte("binary data"),
 		},
 	}
 
@@ -66,9 +77,30 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			expectedBody:   `{"id": "123", "name": "test"}`,
 		},
 		{
-			name:           "GET non-existent resource",
+			name:           "GET non-existent resource but collection exists",
 			method:         http.MethodGet,
 			path:           "/users/999",
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   "resource not found",
+		},
+		{
+			name:           "GET non-existent resource and collection",
+			method:         http.MethodGet,
+			path:           "/nonexistent/999",
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   "resource not found",
+		},
+		{
+			name:           "GET collection with mixed content types",
+			method:         http.MethodGet,
+			path:           "/users",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `[{"id": "123", "name": "test"}]`,
+		},
+		{
+			name:           "GET empty collection",
+			method:         http.MethodGet,
+			path:           "/empty",
 			expectedStatus: http.StatusNotFound,
 			expectedBody:   "resource not found",
 		},
@@ -77,8 +109,25 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			method:         http.MethodPost,
 			path:           "/users",
 			contentType:    "application/json",
-			body:           `{"id": "456", "name": "new"}`,
+			body:           `{"id": "999", "name": "new"}`,
 			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:           "POST new resource with no ID (auto-generate UUID)",
+			method:         http.MethodPost,
+			path:           "/users",
+			contentType:    "application/json",
+			body:           `{"name": "new user, no id provided"}`,
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:           "POST with malformed JSON",
+			method:         http.MethodPost,
+			path:           "/users",
+			contentType:    "application/json",
+			body:           `{"id": "789", "name": "new"`,
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "invalid JSON",
 		},
 		{
 			name:           "PUT existing resource",
@@ -89,36 +138,84 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
+			name:           "PUT non-existent resource",
+			method:         http.MethodPut,
+			path:           "/users/unique-non-existent-id-9999",
+			contentType:    "application/json",
+			body:           `{"id": "unique-non-existent-id-9999", "name": "new"}`,
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   "resource not found",
+		},
+		{
 			name:           "DELETE existing resource",
 			method:         http.MethodDelete,
 			path:           "/users/123",
 			expectedStatus: http.StatusNoContent,
 		},
+		{
+			name:           "DELETE non-existent resource but collection exists",
+			method:         http.MethodDelete,
+			path:           "/users/unique-non-existent-id-9999",
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   "resource not found",
+		},
+		{
+			name:           "DELETE non-existent resource and collection",
+			method:         http.MethodDelete,
+			path:           "/nonexistent/999",
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   "resource not found",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create request
+			// Special handling for tests that modify state or depend on a clean slate
+			if tt.name == "POST new resource with no ID (auto-generate UUID)" ||
+				tt.name == "POST new resource" ||
+				tt.name == "PUT non-existent resource" ||
+				tt.name == "DELETE non-existent resource but collection exists" {
+
+				cleanStore := storage.NewMockStorage()
+				// Repopulate with baseline testData for other tests that might expect it
+				// This is a simple way to reset state for this test suite structure.
+				// Ideally, each t.Run would set up its own specific required data.
+				for _, data := range testData { // testData is from the outer scope
+					initialIds := []string{data.Path[strings.LastIndex(data.Path, "/")+1:]}
+					cleanStore.Create(initialIds, data)
+				}
+				currentService := service.NewMockService(cleanStore, cfg) // cfg is from outer scope
+				handler = NewMockHandler(currentService, logger, cfg)     // re-assign handler to the one in the outer scope
+			}
+
 			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
 			}
 
-			// Create response recorder
 			w := httptest.NewRecorder()
-
-			// Call handler
 			handler.ServeHTTP(w, req)
 
-			// Check status code
 			if w.Code != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
 			}
 
-			// Check body if specified
-			if tt.expectedBody != "" {
-				if !strings.Contains(w.Body.String(), tt.expectedBody) {
-					t.Errorf("expected body to contain %q, got %q", tt.expectedBody, w.Body.String())
+			if tt.name == "POST new resource with no ID (auto-generate UUID)" {
+				location := w.Header().Get("Location")
+				if location == "" {
+					t.Errorf("expected Location header to be set")
+				}
+				if !strings.HasPrefix(location, tt.path+"/") {
+					t.Errorf("expected Location header to start with %s/, got %s", tt.path, location)
+				}
+				extractedID := location[len(tt.path)+1:]
+				_, err := uuid.Parse(extractedID)
+				if err != nil {
+					t.Errorf("expected Location header to contain a valid UUID, got %s, error: %v", extractedID, err)
+				}
+			} else if tt.expectedBody != "" {
+				if !strings.EqualFold(w.Body.String(), tt.expectedBody) {
+					t.Errorf("expected body to match %q, got %q", tt.expectedBody, w.Body.String())
 				}
 			}
 		})
@@ -127,34 +224,28 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 
 // Added from mock_service_test.go
 func TestMockHandler_ExtractIDs(t *testing.T) {
-	// Create test config
 	cfg := &config.MockConfig{
 		Sections: map[string]config.Section{
 			"users": {
-				PathPattern:  "/users/*",
-				HeaderIDName: "X-Resource-ID",
-				BodyIDPaths: []string{
-					"/id",
-					"/data/id",
-					"//id",
-				},
+				PathPattern:   "/users/*",
+				HeaderIDName:  "X-Resource-ID",
+				BodyIDPaths:   []string{"/id", "/data/id", "//id"},
+				CaseSensitive: true,
 			},
 			"orders": {
-				PathPattern:  "/orders/*",
-				HeaderIDName: "X-Order-ID",
-				BodyIDPaths: []string{
-					"/orderId",
-					"/order/id",
-				},
+				PathPattern:   "/orders/*",
+				HeaderIDName:  "X-Order-ID",
+				BodyIDPaths:   []string{"/orderId", "/order/id"},
+				CaseSensitive: false,
 			},
 		},
 	}
 
-	// Create service and handler
 	store := storage.NewMockStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	mockService := service.NewMockService(store, cfg)
 	handler := NewMockHandler(mockService, logger, cfg)
+	ctx := context.Background()
 
 	tests := []struct {
 		name          string
@@ -171,6 +262,20 @@ func TestMockHandler_ExtractIDs(t *testing.T) {
 			name:        "GET with ID in path",
 			method:      http.MethodGet,
 			path:        "/users/123",
+			expectedIDs: []string{"123"},
+		},
+		{
+			name:          "GET with case-sensitive path",
+			method:        http.MethodGet,
+			path:          "/Users/123",
+			expectedIDs:   nil,
+			expectError:   true,
+			errorContains: "invalid path",
+		},
+		{
+			name:        "GET with case-insensitive path",
+			method:      http.MethodGet,
+			path:        "/Orders/123",
 			expectedIDs: []string{"123"},
 		},
 		{
@@ -210,13 +315,46 @@ func TestMockHandler_ExtractIDs(t *testing.T) {
 			body:        `<user><id>123</id><name>test</name></user>`,
 			expectedIDs: []string{"123"},
 		},
-		// More test cases from the original mock_service_test.go
+		{
+			name:        "POST with ID in nested XML body",
+			method:      http.MethodPost,
+			path:        "/users",
+			contentType: "application/xml",
+			body:        `<user><data><id>123</id></data><name>test</name></user>`,
+			expectedIDs: []string{"123"},
+		},
+		{
+			name:          "POST with missing ID",
+			method:        http.MethodPost,
+			path:          "/users",
+			contentType:   "application/json",
+			body:          `{"name": "test"}`,
+			expectError:   true,
+			errorContains: "no IDs found in request",
+		},
+		{
+			name:          "POST with malformed JSON",
+			method:        http.MethodPost,
+			path:          "/users",
+			contentType:   "application/json",
+			body:          `{"id": "123", "name": "test"`,
+			expectError:   true,
+			errorContains: "invalid JSON",
+		},
+		{
+			name:          "POST with malformed XML",
+			method:        http.MethodPost,
+			path:          "/users",
+			contentType:   "application/xml",
+			body:          `<user><id>123</id><name>test</user>`,
+			expectError:   true,
+			errorContains: "invalid XML",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create request
-			req := httptest.NewRequest(tt.method, tt.path, bytes.NewBufferString(tt.body))
+			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
 			}
@@ -224,56 +362,23 @@ func TestMockHandler_ExtractIDs(t *testing.T) {
 				req.Header.Set(k, v)
 			}
 
-			// Extract IDs
-			ids, err := handler.ExtractIDs(context.Background(), req)
+			ids, err := handler.extractIDs(ctx, req)
 
-			// Check error
 			if tt.expectError {
 				if err == nil {
-					t.Error("expected error, got nil")
-				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
-					t.Errorf("error message %q does not contain %q", err.Error(), tt.errorContains)
+					t.Errorf("expected error but got nil")
 				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-
-			// Check IDs
-			if len(ids) != len(tt.expectedIDs) {
-				t.Errorf("got %d IDs, want %d", len(ids), len(tt.expectedIDs))
-				return
-			}
-
-			for i, id := range ids {
-				if id != tt.expectedIDs[i] {
-					t.Errorf("ID[%d] = %q, want %q", i, id, tt.expectedIDs[i])
+				if tt.errorContains != "" && (err == nil || !strings.Contains(err.Error(), tt.errorContains)) {
+					t.Errorf("expected error message to contain %q, got %v", tt.errorContains, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+				if !reflect.DeepEqual(ids, tt.expectedIDs) {
+					t.Errorf("expected IDs to be %v, got %v", tt.expectedIDs, ids)
 				}
 			}
 		})
-	}
-}
-
-// Helper functions
-func jsonEqual(a, b interface{}) bool {
-	aJSON, err := json.Marshal(a)
-	if err != nil {
-		return false
-	}
-	bJSON, err := json.Marshal(b)
-	if err != nil {
-		return false
-	}
-	return bytes.Equal(aJSON, bJSON)
-}
-
-func createMockData(path string, body []byte) *model.MockData {
-	return &model.MockData{
-		Path:        path,
-		ContentType: "application/json",
-		Body:        body,
 	}
 }

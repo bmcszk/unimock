@@ -182,7 +182,10 @@ func (s *mockStorage) GetByPath(path string) ([]*model.MockData, error) {
 	var result []*model.MockData
 	seen := make(map[string]bool) // Track seen storage IDs to prevent duplicates
 
-	// First try exact path match
+	// Normalize path by removing trailing slash
+	path = strings.TrimSuffix(path, "/")
+
+	// Only allow exact case-sensitive match
 	if storageIDs, ok := s.pathMap[path]; ok {
 		for _, sid := range storageIDs {
 			if data, exists := s.data[sid]; exists && !seen[sid] {
@@ -195,8 +198,9 @@ func (s *mockStorage) GetByPath(path string) ([]*model.MockData, error) {
 		}
 	}
 
-	// If no exact match, try prefix match for collection paths
+	// For collections, only allow case-sensitive prefix match
 	for storedPath, storageIDs := range s.pathMap {
+		storedPath = strings.TrimSuffix(storedPath, "/")
 		if strings.HasPrefix(storedPath, path+"/") {
 			for _, sid := range storageIDs {
 				if data, exists := s.data[sid]; exists && !seen[sid] {
@@ -211,7 +215,7 @@ func (s *mockStorage) GetByPath(path string) ([]*model.MockData, error) {
 		return result, nil
 	}
 
-	return nil, errors.NewNotFoundError("", path)
+	return nil, errors.NewNotFoundError("resource not found", path)
 }
 
 // Delete removes data by ID or path

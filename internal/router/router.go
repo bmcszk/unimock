@@ -6,25 +6,28 @@ import (
 	"strings"
 
 	"github.com/bmcszk/unimock/internal/service"
+	"github.com/bmcszk/unimock/pkg/config"
 )
 
 // Router is a http.Handler that routes requests to the appropriate handler based on path prefix
 type Router struct {
-	mainHandler     http.Handler
+	mockHandler     http.Handler
 	techHandler     http.Handler
 	scenarioHandler http.Handler
 	scenarioService service.ScenarioService
 	logger          *slog.Logger
+	mockConfig      *config.MockConfig
 }
 
 // NewRouter creates a new Router instance
-func NewRouter(mainHandler, techHandler, scenarioHandler http.Handler, scenarioService service.ScenarioService, logger *slog.Logger) *Router {
+func NewRouter(mockHandler, techHandler, scenarioHandler http.Handler, scenarioService service.ScenarioService, logger *slog.Logger, mockConfig *config.MockConfig) *Router {
 	return &Router{
-		mainHandler:     mainHandler,
+		mockHandler:     mockHandler,
 		techHandler:     techHandler,
 		scenarioHandler: scenarioHandler,
 		scenarioService: scenarioService,
 		logger:          logger,
+		mockConfig:      mockConfig,
 	}
 }
 
@@ -59,6 +62,14 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	r.logger.Debug("routing to main handler", "path", req.URL.Path)
-	r.mainHandler.ServeHTTP(w, req)
+	// Check if the path matches any section pattern
+	if cfg := r.mockConfig; cfg != nil {
+		if _, section, err := cfg.MatchPath(req.URL.Path); err != nil || section == nil {
+			http.Error(w, "no matching section found for path", http.StatusBadRequest)
+			return
+		}
+	}
+
+	r.logger.Debug("routing to mock handler", "path", req.URL.Path)
+	r.mockHandler.ServeHTTP(w, req)
 }

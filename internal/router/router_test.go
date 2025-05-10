@@ -39,12 +39,12 @@ func TestRouter_ServeHTTP(t *testing.T) {
 	techService := service.NewTechService(time.Now())
 
 	// Create handlers
-	mainHandler := handler.NewMockHandler(mockService, logger, cfg)
+	mockHandler := handler.NewMockHandler(mockService, logger, cfg)
 	techHandler := handler.NewTechHandler(techService, logger)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create router
-	router := NewRouter(mainHandler, techHandler, scenarioHandler, scenarioService, logger)
+	router := NewRouter(mockHandler, techHandler, scenarioHandler, scenarioService, logger, cfg)
 
 	// Setup test scenarios
 	scenarios := []*model.Scenario{

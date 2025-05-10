@@ -56,6 +56,11 @@ type Section struct {
 	// HeaderIDName specifies the HTTP header name to extract IDs from.
 	// If empty, no header-based ID extraction will be performed.
 	HeaderIDName string `yaml:"header_id_name" json:"header_id_name"`
+
+	// CaseSensitive determines whether path matching is case-sensitive.
+	// If true, paths must match exactly including case.
+	// If false, paths are matched case-insensitively.
+	CaseSensitive bool `yaml:"case_sensitive" json:"case_sensitive"`
 }
 
 // NewMockConfig creates an empty MockConfig with an initialized Sections map
@@ -85,14 +90,17 @@ func LoadFromYAML(path string) (*MockConfig, error) {
 }
 
 // isPatternMatch checks if a path matches a pattern with wildcards
-func isPatternMatch(pattern, path string) bool {
+func isPatternMatch(pattern, path string, caseSensitive bool) bool {
 	// Split pattern and path into segments
 	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
 	pathParts := strings.Split(strings.Trim(path, "/"), "/")
 
 	// Check for exact static path match
-	if !strings.Contains(pattern, "*") && pattern != path {
-		return false
+	if !strings.Contains(pattern, "*") {
+		if caseSensitive {
+			return pattern == path
+		}
+		return strings.EqualFold(pattern, path)
 	}
 
 	// For wildcard patterns, check each segment
@@ -111,8 +119,14 @@ func isPatternMatch(pattern, path string) bool {
 				continue
 			}
 			// Exact match required for non-wildcard segments
-			if patternParts[i] != pathParts[i] {
-				return false
+			if caseSensitive {
+				if patternParts[i] != pathParts[i] {
+					return false
+				}
+			} else {
+				if !strings.EqualFold(patternParts[i], pathParts[i]) {
+					return false
+				}
 			}
 		}
 	}
@@ -128,7 +142,7 @@ func (c *MockConfig) MatchPath(path string) (string, *Section, error) {
 	// First prioritize exact matches
 	for name, section := range c.Sections {
 		pattern := strings.Trim(section.PathPattern, "/")
-		if pattern == path {
+		if isPatternMatch(pattern, path, section.CaseSensitive) {
 			return name, &section, nil
 		}
 	}
@@ -141,7 +155,7 @@ func (c *MockConfig) MatchPath(path string) (string, *Section, error) {
 	for name, section := range c.Sections {
 		pattern := strings.Trim(section.PathPattern, "/")
 
-		if strings.Contains(pattern, "*") && isPatternMatch(pattern, path) {
+		if strings.Contains(pattern, "*") && isPatternMatch(pattern, path, section.CaseSensitive) {
 			// Count pattern segments to prioritize deeper/more specific paths
 			segments := len(strings.Split(pattern, "/"))
 			if segments > maxSegments {

@@ -143,12 +143,12 @@ func NewServer(serverConfig *config.ServerConfig, mockConfig *config.MockConfig)
 	techService := service.NewTechService(time.Now())
 
 	// Create handlers with services
-	mainHandler := handler.NewMockHandler(mockService, logger, mockConfig)
+	mockHandler := handler.NewMockHandler(mockService, logger, mockConfig)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 	techHandler := handler.NewTechHandler(techService, logger)
 
 	// Create a router
-	appRouter := router.NewRouter(mainHandler, techHandler, scenarioHandler, scenarioService, logger)
+	appRouter := router.NewRouter(mockHandler, techHandler, scenarioHandler, scenarioService, logger, mockConfig)
 
 	// Create server
 	srv := &http.Server{
