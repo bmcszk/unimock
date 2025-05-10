@@ -2,17 +2,12 @@ package service
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
 // MockService handles the core mock functionality
 type MockService interface {
-	// ExtractIDs extracts IDs from the request using configured paths
-	ExtractIDs(ctx context.Context, req *http.Request) ([]string, error)
-	// HandleRequest processes the HTTP request and returns appropriate response
-	HandleRequest(ctx context.Context, req *http.Request) (*http.Response, error)
 	// GetResource retrieves a resource by path and ID
 	GetResource(ctx context.Context, path string, id string) (*model.MockData, error)
 	// GetResourcesByPath retrieves all resources at a given path

@@ -39,7 +39,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 	techService := service.NewTechService(time.Now())
 
 	// Create handlers
-	mainHandler := handler.NewMockHandler(mockService, logger)
+	mainHandler := handler.NewMockHandler(mockService, logger, cfg)
 	techHandler := handler.NewTechHandler(techService, logger)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
@@ -111,8 +111,8 @@ func TestRouter_ServeHTTP(t *testing.T) {
 			name:             "regular API endpoint",
 			method:           http.MethodGet,
 			path:             "/api/other",
-			wantStatusCode:   500,                                                   // The mock service returns 500 with for non-existent resources
-			wantBodyContains: "invalid request: no matching section found for path", // Updated to match actual error
+			wantStatusCode:   http.StatusBadRequest,
+			wantBodyContains: "no matching section found for path",
 		},
 	}
 

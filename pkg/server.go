@@ -143,7 +143,7 @@ func NewServer(serverConfig *config.ServerConfig, mockConfig *config.MockConfig)
 	techService := service.NewTechService(time.Now())
 
 	// Create handlers with services
-	mainHandler := handler.NewMockHandler(mockService, logger)
+	mainHandler := handler.NewMockHandler(mockService, logger, mockConfig)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 	techHandler := handler.NewTechHandler(techService, logger)
 
