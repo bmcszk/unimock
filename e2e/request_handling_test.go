@@ -174,3 +174,33 @@ func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 	// - Subsequent GET request to `/test/resource/itemToDelete` returns 404 Not Found.
 	assert.Equal(t, http.StatusNotFound, getResp.StatusCode, "GET after DELETE: HTTP status code should be 404 Not Found")
 }
+
+// TestSCEN_RH_005_GetIndividualResourceEndpoint verifies SCEN-RH-005:
+// GET request for an individual resource endpoint.
+func TestSCEN_RH_005_GetIndividualResourceEndpoint(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	// - A mock resource is configured at `/individual/item001`.
+	//   (Response body and Content-Type will be assumed for this test)
+
+	targetURL := unimockBaseURL + "/individual/item001"
+	// Assuming a simple JSON response for the configured mock as it's not specified in the scenario
+	expectedBody := `{"itemId": "item001", "description": "Individual item endpoint test"}`
+	expectedContentType := "application/json"
+
+	// Steps:
+	// 1. Send a GET request to `/individual/item001`.
+	resp, err := http.Get(targetURL)
+	require.NoError(t, err, "Failed to send GET request")
+	defer resp.Body.Close()
+
+	// Expected Result:
+	// - Service returns 200 OK with the configured mock response for `/individual/item001`.
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "HTTP status code should be 200 OK")
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "Failed to read response body")
+	assert.JSONEq(t, expectedBody, string(bodyBytes), "Response body does not match expected configured mock")
+
+	assert.Equal(t, expectedContentType, resp.Header.Get("Content-Type"), "Content-Type header does not match expected")
+}

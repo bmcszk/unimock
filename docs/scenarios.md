@@ -88,7 +88,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 1. Send a GET request to `/individual/item001`.
 **Expected Result:**
     - Service returns 200 OK with the configured mock response for `/individual/item001`.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_005_GetIndividualResourceEndpoint`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must support both individual resource and collection endpoints"
 **Scenario ID:** SCEN-RH-006
