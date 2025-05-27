@@ -204,3 +204,45 @@ func TestSCEN_RH_005_GetIndividualResourceEndpoint(t *testing.T) {
 
 	assert.Equal(t, expectedContentType, resp.Header.Get("Content-Type"), "Content-Type header does not match expected")
 }
+
+// TestSCEN_RH_006_GetCollectionEndpoint verifies SCEN-RH-006:
+// GET request for a collection endpoint.
+func TestSCEN_RH_006_GetCollectionEndpoint(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	// - Multiple mock resources are configured under `/collection/items/`.
+	//   For this test, assume `/collection/items/itemA` and `/collection/items/itemB` are mocked.
+	//   Mock for /collection/items/itemA: `{"id": "itemA", "type": "gadget"}`
+	//   Mock for /collection/items/itemB: `{"id": "itemB", "type": "widget"}`
+
+	targetURL := unimockBaseURL + "/collection/items"
+
+	// Expected: A JSON array of the items in the collection.
+	// The exact format (e.g. full objects vs links) depends on Unimock's implementation detail for collection GETs.
+	// For this test, we assume it returns an array of the full JSON bodies of the items.
+	expectedBody := `[
+		{"id": "itemA", "type": "gadget"},
+		{"id": "itemB", "type": "widget"}
+	]`
+	// Note: Order in the array might not be guaranteed by the system,
+	// so a more robust check might be needed if order is not deterministic (e.g. unmarshal and compare sets).
+	// For now, assert.JSONEq handles potential reordering of keys within objects, but not array element order.
+
+	// Steps:
+	// 1. Send a GET request to `/collection/items`.
+	resp, err := http.Get(targetURL)
+	require.NoError(t, err, "Failed to send GET request to collection endpoint")
+	defer resp.Body.Close()
+
+	// Expected Result:
+	// - Service returns 200 OK.
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "HTTP status code should be 200 OK for collection GET")
+
+	// - Response body is a JSON array containing representations of resources.
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "Failed to read response body for collection GET")
+	assert.JSONEq(t, expectedBody, string(bodyBytes), "Response body for collection GET does not match expected array")
+
+	// - Content-Type header is `application/json` (assuming, as it's a JSON array).
+	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"), "Content-Type for collection GET should be application/json")
+}

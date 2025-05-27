@@ -23,7 +23,7 @@ Each task should follow the format:
 [TASK-003] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-003: PUT request to update existing resource
 [TASK-004] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-004: DELETE request for existing resource
 [TASK-005] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-005: GET request for individual resource endpoint
-[TASK-006] - ToDo - 2025-05-27 - Implement E2E test for SCEN-RH-006: GET request for collection endpoint
+[TASK-006] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-006: GET request for collection endpoint
 [TASK-007] - ToDo - 2025-05-27 - Implement E2E test for SCEN-RH-007: Reject POST with invalid Content-Type
 [TASK-008] - ToDo - 2025-05-27 - Implement E2E test for SCEN-RH-008: GET request for non-existent resource returns 404
 [TASK-009] - ToDo - 2025-05-27 - Implement E2E test for SCEN-RH-009: Path-based routing verification 

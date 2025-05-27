@@ -101,7 +101,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Expected Result:**
     - Service returns 200 OK.
     - Response body is a JSON array containing representations of resources under `/collection/items/` (respecting rules from REQ2 for collection GETs).
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_006_GetCollectionEndpoint`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must validate request content types"
 **Scenario ID:** SCEN-RH-007
