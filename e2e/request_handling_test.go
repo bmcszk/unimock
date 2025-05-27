@@ -95,3 +95,46 @@ func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 	// - Content-Type header is `application/json`.
 	assert.Equal(t, "application/json", getResp.Header.Get("Content-Type"), "GET request: Content-Type header does not match")
 }
+
+// TestSCEN_RH_003_PutUpdateResource verifies SCEN-RH-003:
+// Successful processing of a PUT request to update an existing resource.
+func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	// - A mock resource `{"id": "existingItem", "value": "old data"}` exists at `/test/collection/existingItem`.
+	//   (This might require a setup step to create/ensure this resource exists before the PUT)
+	// - Unimock is configured to allow PUT requests to `/test/collection/{id}`.
+
+	resourceID := "existingItem"
+	putURL := unimockBaseURL + "/test/collection/" + resourceID
+	updatedRequestBody := `{"id": "existingItem", "value": "updated data"}`
+
+	// Step 1: Send a PUT request to `/test/collection/existingItem`
+	client := &http.Client{}
+	putReq, err := http.NewRequest(http.MethodPut, putURL, strings.NewReader(updatedRequestBody))
+	require.NoError(t, err, "Failed to create PUT request")
+	putReq.Header.Set("Content-Type", "application/json")
+
+	putResp, err := client.Do(putReq)
+	require.NoError(t, err, "Failed to send PUT request")
+	defer putResp.Body.Close()
+
+	// Expected Result (PUT):
+	// - HTTP status code 200 OK (or 204 No Content).
+	// For this test, we'll assert for 200 OK. If 204 is also acceptable, the assertion can be adjusted.
+	assert.Equal(t, http.StatusOK, putResp.StatusCode, "HTTP status code should be 200 OK for PUT")
+
+	// Verify resource update by sending a GET request
+	getResp, err := http.Get(putURL)
+	require.NoError(t, err, "Failed to send GET request to verify resource update")
+	defer getResp.Body.Close()
+
+	// Expected Result (GET):
+	assert.Equal(t, http.StatusOK, getResp.StatusCode, "GET after PUT: HTTP status code should be 200 OK")
+
+	bodyBytes, err := io.ReadAll(getResp.Body)
+	require.NoError(t, err, "GET after PUT: Failed to read response body")
+	assert.JSONEq(t, updatedRequestBody, string(bodyBytes), "GET after PUT: Response body does not match updated content")
+
+	assert.Equal(t, "application/json", getResp.Header.Get("Content-Type"), "GET after PUT: Content-Type header does not match")
+}

@@ -63,7 +63,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Expected Result:**
     - HTTP status code 200 OK (or 204 No Content, depending on implementation choice for PUT).
     - The resource at `/test/collection/existingItem` is updated to `{"id": "existingItem", "value": "updated data"}`.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_003_PutUpdateResource`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must handle standard HTTP methods (GET, POST, PUT, DELETE)"
 **Scenario ID:** SCEN-RH-004
