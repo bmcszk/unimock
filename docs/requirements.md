@@ -236,3 +236,6 @@ The system includes comprehensive test coverage for:
 - Timeout scenarios
 - Resource limits
 - Concurrent access patterns 
+
+### 11. Scenario-based Mock Behavior
+- Scenarios should be able to modify the default mock handler's behavior by replacing the status code and the returned body.

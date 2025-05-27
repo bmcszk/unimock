@@ -18,12 +18,9 @@ Each task should follow the format:
 
 ## Current Tasks
 
-[TASK-001] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-001: GET request for existing resource
-[TASK-002] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-002: POST request to create new resource
-[TASK-003] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-003: PUT request to update existing resource
-[TASK-004] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-004: DELETE request for existing resource
-[TASK-005] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-005: GET request for individual resource endpoint
-[TASK-006] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-006: GET request for collection endpoint
-[TASK-007] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-007: Reject POST with invalid Content-Type
-[TASK-008] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-008: GET request for non-existent resource returns 404
-[TASK-009] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-009: Path-based routing verification 
+[TASK-010] - In Progress - 2025-05-27 - Implement functionality for scenarios to modify default mock handler status code and response body
+[TASK-011] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SMB-001: Scenario overrides default status code and body
+[TASK-012] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SMB-002: Scenario overrides default response body, keeps status code
+[TASK-013] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SMB-003: Scenario overrides status code, default body used
+[TASK-014] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SMB-004: Scenario overrides body, default status code used
+[TASK-015] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SMB-005: Default behavior preserved when no relevant scenario is active
