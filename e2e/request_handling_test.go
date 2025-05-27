@@ -768,4 +768,71 @@ func TestSCEN_SH_004_ScenarioMethodMismatch(t *testing.T) {
 }
 
 // TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation verifies SCEN-SH-005:
-// ... existing code ...
+// A scenario can return an empty body, a specific status code, and a custom Location header.
+func TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	unimockClient, err := client.NewClient(unimockBaseURL)
+	require.NoError(t, err, "Failed to create unimock client")
+
+	targetPath := "/api/actions/submit-task" // Using /api/... for consistency with config.yaml if sections matter
+	requestMethod := http.MethodPost
+
+	// - Scenario configuration
+	expectedStatusCode := http.StatusCreated
+	expectedLocationHeader := "/tasks/status/new-task-123"
+	expectedData := ""
+	// ContentType can be empty or omitted for no-body responses; the scenario handler should cope.
+	// If a ContentType *is* set in the scenario (e.g. "text/plain"), it should be returned.
+	// If not set in scenario, observe actual Content-Type (might be none, or a default by http library/handler).
+	// For this test, we will explicitly set it to empty in the scenario and assert it's not set or is a default.
+	expectedContentType := "" // Or a specific one like "text/plain" if that's the default unimock sends
+
+	scenario := &model.Scenario{
+		RequestPath: fmt.Sprintf("%s %s", requestMethod, targetPath),
+		StatusCode:  expectedStatusCode,
+		ContentType: expectedContentType, // Explicitly empty
+		Location:    expectedLocationHeader,
+		Data:        expectedData,
+	}
+	createdScenario, err := unimockClient.CreateScenario(context.Background(), scenario)
+	require.NoError(t, err, "Failed to create scenario for SCEN-SH-005")
+	require.NotNil(t, createdScenario, "Created scenario should not be nil for SCEN-SH-005")
+	t.Cleanup(func() {
+		unimockClient.DeleteScenario(context.Background(), createdScenario.UUID)
+	})
+
+	// Steps:
+	// 1. Send a POST request to targetPath.
+	reqURL := unimockBaseURL + targetPath
+	reqBody := strings.NewReader(`{"action": "start"}`)
+	req, err := http.NewRequest(requestMethod, reqURL, reqBody)
+	require.NoError(t, err, "Failed to create POST request for SCEN-SH-005")
+	req.Header.Set("Content-Type", "application/json") // Request body type
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err, "Failed to execute POST request for SCEN-SH-005")
+	defer resp.Body.Close()
+
+	// Expected Result:
+	assert.Equal(t, expectedStatusCode, resp.StatusCode, "SCEN-SH-005: HTTP status code mismatch")
+	assert.Equal(t, expectedLocationHeader, resp.Header.Get("Location"), "SCEN-SH-005: Location header mismatch")
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "SCEN-SH-005: Failed to read response body")
+	assert.Equal(t, expectedData, string(bodyBytes), "SCEN-SH-005: Response body should be empty")
+
+	// Check Content-Type: if scenario specified empty, it might be omitted by server or a default might be set.
+	// For this test, if scenario.ContentType was "", an absent Content-Type header is ideal for 201/204.
+	// However, http.ResponseWriter might set a default if `Write()` is called, even with 0 bytes.
+	// If `HandleRequest` returns a body (even empty string) and ContentType in scenario is "", then handler sets CT. If scenario CT is empty and Data is empty string, it's possible no CT is set by `HandleRequest`'s resp.Header.
+	// `ServeHTTP` sets Content-Length if not set. It doesn't add CT if missing.
+	actualContentType := resp.Header.Get("Content-Type")
+	if expectedContentType == "" {
+		// Allow empty or a common default like "text/plain; charset=utf-8" which Go's HTTP server might add
+		assert.True(t, actualContentType == "" || strings.HasPrefix(actualContentType, "text/plain"),
+			"SCEN-SH-005: Content-Type should be empty or a default text/plain, got '%s'", actualContentType)
+	} else {
+		assert.Equal(t, expectedContentType, actualContentType, "SCEN-SH-005: Content-Type mismatch")
+	}
+}
