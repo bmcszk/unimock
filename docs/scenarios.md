@@ -49,7 +49,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - HTTP status code 201 Created.
     - Location header is present and points to `/test/collection/newItem`.
     - The resource `{"id": "newItem", "value": "new data"}` is stored and retrievable via GET `/test/collection/newItem`.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_002_PostCreateResource`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must handle standard HTTP methods (GET, POST, PUT, DELETE)"
 **Scenario ID:** SCEN-RH-003
