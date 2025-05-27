@@ -141,3 +141,89 @@ Each scenario should be described with enough detail to understand its purpose, 
 1. First request returns "Response A".
 2. Second request returns "Response B".
 **E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_009_PathBasedRouting`
+
+---
+
+### Section 11: Scenario Handling (Corresponds to "### 11. Scenario Handling" in `docs/requirements.md`)
+
+**Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling" -> "Scenarios must be matched by RequestPath in the mock handler."
+**Scenario ID:** SCEN-SH-001
+**Description:** Verify that a configured scenario is matched by its exact RequestPath.
+**Preconditions:**
+    - Unimock service is running.
+    - A scenario is configured with `RequestPath: "GET /custom/scenario/exact"`, `StatusCode: 200`, `ContentType: "application/json"`, `Data: "{\"message\": \"exact scenario matched\"}"`.
+    - No other mock resource or conflicting scenario exists for this exact path and method.
+**Steps:**
+1. Send a GET request to `/custom/scenario/exact`.
+**Expected Result:**
+    - HTTP status code 200 OK.
+    - Response body is `{"message": "exact scenario matched"}`.
+    - Content-Type header is `application/json`.
+**E2E Test Link/Reference:** TBD
+
+**Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling" -> "Scenarios must be matched by RequestPath in the mock handler."
+**Scenario ID:** SCEN-SH-002
+**Description:** Verify that a configured scenario with a wildcard in RequestPath is matched.
+**Preconditions:**
+    - Unimock service is running.
+    - A scenario is configured with `RequestPath: "POST /custom/scenario/*"`, `StatusCode: 201`, `ContentType: "text/plain"`, `Data: "wildcard scenario matched"`.
+    - No other mock resource or conflicting scenario exists for this path pattern and method.
+**Steps:**
+1. Send a POST request to `/custom/scenario/anything/here` with any body.
+**Expected Result:**
+    - HTTP status code 201 Created.
+    - Response body is `wildcard scenario matched`.
+    - Content-Type header is `text/plain`.
+**E2E Test Link/Reference:** TBD
+
+**Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling" -> "If a scenario is found by RequestPath, the mock handler must return the scenario details and skip all other mock handling logic."
+**Scenario ID:** SCEN-SH-003
+**Description:** Verify that if a scenario matches, normal mock resource handling for the same path is skipped.
+**Preconditions:**
+    - Unimock service is running.
+    - A scenario is configured with `RequestPath: "GET /override/path"`, `StatusCode: 299`, `ContentType: "application/xml"`, `Data: "<scenario>overridden</scenario>"`.
+    - A regular mock resource is also configured at `/override/path` (e.g., via POSTing to it, or static configuration) with different content, say `{"id": "original", "value": "this should be skipped"}` and Content-Type `application/json`.
+**Steps:**
+1. Send a GET request to `/override/path`.
+**Expected Result:**
+    - HTTP status code 299.
+    - Response body is `<scenario>overridden</scenario>`.
+    - Content-Type header is `application/xml`.
+    - The regular mock resource data is NOT returned.
+**E2E Test Link/Reference:** TBD
+
+**Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling" -> "Scenarios must be matched by RequestPath in the mock handler."
+**Scenario ID:** SCEN-SH-004
+**Description:** Verify that a scenario for a specific HTTP method (e.g. PUT) does not match for a different method (e.g. GET) on the same path.
+**Preconditions:**
+    - Unimock service is running.
+    - A scenario is configured with `RequestPath: "PUT /specific/method/test"`, `StatusCode: 200`, `ContentType: "application/json"`, `Data: "{\"message\": \"PUT scenario matched\"}"`.
+    - A regular mock resource exists at `/specific/method/test` configured via POST: `{"id": "regular", "data": "GET response"}` (Content-Type `application/json`).
+**Steps:**
+1. Send a PUT request to `/specific/method/test` with body `{"data": "update"}`.
+2. Send a GET request to `/specific/method/test`.
+**Expected Result:**
+1. For the PUT request:
+    - HTTP status code 200 OK.
+    - Response body is `{"message": "PUT scenario matched"}`.
+    - Content-Type header is `application/json`.
+2. For the GET request:
+    - HTTP status code 200 OK.
+    - Response body is `{"id": "regular", "data": "GET response"}`.
+    - Content-Type header is `application/json`.
+**E2E Test Link/Reference:** TBD
+
+**Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling"
+**Scenario ID:** SCEN-SH-005
+**Description:** Verify scenario matching with an empty data field and custom location header.
+**Preconditions:**
+    - Unimock service is running.
+    - A scenario is configured with `RequestPath: "POST /resource/creation"`, `StatusCode: 201`, `ContentType: "application/json"`, `Data: ""`, `Location: "/resource/creation/new-id-from-scenario"`.
+**Steps:**
+1. Send a POST request to `/resource/creation` with body `{"name": "test"}`.
+**Expected Result:**
+    - HTTP status code 201 Created.
+    - Response body is empty.
+    - Content-Type header is `application/json`.
+    - Location header is `/resource/creation/new-id-from-scenario`.
+**E2E Test Link/Reference:** TBD

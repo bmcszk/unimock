@@ -34,6 +34,8 @@ type ScenarioService interface {
 	UpdateScenario(ctx context.Context, uuid string, scenario *model.Scenario) error
 	// DeleteScenario removes a scenario
 	DeleteScenario(ctx context.Context, uuid string) error
+	// FindScenarioByRequestPath returns a scenario matching the given request path (e.g., "GET /foo")
+	FindScenarioByRequestPath(ctx context.Context, requestPath string) (*model.Scenario, error)
 }
 
 // TechService handles technical operations

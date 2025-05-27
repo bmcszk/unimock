@@ -187,6 +187,10 @@ Must handle:
 - Must handle timeout scenarios
 - Must handle rate limiting
 
+### 11. Scenario Handling
+- Scenarios must be matched by RequestPath in the mock handler.
+- If a scenario is found by RequestPath, the mock handler must return the scenario details and skip all other mock handling logic.
+
 ## Configuration Examples
 
 ### Path Patterns

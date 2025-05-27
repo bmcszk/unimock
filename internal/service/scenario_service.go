@@ -14,6 +14,7 @@ import (
 )
 
 // scenarioService implements the ScenarioService interface
+// The ScenarioService interface is defined in service.go
 type scenarioService struct {
 	storage storage.ScenarioStorage
 	// logger  *slog.Logger
@@ -26,6 +27,55 @@ func NewScenarioService(storage storage.ScenarioStorage) ScenarioService {
 		storage: storage,
 		// logger:  logger,
 	}
+}
+
+// FindScenarioByRequestPath returns a scenario matching the given request path (e.g., "GET /foo").
+func (s *scenarioService) FindScenarioByRequestPath(ctx context.Context, requestPath string) (*model.Scenario, error) {
+	scenarios := s.storage.List()
+
+	// Split the target requestPath into method and path
+	parts := strings.SplitN(requestPath, " ", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid requestPath format: %s", requestPath)
+	}
+	targetMethod := parts[0]
+	targetPath := parts[1]
+
+	for _, scenario := range scenarios {
+		// Split the stored scenario's RequestPath into method and path
+		scenarioParts := strings.SplitN(scenario.RequestPath, " ", 2)
+		if len(scenarioParts) != 2 {
+			// Skip invalid stored scenarios
+			continue
+		}
+		scenMethod := scenarioParts[0]
+		scenPath := scenarioParts[1]
+
+		// Match method first
+		if scenMethod != targetMethod {
+			continue
+		}
+
+		// Check for exact path match
+		if scenPath == targetPath {
+			return scenario, nil
+		}
+
+		// Check for wildcard path match (e.g., "GET /users/*" should match "GET /users/123")
+		if strings.HasSuffix(scenPath, "/*") {
+			basePath := strings.TrimSuffix(scenPath, "/*")
+			// Ensure basePath is not empty and targetPath starts with basePath + "/"
+			// or targetPath is exactly basePath (for patterns like "/foo/*" matching "/foo/")
+			if basePath != "" && (strings.HasPrefix(targetPath, basePath+"/") || targetPath == basePath) {
+				return scenario, nil
+			}
+			// Handle case for root wildcard like "GET /*"
+			if basePath == "" && scenPath == "/*" {
+				return scenario, nil
+			}
+		}
+	}
+	return nil, nil // No scenario found, no error
 }
 
 // GetScenarioByPath returns a scenario matching the given path and method
@@ -63,7 +113,7 @@ func (s *scenarioService) GetScenarioByPath(ctx context.Context, path string, me
 		if strings.HasSuffix(scenarioPath, "/*") {
 			basePath := strings.TrimSuffix(scenarioPath, "/*")
 			// s.logger.Debug("GetScenarioByPath: checking wildcard match", "index", i, "basePath", basePath, "targetPath", path)
-			if strings.HasPrefix(path, basePath+"/") {
+			if strings.HasPrefix(path, basePath+"/") || path == basePath { // Match /foo/* with /foo or /foo/bar
 				// s.logger.Debug("GetScenarioByPath: wildcard path match found", "index", i, "uuid", scenario.UUID)
 				return scenario
 			}

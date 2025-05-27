@@ -40,7 +40,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 	techService := service.NewTechService(time.Now())
 
 	// Create handlers
-	mockHandler := handler.NewMockHandler(mockService, logger, cfg)
+	mockHandler := handler.NewMockHandler(mockService, scenarioService, logger, cfg)
 	techHandler := handler.NewTechHandler(techService, logger)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 

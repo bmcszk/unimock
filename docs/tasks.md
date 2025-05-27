@@ -18,9 +18,15 @@ Each task should follow the format:
 
 ## Current Tasks
 
-[TASK-010] - In Progress - 2025-05-27 - Implement functionality for scenarios to modify default mock handler status code and response body
+[TASK-010] - Done - 2025-05-27 - Implement functionality for scenarios to modify default mock handler status code and response body
 [TASK-011] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SMB-001: Scenario overrides default status code and body
 [TASK-012] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SMB-002: Scenario overrides default response body, keeps status code
 [TASK-013] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SMB-003: Scenario overrides status code, default body used
 [TASK-014] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SMB-004: Scenario overrides body, default status code used
 [TASK-015] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SMB-005: Default behavior preserved when no relevant scenario is active
+[TASK-016] - ToDo - 2025-05-27 - Implement scenario matching logic in mock handler based on RequestPath.
+[TASK-017] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SH-001: Scenario matched by exact RequestPath.
+[TASK-018] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SH-002: Scenario with wildcard in RequestPath is matched.
+[TASK-019] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SH-003: Scenario match skips normal mock handling.
+[TASK-020] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SH-004: Scenario for specific HTTP method does not match other methods.
+[TASK-021] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SH-005: Scenario matching with empty data and custom location header.

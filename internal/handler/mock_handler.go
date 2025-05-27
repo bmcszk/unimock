@@ -19,17 +19,19 @@ import (
 
 // MockHandler represents our HTTP request handler
 type MockHandler struct {
-	service service.MockService
-	logger  *slog.Logger
-	mockCfg *config.MockConfig
+	service         service.MockService
+	scenarioService service.ScenarioService
+	logger          *slog.Logger
+	mockCfg         *config.MockConfig
 }
 
 // NewMockHandler creates a new instance of Handler
-func NewMockHandler(service service.MockService, logger *slog.Logger, cfg *config.MockConfig) *MockHandler {
+func NewMockHandler(service service.MockService, scenarioService service.ScenarioService, logger *slog.Logger, cfg *config.MockConfig) *MockHandler {
 	return &MockHandler{
-		service: service,
-		logger:  logger,
-		mockCfg: cfg,
+		service:         service,
+		scenarioService: scenarioService,
+		logger:          logger,
+		mockCfg:         cfg,
 	}
 }
 
@@ -178,6 +180,28 @@ func extractXMLIDs(body []byte, paths []string, seenIDs map[string]bool) ([]stri
 func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	// Normalize path by removing trailing slash
 	req.URL.Path = strings.TrimSuffix(req.URL.Path, "/")
+
+	// Check for matching scenario first
+	// Construct requestPath string (e.g., "GET /api/users")
+	requestPath := fmt.Sprintf("%s %s", req.Method, req.URL.Path)
+	if scenario, err := h.scenarioService.FindScenarioByRequestPath(ctx, requestPath); err == nil && scenario != nil {
+		h.logger.Info("scenario matched", "requestPath", requestPath, "scenarioUUID", scenario.UUID)
+		responseHeaders := http.Header{}
+		if scenario.ContentType != "" {
+			responseHeaders.Set("Content-Type", scenario.ContentType)
+		}
+		if scenario.Location != "" {
+			responseHeaders.Set("Location", scenario.Location)
+		}
+		return &http.Response{
+			StatusCode: scenario.StatusCode,
+			Header:     responseHeaders,
+			Body:       io.NopCloser(strings.NewReader(scenario.Data)),
+		}, nil
+	} else if err != nil {
+		// Log the error but continue with normal mock handling as scenario finding is optional
+		h.logger.Error("error finding scenario by request path", "requestPath", requestPath, "error", err)
+	}
 
 	// Find matching section
 	section, sectionName, err := h.getSectionForRequest(req.URL.Path)

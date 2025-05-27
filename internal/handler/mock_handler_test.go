@@ -20,6 +20,7 @@ import (
 func TestMockHandler_HandleRequest(t *testing.T) {
 	// Setup
 	store := storage.NewMockStorage()
+	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	cfg := &config.MockConfig{
 		Sections: map[string]config.Section{
@@ -33,7 +34,8 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 
 	// Create service and handler
 	mockService := service.NewMockService(store, cfg)
-	handler := NewMockHandler(mockService, logger, cfg)
+	scenarioService := service.NewScenarioService(scenarioStore)
+	handler := NewMockHandler(mockService, scenarioService, logger, cfg)
 
 	// Test data with mixed content types
 	testData := []*model.MockData{
@@ -185,7 +187,10 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 					cleanStore.Create(initialIds, data)
 				}
 				currentService := service.NewMockService(cleanStore, cfg) // cfg is from outer scope
-				handler = NewMockHandler(currentService, logger, cfg)     // re-assign handler to the one in the outer scope
+				// Create a new scenarioService for this specific test scope too, as handler is reassigned
+				currentScenarioStore := storage.NewScenarioStorage()
+				currentScenarioService := service.NewScenarioService(currentScenarioStore)
+				handler = NewMockHandler(currentService, currentScenarioService, logger, cfg) // re-assign handler to the one in the outer scope
 			}
 
 			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
@@ -242,9 +247,11 @@ func TestMockHandler_ExtractIDs(t *testing.T) {
 	}
 
 	store := storage.NewMockStorage()
+	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	mockService := service.NewMockService(store, cfg)
-	handler := NewMockHandler(mockService, logger, cfg)
+	scenarioService := service.NewScenarioService(scenarioStore)
+	handler := NewMockHandler(mockService, scenarioService, logger, cfg)
 	ctx := context.Background()
 
 	tests := []struct {
