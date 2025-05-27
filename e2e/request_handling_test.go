@@ -491,3 +491,62 @@ func TestSCEN_RH_010_WildcardPathMatching(t *testing.T) {
 	defer resp3.Body.Close()
 	assert.Equal(t, http.StatusNotFound, resp3.StatusCode, "Status code for non-matching path %s should be 404", nonMatchingPath)
 }
+
+// TestSCEN_SH_001_ExactPathScenarioMatch verifies SCEN-SH-001:
+// A configured scenario is matched by its exact RequestPath.
+func TestSCEN_SH_001_ExactPathScenarioMatch(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	unimockClient, err := client.NewClient(unimockBaseURL)
+	require.NoError(t, err, "Failed to create unimock client")
+
+	// - A scenario is configured with
+	//   RequestPath: "GET /custom/scenario/exact",
+	//   StatusCode:  200,
+	//   ContentType: "application/json",
+	//   Data:        "{\"message\": \"exact scenario matched\"}".
+	targetMethod := http.MethodGet
+	targetPath := "/custom/scenario/exact"
+	expectedStatusCode := http.StatusOK
+	expectedContentType := "application/json"
+	expectedBody := `{"message": "exact scenario matched"}`
+
+	scenario := &model.Scenario{
+		RequestPath: targetMethod + " " + targetPath,
+		StatusCode:  expectedStatusCode,
+		ContentType: expectedContentType,
+		Data:        expectedBody,
+	}
+
+	createdScenario, err := unimockClient.CreateScenario(context.Background(), scenario)
+	require.NoError(t, err, "Failed to create scenario SCEN-SH-001")
+	require.NotNil(t, createdScenario, "Created scenario SCEN-SH-001 should not be nil")
+	require.NotEmpty(t, createdScenario.UUID, "Created scenario SCEN-SH-001 UUID should not be empty")
+
+	t.Cleanup(func() {
+		errDel := unimockClient.DeleteScenario(context.Background(), createdScenario.UUID)
+		assert.NoError(t, errDel, "Failed to delete scenario %s", createdScenario.UUID)
+	})
+
+	// Steps:
+	// 1. Send a GET request to `/custom/scenario/exact`.
+	requestURL := unimockBaseURL + targetPath
+	req, err := http.NewRequest(targetMethod, requestURL, nil)
+	require.NoError(t, err, "Failed to create GET request for SCEN-SH-001")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err, "Failed to send GET request for SCEN-SH-001")
+	defer resp.Body.Close()
+
+	// Expected Result:
+	// - HTTP status code 200 OK.
+	assert.Equal(t, expectedStatusCode, resp.StatusCode, "SCEN-SH-001: HTTP status code mismatch")
+
+	// - Response body is `{\"message\": \"exact scenario matched\"}`.
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "SCEN-SH-001: Failed to read response body")
+	assert.JSONEq(t, expectedBody, string(bodyBytes), "SCEN-SH-001: Response body mismatch")
+
+	// - Content-Type header is `application/json`.
+	assert.Equal(t, expectedContentType, resp.Header.Get("Content-Type"), "SCEN-SH-001: Content-Type header mismatch")
+}
