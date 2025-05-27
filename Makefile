@@ -53,16 +53,16 @@ vet:
 	$(GOCMD) vet ./...
 
 lint:
-	golangci-lint run
+	golangci-lint run --build-tags=e2e
 
 check:
 	@echo "Running checks..."
 	@echo "Building..."
 	$(GOBUILD) ./...
 	@echo "Linting..."
-	golangci-lint run
+	golangci-lint run --build-tags=e2e
 	@echo "Running unit tests..."
-	$(GOTEST) $(TEST_FLAGS) ./...
+	$(MAKE) test-unit
 	@echo "Checks completed."
 
 # Kubernetes and deployment targets
