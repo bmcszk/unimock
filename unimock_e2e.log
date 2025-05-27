@@ -1,5 +1,61 @@
-{"time":"2025-05-27T20:05:32.977135721+02:00","level":"INFO","msg":"starting unimock server","port":"8080","config_path":"config.yaml","log_level":"info"}
-{"time":"2025-05-27T20:05:32.977432813+02:00","level":"INFO","msg":"initializing server","port":"8080","log_level":"info"}
-{"time":"2025-05-27T20:05:32.977456433+02:00","level":"INFO","msg":"server initialization complete, ready to start"}
-{"time":"2025-05-27T20:05:32.97751467+02:00","level":"INFO","msg":"server listening","address":":8080"}
-{"time":"2025-05-27T20:05:32.982757665+02:00","level":"INFO","msg":"technical endpoint request","method":"GET","path":"/_uni/health"}
+{"time":"2025-05-27T20:06:36.714362292+02:00","level":"INFO","msg":"starting unimock server","port":"8080","config_path":"config.yaml","log_level":"info"}
+{"time":"2025-05-27T20:06:36.714702794+02:00","level":"INFO","msg":"initializing server","port":"8080","log_level":"info"}
+{"time":"2025-05-27T20:06:36.714739719+02:00","level":"INFO","msg":"server initialization complete, ready to start"}
+{"time":"2025-05-27T20:06:36.714795427+02:00","level":"INFO","msg":"server listening","address":":8080"}
+{"time":"2025-05-27T20:06:36.722575673+02:00","level":"INFO","msg":"technical endpoint request","method":"GET","path":"/_uni/health"}
+{"time":"2025-05-27T20:06:37.476946355+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.477759237+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/test/resource/item123","uuid":"abd6f5dd-f483-4331-b91a-cf1da1902f31"}
+{"time":"2025-05-27T20:06:37.478149976+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/abd6f5dd-f483-4331-b91a-cf1da1902f31"}
+{"time":"2025-05-27T20:06:37.478628682+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.479160643+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.479655128+02:00","level":"INFO","msg":"found matching scenario","method":"POST","path":"/test/collection","uuid":"a6a2bd44-4b20-49e0-826a-69071962f31d"}
+{"time":"2025-05-27T20:06:37.480618662+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/test/collection/newItem","uuid":"1f2ceac2-319c-46ac-9eb5-e694285f3c7e"}
+{"time":"2025-05-27T20:06:37.48131264+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/1f2ceac2-319c-46ac-9eb5-e694285f3c7e"}
+{"time":"2025-05-27T20:06:37.481648755+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/a6a2bd44-4b20-49e0-826a-69071962f31d"}
+{"time":"2025-05-27T20:06:37.482270074+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.482835624+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.48328544+02:00","level":"INFO","msg":"found matching scenario","method":"PUT","path":"/test/resource/itemToUpdate","uuid":"590f7c0e-6dea-4cdd-a31e-c560a5ffd1fa"}
+{"time":"2025-05-27T20:06:37.483593831+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/test/resource/itemToUpdate","uuid":"5a29a6f3-2a91-4c27-b490-47e2ae4b55f3"}
+{"time":"2025-05-27T20:06:37.483988298+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/5a29a6f3-2a91-4c27-b490-47e2ae4b55f3"}
+{"time":"2025-05-27T20:06:37.484228528+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/590f7c0e-6dea-4cdd-a31e-c560a5ffd1fa"}
+{"time":"2025-05-27T20:06:37.48468484+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.485082004+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.485419147+02:00","level":"INFO","msg":"found matching scenario","method":"DELETE","path":"/test/resource/itemToDelete","uuid":"9e8255c4-752b-4dd2-82b3-b7c3e4d36876"}
+{"time":"2025-05-27T20:06:37.48563768+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/test/resource/itemToDelete","uuid":"36f6fe9a-c35b-46de-bfaf-909194d027c7"}
+{"time":"2025-05-27T20:06:37.486447738+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/36f6fe9a-c35b-46de-bfaf-909194d027c7"}
+{"time":"2025-05-27T20:06:37.486745479+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/9e8255c4-752b-4dd2-82b3-b7c3e4d36876"}
+{"time":"2025-05-27T20:06:37.487321718+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.487892942+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/mocks/specific-mock-id","uuid":"fde5b68c-63e0-4203-91d2-11170587a903"}
+{"time":"2025-05-27T20:06:37.488914975+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/fde5b68c-63e0-4203-91d2-11170587a903"}
+{"time":"2025-05-27T20:06:37.489756975+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.490264393+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/mocks","uuid":"f07065ce-95df-4709-920e-902d9a228548"}
+{"time":"2025-05-27T20:06:37.4908699+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/f07065ce-95df-4709-920e-902d9a228548"}
+{"time":"2025-05-27T20:06:37.491406088+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.491436881+02:00","level":"ERROR","msg":"invalid content type for scenario creation","content_type":"application/xml"}
+{"time":"2025-05-27T20:06:37.492623355+02:00","level":"WARN","msg":"no matching section found for path in router","path":"/test/non_existent_resource/random123"}
+{"time":"2025-05-27T20:06:37.493767433+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.494382149+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.494957445+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/test/routing/pathA","uuid":"60304da4-0c65-4ddd-8679-73121dc9c9c8"}
+{"time":"2025-05-27T20:06:37.495377698+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/test/routing/pathB","uuid":"ede7bb76-b6d8-4213-b268-e159ae3800ea"}
+{"time":"2025-05-27T20:06:37.495773448+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/ede7bb76-b6d8-4213-b268-e159ae3800ea"}
+{"time":"2025-05-27T20:06:37.496087258+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/60304da4-0c65-4ddd-8679-73121dc9c9c8"}
+{"time":"2025-05-27T20:06:37.496559321+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.496991682+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/users/user123/profile","uuid":"c5b63734-0a33-4b39-9312-866b2806f125"}
+{"time":"2025-05-27T20:06:37.497336179+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/users/anotherUser/settings","uuid":"c5b63734-0a33-4b39-9312-866b2806f125"}
+{"time":"2025-05-27T20:06:37.49772136+02:00","level":"WARN","msg":"no matching section found for path in router","path":"/customers/data"}
+{"time":"2025-05-27T20:06:37.498704685+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/c5b63734-0a33-4b39-9312-866b2806f125"}
+{"time":"2025-05-27T20:06:37.499239585+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.499693902+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/custom/scenario/exact","uuid":"b7c67e40-7e96-459c-8c26-2270704362a3"}
+{"time":"2025-05-27T20:06:37.500094666+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/b7c67e40-7e96-459c-8c26-2270704362a3"}
+{"time":"2025-05-27T20:06:37.500693787+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.501302225+02:00","level":"INFO","msg":"found matching scenario","method":"POST","path":"/custom/scenario/anything/here","uuid":"b6398957-da78-40bc-bfe4-751c041207ab"}
+{"time":"2025-05-27T20:06:37.501775453+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/b6398957-da78-40bc-bfe4-751c041207ab"}
+{"time":"2025-05-27T20:06:37.502401295+02:00","level":"ERROR","msg":"error finding scenario by request path","requestPath":"PUT /api/users/override-put-id-e2e-003","error":"resource with ID scenario_config not found"}
+{"time":"2025-05-27T20:06:37.503485217+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.504058884+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/api/users/override-put-id-e2e-003","uuid":"fa220b09-3d1f-46c0-adb3-a671c3f145db"}
+{"time":"2025-05-27T20:06:37.504542716+02:00","level":"ERROR","msg":"error finding scenario by request path","requestPath":"DELETE /api/users/override-put-id-e2e-003","error":"resource with ID scenario_match not found"}
+{"time":"2025-05-27T20:06:37.504991758+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/fa220b09-3d1f-46c0-adb3-a671c3f145db"}
+{"time":"2025-05-27T20:06:37.505747394+02:00","level":"INFO","msg":"scenario endpoint request","method":"POST","path":"/_uni/scenarios"}
+{"time":"2025-05-27T20:06:37.506245009+02:00","level":"INFO","msg":"found matching scenario","method":"GET","path":"/api/test/method-specific","uuid":"de171aa6-2bec-4c1f-a61f-bbba58996dd0"}
+{"time":"2025-05-27T20:06:37.506584804+02:00","level":"WARN","msg":"no matching section found for path in router","path":"/api/test/method-specific"}
+{"time":"2025-05-27T20:06:37.507612252+02:00","level":"INFO","msg":"scenario endpoint request","method":"DELETE","path":"/_uni/scenarios/de171aa6-2bec-4c1f-a61f-bbba58996dd0"}

@@ -703,4 +703,69 @@ func TestSCEN_SH_003_ScenarioSkipsMockHandling(t *testing.T) {
 }
 
 // TestSCEN_SH_004_ScenarioMethodMismatch verifies SCEN-SH-004:
+// A scenario for a specific HTTP method does not match requests with other methods on the same path.
+func TestSCEN_SH_004_ScenarioMethodMismatch(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	unimockClient, err := client.NewClient(unimockBaseURL)
+	require.NoError(t, err, "Failed to create unimock client")
+
+	targetPath := "/api/test/method-specific" // Using /api/... to match config.yaml sections if needed
+	getMethod := http.MethodGet
+	postMethod := http.MethodPost
+
+	// - A scenario is configured for GET /api/test/method-specific
+	getScenarioData := "GET scenario response for SCEN-SH-004"
+	getScenarioStatusCode := http.StatusOK
+	getScenarioContentType := "text/plain"
+
+	getScenario := &model.Scenario{
+		RequestPath: fmt.Sprintf("%s %s", getMethod, targetPath),
+		StatusCode:  getScenarioStatusCode,
+		ContentType: getScenarioContentType,
+		Data:        getScenarioData,
+	}
+	createdGetScenario, err := unimockClient.CreateScenario(context.Background(), getScenario)
+	require.NoError(t, err, "Failed to create GET scenario for SCEN-SH-004")
+	require.NotNil(t, createdGetScenario, "Created GET scenario should not be nil for SCEN-SH-004")
+	t.Cleanup(func() {
+		unimockClient.DeleteScenario(context.Background(), createdGetScenario.UUID)
+	})
+
+	// Steps:
+	// 1. Send a GET request to targetPath.
+	getReqURL := unimockBaseURL + targetPath
+	getReq, err := http.NewRequest(getMethod, getReqURL, nil)
+	require.NoError(t, err, "Failed to create GET request for SCEN-SH-004")
+	getResp, err := http.DefaultClient.Do(getReq)
+	require.NoError(t, err, "Failed to execute GET request for SCEN-SH-004")
+	defer getResp.Body.Close()
+
+	// Expected Result for GET:
+	assert.Equal(t, getScenarioStatusCode, getResp.StatusCode, "SCEN-SH-004 GET: HTTP status code mismatch")
+	bodyBytesGet, err := io.ReadAll(getResp.Body)
+	require.NoError(t, err, "SCEN-SH-004 GET: Failed to read response body")
+	assert.Equal(t, getScenarioData, string(bodyBytesGet), "SCEN-SH-004 GET: Response body mismatch")
+	assert.Equal(t, getScenarioContentType, getResp.Header.Get("Content-Type"), "SCEN-SH-004 GET: Content-Type mismatch")
+
+	// 2. Send a POST request to targetPath.
+	postReqURL := unimockBaseURL + targetPath
+	postBody := strings.NewReader(`{"data": "some post data"}`)
+	postReq, err := http.NewRequest(postMethod, postReqURL, postBody)
+	require.NoError(t, err, "Failed to create POST request for SCEN-SH-004")
+	postReq.Header.Set("Content-Type", "application/json")
+
+	postResp, err := http.DefaultClient.Do(postReq)
+	require.NoError(t, err, "Failed to execute POST request for SCEN-SH-004")
+	defer postResp.Body.Close()
+
+	// Expected Result for POST:
+	// Should be 404 Not Found or 405 Method Not Allowed as no scenario/mock for POST exists.
+	// The mock handler typically returns 404 if no section matches or if the method isn't handled by a matched section's logic.
+	// It returns 405 if a section matches but the specific method has no implementation (default case in switch).
+	// Given that /api/test/method-specific likely won't match a section in config.yaml, a 404 from the router or early in HandleRequest is expected.
+	assert.Equal(t, http.StatusNotFound, postResp.StatusCode, "SCEN-SH-004 POST: Expected 404 Not Found as no POST scenario/mock exists")
+}
+
+// TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation verifies SCEN-SH-005:
 // ... existing code ...

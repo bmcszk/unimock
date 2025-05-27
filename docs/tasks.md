@@ -28,5 +28,5 @@ Each task should follow the format:
 [TASK-017] - Done - 2025-05-27 - Implement E2E test for SCEN-SH-001: Scenario matched by exact RequestPath.
 [TASK-018] - Done - 2025-05-27 - Implement E2E test for SCEN-SH-002: Scenario with wildcard in RequestPath is matched.
 [TASK-019] - Done - 2025-05-27 - Implement E2E test for SCEN-SH-003: Scenario match skips normal mock handling.
-[TASK-020] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SH-004: Scenario for specific HTTP method does not match other methods.
+[TASK-020] - Done - 2025-05-27 - Implement E2E test for SCEN-SH-004: Scenario for specific HTTP method does not match other methods.
 [TASK-021] - ToDo - 2025-05-27 - Implement E2E test for SCEN-SH-005: Scenario matching with empty data and custom location header.
