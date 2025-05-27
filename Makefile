@@ -60,7 +60,7 @@ check:
 	@echo "Building..."
 	$(GOBUILD) ./...
 	@echo "Linting..."
-	golangci-lint run --build-tags=e2e
+	$(MAKE) lint
 	@echo "Running unit tests..."
 	$(MAKE) test-unit
 	@echo "Checks completed."
