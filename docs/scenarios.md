@@ -76,7 +76,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Expected Result:**
     - HTTP status code 200 OK or 204 No Content.
     - Subsequent GET request to `/test/resource/itemToDelete` returns 404 Not Found.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_004_DeleteResource`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must support both individual resource and collection endpoints"
 **Scenario ID:** SCEN-RH-005

@@ -138,3 +138,39 @@ func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 
 	assert.Equal(t, "application/json", getResp.Header.Get("Content-Type"), "GET after PUT: Content-Type header does not match")
 }
+
+// TestSCEN_RH_004_DeleteResource verifies SCEN-RH-004:
+// Successful processing of a DELETE request for an existing individual resource.
+func TestSCEN_RH_004_DeleteResource(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	// - A mock resource exists at `/test/resource/itemToDelete`.
+	//   (This might require a setup step to create/ensure this resource exists before the DELETE)
+
+	resourceID := "itemToDelete"
+	resourceURL := unimockBaseURL + "/test/resource/" + resourceID
+
+	// Step 1: Send a DELETE request to `/test/resource/itemToDelete`.
+	client := &http.Client{}
+	delReq, err := http.NewRequest(http.MethodDelete, resourceURL, nil)
+	require.NoError(t, err, "Failed to create DELETE request")
+
+	delResp, err := client.Do(delReq)
+	require.NoError(t, err, "Failed to send DELETE request")
+	defer delResp.Body.Close()
+
+	// Expected Result (DELETE):
+	// - HTTP status code 200 OK or 204 No Content.
+	// We will accept either. Other responses are a failure.
+	assert.True(t, delResp.StatusCode == http.StatusOK || delResp.StatusCode == http.StatusNoContent,
+		"HTTP status code should be 200 OK or 204 No Content for DELETE, got %d", delResp.StatusCode)
+
+	// Verify resource deletion by sending a GET request
+	getResp, err := http.Get(resourceURL)
+	require.NoError(t, err, "Failed to send GET request to verify resource deletion")
+	defer getResp.Body.Close()
+
+	// Expected Result (GET after DELETE):
+	// - Subsequent GET request to `/test/resource/itemToDelete` returns 404 Not Found.
+	assert.Equal(t, http.StatusNotFound, getResp.StatusCode, "GET after DELETE: HTTP status code should be 404 Not Found")
+}
