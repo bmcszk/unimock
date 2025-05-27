@@ -35,12 +35,14 @@ test-unit:
 	$(GOTEST) $(TEST_FLAGS) ./...
 
 test-e2e: build
+	@echo "Stopping any existing $(BINARY_NAME) process..."
+	killall $(BINARY_NAME) || true
 	@echo "Starting application for E2E tests..."
 	./$(BINARY_NAME) > unimock_e2e.log 2>&1 & \
-	APP_PID=$$! ; \
+	APP_PID=$! ; \
 	echo "Application starting with PID $$APP_PID. Logs in unimock_e2e.log" ; \
 	# Ensure the application is stopped and logs are removed on exit, interrupt, or error
-	trap "echo 'Stopping application (PID $$APP_PID)...'; kill $$APP_PID 2>/dev/null || true; echo 'Application stopped.' ; rm -f unimock_e2e.log; exit $$LAST_EXIT_CODE" EXIT INT TERM ; \
+	trap "echo 'Stopping application (PID $$APP_PID)...'; kill $$APP_PID 2>/dev/null || true; echo 'Application stopped.' ; exit $$LAST_EXIT_CODE" EXIT INT TERM ; \
 	LAST_EXIT_CODE=0; \
 	( \
 	    echo "Waiting for application to become healthy at $(HEALTH_CHECK_URL)..." ; \

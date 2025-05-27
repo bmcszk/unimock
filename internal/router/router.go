@@ -49,6 +49,9 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		// Set the status code and content type from the scenario
 		w.Header().Set("Content-Type", scenario.ContentType)
+		if scenario.Location != "" {
+			w.Header().Set("Location", scenario.Location)
+		}
 		w.WriteHeader(scenario.StatusCode)
 
 		// Write the response body from the scenario
@@ -80,7 +83,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		if section == nil {
 			r.logger.Warn("no matching section found for path in router", "path", requestPath)
-			http.Error(w, "no matching section found for path", http.StatusBadRequest)
+			http.Error(w, "Not Found: No matching mock configuration or active scenario for path", http.StatusNotFound)
 			return
 		}
 	} else {

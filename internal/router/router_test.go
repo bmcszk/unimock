@@ -112,8 +112,8 @@ func TestRouter_ServeHTTP(t *testing.T) {
 			name:             "regular API endpoint",
 			method:           http.MethodGet,
 			path:             "/api/other",
-			wantStatusCode:   http.StatusBadRequest,
-			wantBodyContains: "no matching section found for path",
+			wantStatusCode:   http.StatusNotFound,
+			wantBodyContains: "Not Found: No matching mock configuration or active scenario for path",
 		},
 	}
 
