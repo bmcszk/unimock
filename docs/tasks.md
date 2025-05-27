@@ -18,7 +18,7 @@ Each task should follow the format:
 
 ## Current Tasks
 
-[TASK-001] - In Progress - 2025-05-27 - Implement E2E test for SCEN-RH-001: GET request for existing resource
+[TASK-001] - Done - 2025-05-27 - Implement E2E test for SCEN-RH-001: GET request for existing resource
 [TASK-002] - ToDo - 2025-05-27 - Implement E2E test for SCEN-RH-002: POST request to create new resource
 [TASK-003] - ToDo - 2025-05-27 - Implement E2E test for SCEN-RH-003: PUT request to update existing resource
 [TASK-004] - ToDo - 2025-05-27 - Implement E2E test for SCEN-RH-004: DELETE request for existing resource

@@ -22,6 +22,12 @@ all: test build
 test:
 	$(GOTEST) $(TEST_FLAGS) ./...
 
+test-unit:
+	$(GOTEST) $(TEST_FLAGS) -tags=unit ./...
+
+test-e2e:
+	$(GOTEST) $(TEST_FLAGS) -tags=e2e ./...
+
 test-short:
 	$(GOTEST) -short ./...
 
@@ -78,6 +84,8 @@ help:
 	@echo "Available targets:"
 	@echo "  all        - Run tests and build"
 	@echo "  test       - Run all tests with race detection and coverage"
+	@echo "  test-unit  - Run unit tests"
+	@echo "  test-e2e   - Run end-to-end tests"
 	@echo "  test-short - Run only short tests"
 	@echo "  build      - Build the application"
 	@echo "  clean      - Remove build artifacts"

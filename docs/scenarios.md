@@ -35,7 +35,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - HTTP status code 200 OK.
     - Response body is `{"id": "item123", "data": "sample data"}`.
     - Content-Type header is `application/json`.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_001_GetExistingResource`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must handle standard HTTP methods (GET, POST, PUT, DELETE)"
 **Scenario ID:** SCEN-RH-002
