@@ -17,6 +17,10 @@ K8S_CLUSTER_NAME=unimock
 # Test parameters
 TEST_FLAGS=-v -race -cover
 
+# Health check parameters for E2E tests
+HEALTH_CHECK_URL=http://localhost:8080/_uni/health
+MAX_WAIT_SECONDS=10
+
 SHELL := /bin/bash -e -o pipefail
 
 all: build
@@ -30,9 +34,41 @@ test-unit:
 	@echo "Running unit tests..."
 	$(GOTEST) $(TEST_FLAGS) ./...
 
-test-e2e:
-	@echo "Running E2E tests..."
-	$(GOTEST) $(TEST_FLAGS) -tags=e2e ./e2e/...
+test-e2e: build
+	@echo "Starting application for E2E tests..."
+	./$(BINARY_NAME) > unimock_e2e.log 2>&1 & \
+	APP_PID=$$! ; \
+	echo "Application starting with PID $$APP_PID. Logs in unimock_e2e.log" ; \
+	# Ensure the application is stopped and logs are removed on exit, interrupt, or error
+	trap "echo 'Stopping application (PID $$APP_PID)...'; kill $$APP_PID 2>/dev/null || true; echo 'Application stopped.' ; rm -f unimock_e2e.log; exit $$LAST_EXIT_CODE" EXIT INT TERM ; \
+	LAST_EXIT_CODE=0; \
+	( \
+	    echo "Waiting for application to become healthy at $(HEALTH_CHECK_URL)..." ; \
+	    COUNT=0; \
+	    SUCCESS=false; \
+	    while [ $$COUNT -lt $(MAX_WAIT_SECONDS) ]; do \
+	        if curl -sf $(HEALTH_CHECK_URL) > /dev/null; then \
+	            SUCCESS=true; \
+	            break; \
+	        fi; \
+	        echo "Still waiting... ($$((COUNT+1))/$(MAX_WAIT_SECONDS))"; \
+	        sleep 1; \
+	        COUNT=$$((COUNT + 1)); \
+	    done; \
+	    if [ "$$SUCCESS" = "false" ]; then \
+	        echo "Application failed to start and become healthy after $(MAX_WAIT_SECONDS) seconds." ; \
+	        echo "--- Application Log (unimock_e2e.log) --- " ; \
+	        cat unimock_e2e.log ; \
+	        echo "--- End Application Log --- " ; \
+	        LAST_EXIT_CODE=1; exit 1; \
+	    fi; \
+	    echo "Application is healthy." ; \
+	    \
+	    echo "Running E2E tests..." ; \
+	    $(GOTEST) $(TEST_FLAGS) -tags=e2e ./e2e/... ; \
+	    LAST_EXIT_CODE=$$? ; \
+	) || LAST_EXIT_CODE=$$? ; \
+	exit $$LAST_EXIT_CODE
 
 test-short:
 	$(GOTEST) -short ./...
