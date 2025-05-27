@@ -268,3 +268,23 @@ func TestSCEN_RH_007_PostInvalidContentType(t *testing.T) {
 	// - Service returns an HTTP 415 Unsupported Media Type status code.
 	assert.Equal(t, http.StatusUnsupportedMediaType, resp.StatusCode, "HTTP status code should be 415 for unsupported Content-Type")
 }
+
+// TestSCEN_RH_008_GetNonExistentResource verifies SCEN-RH-008:
+// GET request for a non-existent individual resource returns 404.
+func TestSCEN_RH_008_GetNonExistentResource(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	// - No resource is configured at `/nonexistent/item`.
+
+	targetURL := unimockBaseURL + "/nonexistent/item"
+
+	// Steps:
+	// 1. Send a GET request to `/nonexistent/item`.
+	resp, err := http.Get(targetURL)
+	require.NoError(t, err, "Failed to send GET request to non-existent resource")
+	defer resp.Body.Close()
+
+	// Expected Result:
+	// - Service returns HTTP 404 Not Found.
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "HTTP status code should be 404 for non-existent resource")
+}

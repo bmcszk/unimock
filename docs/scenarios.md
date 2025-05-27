@@ -125,7 +125,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 1. Send a GET request to `/nonexistent/item`.
 **Expected Result:**
     - Service returns HTTP 404 Not Found.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_008_GetNonExistentResource`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must support path-based routing"
 **Scenario ID:** SCEN-RH-009
