@@ -246,3 +246,25 @@ func TestSCEN_RH_006_GetCollectionEndpoint(t *testing.T) {
 	// - Content-Type header is `application/json` (assuming, as it's a JSON array).
 	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"), "Content-Type for collection GET should be application/json")
 }
+
+// TestSCEN_RH_007_PostInvalidContentType verifies SCEN-RH-007:
+// Service rejects a POST request with an unsupported or invalid Content-Type header.
+func TestSCEN_RH_007_PostInvalidContentType(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	// - A specific endpoint `/restricted_post` is configured to only accept `application/json` for POST requests.
+	//   (This configuration needs to be part of the Unimock setup for this test to be meaningful)
+
+	targetURL := unimockBaseURL + "/restricted_post"
+	xmlBody := `<payload><data>test</data></payload>`
+
+	// Steps:
+	// 1. Send a POST request to `/restricted_post` with Content-Type `application/xml`.
+	resp, err := http.Post(targetURL, "application/xml", strings.NewReader(xmlBody))
+	require.NoError(t, err, "Failed to send POST request with invalid Content-Type")
+	defer resp.Body.Close()
+
+	// Expected Result:
+	// - Service returns an HTTP 415 Unsupported Media Type status code.
+	assert.Equal(t, http.StatusUnsupportedMediaType, resp.StatusCode, "HTTP status code should be 415 for unsupported Content-Type")
+}

@@ -113,7 +113,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 1. Send a POST request to `/restricted_post` with Content-Type `application/xml` and some XML body.
 **Expected Result:**
     - Service returns an HTTP 415 Unsupported Media Type status code (or 400 Bad Request if that's the chosen behavior for invalid content type).
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_007_PostInvalidContentType`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must handle non-existent resources appropriately"
 **Scenario ID:** SCEN-RH-008
