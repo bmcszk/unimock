@@ -17,10 +17,14 @@ K8S_CLUSTER_NAME=unimock
 # Test parameters
 TEST_FLAGS=-v -race -cover
 
+SHELL := /bin/bash -e -o pipefail
+
 all: build
 
 test:
-	$(GOTEST) $(TEST_FLAGS) ./...
+	@echo "Running all tests (unit and E2E)..."
+	make test-unit
+	make test-e2e
 
 test-unit:
 	@echo "Running unit tests..."
@@ -60,9 +64,9 @@ check:
 	@echo "Building..."
 	$(GOBUILD) ./...
 	@echo "Linting..."
-	$(MAKE) lint
+	make lint
 	@echo "Running unit tests..."
-	$(MAKE) test-unit
+	make test-unit
 	@echo "Checks completed."
 
 # Kubernetes and deployment targets
