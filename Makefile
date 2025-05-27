@@ -1,4 +1,4 @@
-.PHONY: test build clean run helm-lint tilt-run kind-start kind-stop k8s-setup
+.PHONY: test build clean run helm-lint tilt-run kind-start kind-stop k8s-setup check
 
 # Go parameters
 GOCMD=go
@@ -47,6 +47,16 @@ vet:
 lint:
 	golangci-lint run
 
+check:
+	@echo "Running checks..."
+	@echo "Building..."
+	$(GOBUILD) ./...
+	@echo "Linting..."
+	golangci-lint run
+	@echo "Running unit tests..."
+	$(GOTEST) $(TEST_FLAGS) ./...
+	@echo "Checks completed."
+
 # Kubernetes and deployment targets
 kind-start:
 	kind create cluster --name $(K8S_CLUSTER_NAME) || echo "Cluster already exists"
@@ -80,4 +90,5 @@ help:
 	@echo "  kind-stop  - Delete the Kind Kubernetes cluster"
 	@echo "  helm-lint  - Lint the Helm chart"
 	@echo "  tilt-run   - Start Tilt for local development"
-	@echo "  k8s-setup  - Deploy to Kubernetes using Helm" 
+	@echo "  k8s-setup  - Deploy to Kubernetes using Helm"
+	@echo "  check      - Run all checks" 
