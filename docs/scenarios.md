@@ -140,4 +140,4 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Expected Result:**
 1. First request returns "Response A".
 2. Second request returns "Response B".
-**E2E Test Link/Reference:** TBD 
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_009_PathBasedRouting`

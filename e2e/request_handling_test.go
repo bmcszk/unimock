@@ -288,3 +288,44 @@ func TestSCEN_RH_008_GetNonExistentResource(t *testing.T) {
 	// - Service returns HTTP 404 Not Found.
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "HTTP status code should be 404 for non-existent resource")
 }
+
+// TestSCEN_RH_009_PathBasedRouting verifies SCEN-RH-009:
+// Requests to different paths are routed to different mock configurations.
+func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	// - Mock resource A is configured at `/path/A` returning plain text "Response A".
+	// - Mock resource B is configured at `/path/B` returning plain text "Response B".
+
+	targetURL_A := unimockBaseURL + "/path/A"
+	expectedBody_A := "Response A"
+	expectedContentType_A := "text/plain" // Assuming plain text for simplicity
+
+	targetURL_B := unimockBaseURL + "/path/B"
+	expectedBody_B := "Response B"
+	expectedContentType_B := "text/plain"
+
+	// Step 1: Send a GET request to `/path/A`.
+	respA, errA := http.Get(targetURL_A)
+	require.NoError(t, errA, "Failed to send GET request to /path/A")
+	defer respA.Body.Close()
+
+	// Expected Result for /path/A:
+	assert.Equal(t, http.StatusOK, respA.StatusCode, "/path/A: HTTP status code should be 200 OK")
+	bodyBytesA, errReadA := io.ReadAll(respA.Body)
+	require.NoError(t, errReadA, "/path/A: Failed to read response body")
+	assert.Equal(t, expectedBody_A, string(bodyBytesA), "/path/A: Response body does not match")
+	assert.Equal(t, expectedContentType_A, respA.Header.Get("Content-Type"), "/path/A: Content-Type does not match")
+
+	// Step 2: Send a GET request to `/path/B`.
+	respB, errB := http.Get(targetURL_B)
+	require.NoError(t, errB, "Failed to send GET request to /path/B")
+	defer respB.Body.Close()
+
+	// Expected Result for /path/B:
+	assert.Equal(t, http.StatusOK, respB.StatusCode, "/path/B: HTTP status code should be 200 OK")
+	bodyBytesB, errReadB := io.ReadAll(respB.Body)
+	require.NoError(t, errReadB, "/path/B: Failed to read response body")
+	assert.Equal(t, expectedBody_B, string(bodyBytesB), "/path/B: Response body does not match")
+	assert.Equal(t, expectedContentType_B, respB.Header.Get("Content-Type"), "/path/B: Content-Type does not match")
+}
