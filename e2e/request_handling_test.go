@@ -550,3 +550,65 @@ func TestSCEN_SH_001_ExactPathScenarioMatch(t *testing.T) {
 	// - Content-Type header is `application/json`.
 	assert.Equal(t, expectedContentType, resp.Header.Get("Content-Type"), "SCEN-SH-001: Content-Type header mismatch")
 }
+
+// TestSCEN_SH_002_WildcardPathScenarioMatch verifies SCEN-SH-002:
+// A configured scenario with a wildcard in RequestPath is matched.
+func TestSCEN_SH_002_WildcardPathScenarioMatch(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	unimockClient, err := client.NewClient(unimockBaseURL)
+	require.NoError(t, err, "Failed to create unimock client")
+
+	// - A scenario is configured with
+	//   RequestPath: "POST /custom/scenario/*",
+	//   StatusCode:  201,
+	//   ContentType: "text/plain",
+	//   Data:        "wildcard scenario matched".
+	scenarioMethod := http.MethodPost
+	scenarioPathPattern := "/custom/scenario/*"
+	requestPathToMatch := "/custom/scenario/anything/here" // This path should be matched by the wildcard
+	expectedStatusCode := http.StatusCreated
+	expectedContentType := "text/plain"
+	expectedBody := "wildcard scenario matched"
+
+	scenario := &model.Scenario{
+		RequestPath: scenarioMethod + " " + scenarioPathPattern,
+		StatusCode:  expectedStatusCode,
+		ContentType: expectedContentType,
+		Data:        expectedBody,
+	}
+
+	createdScenario, err := unimockClient.CreateScenario(context.Background(), scenario)
+	require.NoError(t, err, "Failed to create scenario SCEN-SH-002")
+	require.NotNil(t, createdScenario, "Created scenario SCEN-SH-002 should not be nil")
+	require.NotEmpty(t, createdScenario.UUID, "Created scenario SCEN-SH-002 UUID should not be empty")
+
+	t.Cleanup(func() {
+		errDel := unimockClient.DeleteScenario(context.Background(), createdScenario.UUID)
+		assert.NoError(t, errDel, "Failed to delete scenario %s", createdScenario.UUID)
+	})
+
+	// Steps:
+	// 1. Send a POST request to `/custom/scenario/anything/here` with any body.
+	requestURL := unimockBaseURL + requestPathToMatch
+	postBody := strings.NewReader(`{"some_key": "some_value"}`)
+	req, err := http.NewRequest(scenarioMethod, requestURL, postBody)
+	require.NoError(t, err, "Failed to create POST request for SCEN-SH-002")
+	req.Header.Set("Content-Type", "application/json") // Body content type, not expected response content type
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err, "Failed to send POST request for SCEN-SH-002")
+	defer resp.Body.Close()
+
+	// Expected Result:
+	// - HTTP status code 201 Created.
+	assert.Equal(t, expectedStatusCode, resp.StatusCode, "SCEN-SH-002: HTTP status code mismatch")
+
+	// - Response body is `wildcard scenario matched`.
+	bodyBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "SCEN-SH-002: Failed to read response body")
+	assert.Equal(t, expectedBody, string(bodyBytes), "SCEN-SH-002: Response body mismatch")
+
+	// - Content-Type header is `text/plain`.
+	assert.Equal(t, expectedContentType, resp.Header.Get("Content-Type"), "SCEN-SH-002: Content-Type header mismatch")
+}
