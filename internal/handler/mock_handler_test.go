@@ -145,8 +145,8 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			path:           "/users/unique-non-existent-id-9999",
 			contentType:    "application/json",
 			body:           `{"id": "unique-non-existent-id-9999", "name": "new"}`,
-			expectedStatus: http.StatusNotFound,
-			expectedBody:   "resource not found",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"id": "unique-non-existent-id-9999", "name": "new"}`,
 		},
 		{
 			name:           "DELETE existing resource",

@@ -8,6 +8,7 @@ import (
 	// "os"
 	"strings"
 
+	"github.com/bmcszk/unimock/internal/errors"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/model"
 	"github.com/google/uuid"
@@ -29,56 +30,74 @@ func NewScenarioService(storage storage.ScenarioStorage) ScenarioService {
 	}
 }
 
-// FindScenarioByRequestPath returns a scenario matching the given request path (e.g., "GET /foo").
+// FindScenarioByRequestPath searches for a scenario that matches the given request path (METHOD /path/to/resource).
+// It prioritizes exact matches, then checks for simple wildcard (*) matching at the end of the path.
 func (s *scenarioService) FindScenarioByRequestPath(ctx context.Context, requestPath string) (*model.Scenario, error) {
 	scenarios := s.storage.List()
-
-	// Split the target requestPath into method and path
-	parts := strings.SplitN(requestPath, " ", 2)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid requestPath format: %s", requestPath)
+	if len(scenarios) == 0 {
+		return nil, errors.NewNotFoundError("scenario_config", "no scenarios configured in storage")
 	}
-	targetMethod := parts[0]
-	targetPath := parts[1]
 
+	reqParts := strings.Fields(requestPath)
+	if len(reqParts) < 2 {
+		return nil, errors.NewInvalidRequestError(fmt.Sprintf("invalid requestPath format: %s, expected 'METHOD /path'", requestPath))
+	}
+	requestMethod := reqParts[0]
+	requestActualPath := strings.Join(reqParts[1:], " ") // Path can contain spaces if not URL encoded, though unlikely for req.URL.Path
+
+	var wildcardMatch *model.Scenario
+
+	// First pass: check for exact matches
 	for _, scenario := range scenarios {
-		// Split the stored scenario's RequestPath into method and path
-		scenarioParts := strings.SplitN(scenario.RequestPath, " ", 2)
-		if len(scenarioParts) != 2 {
-			// Skip invalid stored scenarios
-			continue
-		}
-		scenMethod := scenarioParts[0]
-		scenPath := scenarioParts[1]
-
-		// Match method first
-		if scenMethod != targetMethod {
-			continue
-		}
-
-		// Check for exact path match
-		if scenPath == targetPath {
+		if scenario.RequestPath == requestPath {
 			return scenario, nil
 		}
+	}
 
-		// Check for wildcard path match (e.g., "GET /users/*" should match "GET /users/123")
-		if strings.HasSuffix(scenPath, "/*") {
-			basePath := strings.TrimSuffix(scenPath, "/*")
-			// Ensure basePath is not empty and targetPath starts with basePath + "/"
-			// or targetPath is exactly basePath (for patterns like "/foo/*" matching "/foo/")
-			if basePath != "" && (strings.HasPrefix(targetPath, basePath+"/") || targetPath == basePath) {
-				return scenario, nil
-			}
-			// Handle case for root wildcard like "GET /*"
-			if basePath == "" && scenPath == "/*" {
+	// Second pass: check for wildcard matches if no exact match was found
+	for _, scenario := range scenarios {
+		scenarioParts := strings.Fields(scenario.RequestPath)
+		if len(scenarioParts) < 2 {
+			continue // Invalid scenario format
+		}
+		scenarioConfigMethod := scenarioParts[0]
+		scenarioConfigPathPattern := strings.Join(scenarioParts[1:], " ")
+
+		if requestMethod == scenarioConfigMethod {
+			if strings.HasSuffix(scenarioConfigPathPattern, "/*") {
+				basePattern := strings.TrimSuffix(scenarioConfigPathPattern, "/*")
+				// Ensure the request path starts with the base pattern. Consider /a/b/* matching /a/b/c but not /a/b itself.
+				// If basePattern is empty (e.g. "GET /*"), it matches any path for that method.
+				if basePattern == "" || strings.HasPrefix(requestActualPath, basePattern+"/") || requestActualPath == basePattern {
+					// If multiple wildcards match, the current logic takes the first one encountered in storage.
+					// More specific wildcard (e.g. /a/b/* vs /a/*) is not prioritized here yet unless storage order helps.
+					// For now, any wildcard match is stored, and if no more specific (exact) match is found, this is used.
+					if wildcardMatch == nil { // Take the first wildcard match found
+						wildcardMatch = scenario
+					} else {
+						// If another wildcard matches, prefer the one with the longer base pattern (more specific)
+						currentWildcardBase := strings.TrimSuffix(strings.Join(strings.Fields(wildcardMatch.RequestPath)[1:], " "), "/*")
+						newMatchBase := basePattern
+						if len(newMatchBase) > len(currentWildcardBase) {
+							wildcardMatch = scenario
+						}
+					}
+				}
+			} else if scenarioConfigPathPattern == requestActualPath { // This case should have been caught by exact match above, but for safety.
 				return scenario, nil
 			}
 		}
 	}
-	return nil, nil // No scenario found, no error
+
+	if wildcardMatch != nil {
+		return wildcardMatch, nil
+	}
+
+	return nil, errors.NewNotFoundError("scenario_match", fmt.Sprintf("no matching scenario found for %s", requestPath))
 }
 
-// GetScenarioByPath returns a scenario matching the given path and method
+// GetScenarioByPath is a convenience method primarily for testing, as the main handler uses FindScenarioByRequestPath.
+// It constructs the requestPath string and calls FindScenarioByRequestPath.
 func (s *scenarioService) GetScenarioByPath(ctx context.Context, path string, method string) *model.Scenario {
 	// s.logger.Debug("GetScenarioByPath called", "path", path, "method", method)
 	scenarios := s.storage.List()

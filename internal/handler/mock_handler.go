@@ -7,6 +7,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"strings"
 
 	"github.com/antchfx/jsonquery"
@@ -342,6 +344,18 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 		}, nil
 
 	case http.MethodPut:
+		bodyBytes, errIOReadAll := io.ReadAll(req.Body)
+		if errIOReadAll != nil {
+			h.logger.Error("failed to read request body for PUT", "path", req.URL.Path, "error", errIOReadAll.Error())
+			return &http.Response{StatusCode: http.StatusInternalServerError, Body: io.NopCloser(strings.NewReader("failed to read request body"))}, fmt.Errorf("reading body: %w", errIOReadAll)
+		}
+
+		contentType := req.Header.Get("Content-Type")
+		if contentType == "" {
+			h.logger.Error("Content-Type header is missing for PUT request", "path", req.URL.Path)
+			return &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(strings.NewReader("Content-Type header is missing"))}, nil
+		}
+
 		// Pass section and sectionName to extractIDs
 		ids, err := h.extractIDs(ctx, req, section, sectionName)
 		if err != nil || len(ids) == 0 {
@@ -352,31 +366,40 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 			}, nil
 		}
 
-		// Read request body
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read request body: %w", err)
+		putData := &model.MockData{
+			Path:        req.URL.Path, // Or construct specific path using ids[0]
+			ContentType: contentType,
+			Body:        bodyBytes,
 		}
 
-		// Try to update resource
-		err = h.service.UpdateResource(ctx, req.URL.Path, ids[0], &model.MockData{
-			Path:        req.URL.Path,
-			ContentType: req.Header.Get("Content-Type"),
-			Body:        body,
-		})
+		// Try to update resource (upsert logic is in the service)
+		err = h.service.UpdateResource(ctx, req.URL.Path, ids[0], putData)
 
 		if err != nil {
-			if err.Error() == "resource not found" {
+			if strings.Contains(err.Error(), "resource not found") { // Check if the service layer specifically returns this for a failed upsert's "find" part
 				return &http.Response{
 					StatusCode: http.StatusNotFound,
-					Body:       io.NopCloser(strings.NewReader("resource not found")),
+					Body:       io.NopCloser(strings.NewReader("resource not found after upsert attempt")),
 				}, nil
 			}
-			return nil, err
+			// For other errors during update/create
+			h.logger.Error("failed to update/create resource for PUT", "path", req.URL.Path, "id", ids[0], "error", err)
+			return &http.Response{StatusCode: http.StatusInternalServerError, Body: io.NopCloser(strings.NewReader("failed to process PUT request"))}, fmt.Errorf("processing PUT: %w", err)
+		}
+
+		// After successful upsert, fetch the resource to return it
+		updatedResource, getErr := h.service.GetResource(ctx, req.URL.Path, ids[0])
+		if getErr != nil {
+			h.logger.Error("failed to get resource after PUT", "path", req.URL.Path, "id", ids[0], "error", getErr)
+			// If we successfully upserted but can't get it, this is an internal error.
+			// The resource should exist.
+			return &http.Response{StatusCode: http.StatusInternalServerError, Body: io.NopCloser(strings.NewReader("failed to retrieve resource after update"))}, fmt.Errorf("getting resource post-PUT: %w", getErr)
 		}
 
 		return &http.Response{
 			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{updatedResource.ContentType}},
+			Body:       io.NopCloser(bytes.NewReader(updatedResource.Body)),
 		}, nil
 
 	case http.MethodDelete:
@@ -425,24 +448,45 @@ func (h *MockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if resp != nil && resp.Body != nil {
-		defer func() { _ = resp.Body.Close() }()
+		defer func() {
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				h.logger.Warn("error closing response body in ServeHTTP defer", "error", closeErr)
+			}
+		}()
 	}
 
-	// Copy response headers
-	for key, values := range resp.Header {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
+	// Copy headers
+	for k, v := range resp.Header {
+		w.Header()[k] = v
 	}
 
-	// Set status code
-	w.WriteHeader(resp.StatusCode)
-
-	// Write response body
 	if resp.Body != nil {
-		if _, err := io.Copy(w, resp.Body); err != nil {
-			h.logger.Error("failed to write response body", "error", err)
+		bodyBytesToRespond, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			h.logger.Error("failed to read response body from HandleRequest's response", "error", readErr)
+			// Set a server error status if possible, though headers might be sent
+			if rr, ok := w.(*httptest.ResponseRecorder); ok && !rr.Flushed { // Check if WriteHeader has been called
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			return
 		}
+
+		// Explicitly set Content-Length if not already set by resp.Header
+		if w.Header().Get("Content-Length") == "" {
+			w.Header().Set("Content-Length", strconv.Itoa(len(bodyBytesToRespond)))
+		}
+		w.WriteHeader(resp.StatusCode) // Set status code AFTER Content-Length potentially
+
+		if len(bodyBytesToRespond) > 0 {
+			_, writeErr := w.Write(bodyBytesToRespond)
+			if writeErr != nil {
+				h.logger.Error("failed to write response body", "error", writeErr)
+			}
+		}
+	} else {
+		// If resp.Body is nil (e.g., for 204 No Content or if HandleRequest returns no body for other reasons)
+		// still need to write the status code.
+		w.WriteHeader(resp.StatusCode)
 	}
 }
 

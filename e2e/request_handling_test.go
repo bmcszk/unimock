@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -612,3 +613,94 @@ func TestSCEN_SH_002_WildcardPathScenarioMatch(t *testing.T) {
 	// - Content-Type header is `text/plain`.
 	assert.Equal(t, expectedContentType, resp.Header.Get("Content-Type"), "SCEN-SH-002: Content-Type header mismatch")
 }
+
+// TestSCEN_SH_003_ScenarioSkipsMockHandling verifies SCEN-SH-003:
+// If a scenario matches, normal mock resource handling for the same path is skipped.
+func TestSCEN_SH_003_ScenarioSkipsMockHandling(t *testing.T) {
+	// Preconditions:
+	// - Unimock service is running.
+	unimockClient, err := client.NewClient(unimockBaseURL)
+	require.NoError(t, err, "Failed to create unimock client")
+
+	targetMethod := http.MethodGet
+	// Use a path that falls under a configured section in config.yaml (e.g., "users" -> "/api/users/*")
+	mockResourceID := "override-put-id-e2e-003"
+	mockResourcePath := "/api/users/" + mockResourceID // e.g. /api/users/override-put-id-e2e-003
+
+	// 1. Create a regular mock resource at mockResourcePath by using PUT.
+	// This resource should be overridden by the scenario.
+	originalMockData := fmt.Sprintf(`{"id": "%s", "value": "this should be skipped"}`, mockResourceID)
+	originalMockContentType := "application/json"
+
+	putReqURL := unimockBaseURL + mockResourcePath
+	putReq, err := http.NewRequest(http.MethodPut, putReqURL, strings.NewReader(originalMockData))
+	require.NoError(t, err, "Failed to create PUT request for original mock data SCEN-SH-003")
+	putReq.Header.Set("Content-Type", originalMockContentType)
+
+	putResp, err := http.DefaultClient.Do(putReq)
+	require.NoError(t, err, "Failed to PUT original mock data SCEN-SH-003")
+	// For PUT to /users/{id}, if it creates or updates, it should be 200 OK.
+	// The previous error was 404 because /override/path had no section.
+	// Now /users/override-put-id-003 should be handled by the "users" section.
+	require.True(t, putResp.StatusCode == http.StatusOK || putResp.StatusCode == http.StatusCreated, "PUT original mock data should be successful (200 or 201), got %d", putResp.StatusCode)
+	defer putResp.Body.Close()
+
+	// 2. Configure a scenario that matches the same GET request path (mockResourcePath) and method (targetMethod).
+	scenarioRequestPath := fmt.Sprintf("%s %s", targetMethod, mockResourcePath) // e.g. "GET /users/override-put-id-003"
+	scenarioStatusCode := http.StatusTeapot
+	scenarioContentType := "application/vnd.custom.teapot"
+	scenarioData := `{"message": "I am a teapot because of the scenario!"}`
+
+	createdScenario, err := unimockClient.CreateScenario(context.Background(), &model.Scenario{
+		RequestPath: scenarioRequestPath,
+		StatusCode:  scenarioStatusCode,
+		ContentType: scenarioContentType,
+		Data:        scenarioData,
+	})
+	require.NoError(t, err, "Failed to create scenario for SCEN-SH-003")
+	require.NotNil(t, createdScenario, "Created scenario should not be nil for SCEN-SH-003")
+
+	// Ensure scenario is deleted even if test fails midway
+	defer func() {
+		err := unimockClient.DeleteScenario(context.Background(), createdScenario.UUID)
+		assert.NoError(t, err, "Failed to cleanup (delete) scenario %s for SCEN-SH-003", createdScenario.UUID)
+	}()
+
+	// Steps:
+	// 1. Send a GET request to mockResourcePath.
+	getReqURL := unimockBaseURL + mockResourcePath
+	getReq, err := http.NewRequest(targetMethod, getReqURL, nil)
+	require.NoError(t, err, "Failed to create GET request for SCEN-SH-003")
+
+	getResp, err := http.DefaultClient.Do(getReq)
+	require.NoError(t, err, "Failed to execute GET request for SCEN-SH-003")
+	defer getResp.Body.Close()
+
+	// Expected Result:
+	// - HTTP Status Code should be from the SCENARIO (418 I'm a teapot).
+	// - Content-Type header should be from the SCENARIO.
+	// - Response body should be from the SCENARIO.
+	bodyBytes, err := io.ReadAll(getResp.Body)
+	require.NoError(t, err, "Failed to read response body for SCEN-SH-003")
+
+	assert.Equal(t, scenarioStatusCode, getResp.StatusCode, "SCEN-SH-003: HTTP status code mismatch, scenario should override")
+	assert.Equal(t, scenarioContentType, getResp.Header.Get("Content-Type"), "SCEN-SH-003: Content-Type header mismatch, scenario should override")
+	assert.JSONEq(t, scenarioData, string(bodyBytes), "SCEN-SH-003: Response body mismatch, scenario should override")
+
+	// Additional verification: ensure the original mock data was not returned.
+	assert.NotEqual(t, originalMockContentType, getResp.Header.Get("Content-Type"), "SCEN-SH-003: Content-Type should not match original mock")
+	assert.NotEqual(t, originalMockData, string(bodyBytes), "SCEN-SH-003: Body should not match original mock (raw string comparison)")
+
+	// Cleanup: Delete the mock resource created at the start. The scenario is cleaned by defer.
+	// This is important if the scenario didn't match and the original resource was served.
+	delReqURL := unimockBaseURL + mockResourcePath
+	delReq, err := http.NewRequest(http.MethodDelete, delReqURL, nil)
+	require.NoError(t, err, "Failed to create DELETE request for cleanup SCEN-SH-003")
+	delResp, err := http.DefaultClient.Do(delReq)
+	require.NoError(t, err, "Failed to execute DELETE request for cleanup SCEN-SH-003")
+	assert.Equal(t, http.StatusNoContent, delResp.StatusCode, "Cleanup DELETE of mock resource failed for SCEN-SH-003")
+	defer delResp.Body.Close()
+}
+
+// TestSCEN_SH_004_ScenarioMethodMismatch verifies SCEN-SH-004:
+// ... existing code ...

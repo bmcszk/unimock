@@ -75,17 +75,36 @@ func (s *mockService) CreateResource(ctx context.Context, path string, ids []str
 	return nil
 }
 
-// UpdateResource updates an existing resource
+// UpdateResource updates an existing resource or creates it if it doesn't exist (upsert).
 func (s *mockService) UpdateResource(ctx context.Context, path string, id string, data *model.MockData) error {
 	err := s.storage.Update(id, data)
 	if err != nil {
 		if _, ok := err.(*errors.NotFoundError); ok {
-			return fmt.Errorf("resource not found")
+			// Resource not found, so attempt to create it.
+			// The 'path' parameter isn't directly used by storage.Create,
+			// as the mock data itself should contain necessary path info if storage needs it.
+			// storage.Create expects a slice of IDs.
+			// For a PUT to a specific resource /path/to/resourceId, 'id' is singular.
+			createErr := s.storage.Create([]string{id}, data)
+			if createErr != nil {
+				// Handle potential conflict if, by some race, it was created between Update and Create.
+				if _, conflictOk := createErr.(*errors.ConflictError); conflictOk {
+					// If it's a conflict, it means it now exists, try Update again just in case.
+					// This is a bit defensive but handles a potential race.
+					retryErr := s.storage.Update(id, data)
+					if retryErr != nil {
+						return fmt.Errorf("failed to retry update after create conflict: %w", retryErr)
+					}
+					return nil // Successfully updated on retry
+				}
+				return fmt.Errorf("failed to create resource after not found on update: %w", createErr)
+			}
+			return nil // Successfully created
 		}
 		if _, ok := err.(*errors.InvalidRequestError); ok {
 			return err
 		}
-		return fmt.Errorf("failed to update resource: %v", err)
+		return fmt.Errorf("failed to update resource: %w", err)
 	}
 	return nil
 }
