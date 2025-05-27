@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/model"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestScenarioHandler_Create(t *testing.T) {
@@ -331,79 +334,46 @@ func TestScenarioHandler_InvalidJSON(t *testing.T) {
 }
 
 func TestGetScenarioByPath(t *testing.T) {
-	// Create a new storage and service for testing
 	store := storage.NewScenarioStorage()
 	scenarioService := service.NewScenarioService(store)
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(scenarioService, logger)
 
-	// Create test scenarios
-	scenarios := []model.Scenario{
-		{
-			RequestPath: "GET /api/test",
-			StatusCode:  200,
-			ContentType: "application/json",
-			Data:        `{"message":"GET"}`,
-		},
-		{
-			RequestPath: "POST /api/test",
-			StatusCode:  201,
-			ContentType: "application/json",
-			Data:        `{"message":"POST"}`,
-		},
-		{
-			RequestPath: "GET /api/users/*",
-			StatusCode:  200,
-			ContentType: "application/json",
-			Data:        `{"message":"GET_USERS_WILDCARD"}`,
-		},
+	// Create some scenarios
+	testScenarios := []model.Scenario{
+		{UUID: "uuid1", RequestPath: "GET /api/test", Data: "test data 1", StatusCode: http.StatusOK},
+		{UUID: "uuid2", RequestPath: "GET /api/users/*", Data: "user data", StatusCode: http.StatusOK},
+		{UUID: "uuid3", RequestPath: "POST /api/test", Data: "post data", StatusCode: http.StatusCreated},
 	}
 
-	// Create each scenario
-	for _, scenario := range scenarios {
-		body, _ := json.Marshal(scenario)
-		req, _ := http.NewRequest("POST", "/_uni/scenarios", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		rr := httptest.NewRecorder()
-		handler.ServeHTTP(rr, req)
+	for i := range testScenarios {
+		err := scenarioService.CreateScenario(context.TODO(), &testScenarios[i])
+		require.NoError(t, err, "Failed to create scenario %s in TestGetScenarioByPath", testScenarios[i].UUID)
 	}
 
-	// Test matching with exact path
-	scenario := scenarioService.GetScenarioByPath(nil, "/api/test", "GET")
-	if scenario == nil {
-		t.Fatal("Expected to find a matching scenario for GET /api/test, got nil")
-	}
-	if scenario.Data != `{"message":"GET"}` {
-		t.Errorf("Expected data %s, got %s", `{"message":"GET"}`, scenario.Data)
-	}
-
-	// Test matching with wildcard
-	scenario = scenarioService.GetScenarioByPath(nil, "/api/users/123", "GET")
-	if scenario == nil {
-		t.Fatal("Expected to find a matching scenario for GET /api/users/123, got nil")
-	}
-	if scenario.Data != `{"message":"GET_USERS_WILDCARD"}` {
-		t.Errorf("Expected data %s, got %s", `{"message":"GET_USERS_WILDCARD"}`, scenario.Data)
+	// Test cases
+	tests := []struct {
+		name       string
+		path       string
+		method     string
+		expectUUID string
+		expectNil  bool
+	}{
+		{"Exact match", "/api/test", "GET", "uuid1", false},
+		{"Path with parameter", "/api/users/123", "GET", "uuid2", false},
+		{"POST request", "/api/test", "POST", "uuid3", false},
+		{"Non-existent path", "/api/nonexistent", "GET", "", true},
+		{"Wrong method", "/api/test", "DELETE", "", true},
 	}
 
-	// Test matching with different method on same path
-	scenario = scenarioService.GetScenarioByPath(nil, "/api/test", "POST")
-	if scenario == nil {
-		t.Fatal("Expected to find a matching scenario for POST /api/test, got nil")
-	}
-	if scenario.Data != `{"message":"POST"}` {
-		t.Errorf("Expected data %s, got %s", `{"message":"POST"}`, scenario.Data)
-	}
-
-	// Test non-matching path
-	scenario = scenarioService.GetScenarioByPath(nil, "/api/nonexistent", "GET")
-	if scenario != nil {
-		t.Errorf("Expected nil for non-matching path, got %+v", scenario)
-	}
-
-	// Test non-matching method
-	scenario = scenarioService.GetScenarioByPath(nil, "/api/test", "DELETE")
-	if scenario != nil {
-		t.Errorf("Expected nil for non-matching method, got %+v", scenario)
+	for _, tt := range tests {
+		tc := tt // Capture range variable
+		t.Run(tc.name, func(t *testing.T) {
+			scenario := scenarioService.GetScenarioByPath(context.TODO(), tc.path, tc.method)
+			if tc.expectNil {
+				assert.Nil(t, scenario)
+			} else {
+				require.NotNil(t, scenario)
+				assert.Equal(t, tc.expectUUID, scenario.UUID)
+			}
+		})
 	}
 }

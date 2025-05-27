@@ -132,7 +132,9 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("failed to marshal scenario", "error", err)
 		return
 	}
-	w.Write(scenarioJSON)
+	if _, err = w.Write(scenarioJSON); err != nil {
+		h.logger.Error("failed to write scenario response", "error", err)
+	}
 }
 
 func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, uuid string) {

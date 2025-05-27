@@ -71,7 +71,7 @@ func TestMockStorage_CRUD(t *testing.T) {
 	}
 
 	// Test GetByPath with case sensitivity
-	items, err = storage.GetByPath("/Test")
+	_, err = storage.GetByPath("/Test")
 	if err == nil {
 		t.Error("Expected error for case-sensitive path mismatch, got nil")
 	} else if !strings.Contains(err.Error(), "resource not found") {
@@ -79,7 +79,7 @@ func TestMockStorage_CRUD(t *testing.T) {
 	}
 
 	// Test GetByPath with empty collection
-	items, err = storage.GetByPath("/empty")
+	_, err = storage.GetByPath("/empty")
 	if err == nil {
 		t.Error("Expected error for empty collection, got nil")
 	} else if !strings.Contains(err.Error(), "resource not found") {

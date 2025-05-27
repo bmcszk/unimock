@@ -72,7 +72,7 @@ func (c *Client) CreateScenario(ctx context.Context, scenario *model.Scenario) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -104,7 +104,7 @@ func (c *Client) GetScenario(ctx context.Context, uuid string) (*model.Scenario,
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
 	if resp.StatusCode == http.StatusNotFound {
@@ -139,7 +139,7 @@ func (c *Client) ListScenarios(ctx context.Context) ([]*model.Scenario, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -178,7 +178,7 @@ func (c *Client) UpdateScenario(ctx context.Context, uuid string, scenario *mode
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
 	if resp.StatusCode == http.StatusNotFound {
@@ -213,7 +213,7 @@ func (c *Client) DeleteScenario(ctx context.Context, uuid string) error {
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
 	if resp.StatusCode == http.StatusNotFound {

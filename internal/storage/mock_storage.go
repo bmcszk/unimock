@@ -168,10 +168,6 @@ func (s *mockStorage) Update(id string, data *model.MockData) error {
 		s.pathMap[data.Path] = append(s.pathMap[data.Path], storageID)
 		// Add to new id-specific path in pathMap
 		s.pathMap[newIDPath] = append(s.pathMap[newIDPath], storageID)
-	} else if oldIDPath != newIDPath { // Path is same, but ID somehow changed - defensive
-		// This case should not happen if 'id' parameter to Update is the key externalID
-		// and it's not changing. If data.Location or similar implies ID change, this needs thought.
-		// For now, assume external 'id' is constant for an update call.
 	}
 
 	return nil

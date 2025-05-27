@@ -107,8 +107,8 @@ func isPatternMatch(pattern, path string, caseSensitive bool) bool {
 	if strings.Contains(pattern, "*") {
 		// Different number of segments means no match, unless pattern ends with *
 		if len(patternParts) != len(pathParts) &&
-			!(len(patternParts) > 0 && patternParts[len(patternParts)-1] == "*" &&
-				len(pathParts) >= len(patternParts)-1) {
+			(len(patternParts) == 0 || patternParts[len(patternParts)-1] != "*" ||
+				len(pathParts) < len(patternParts)-1) {
 			return false
 		}
 
@@ -153,7 +153,7 @@ func (c *MockConfig) MatchPath(path string) (string, *Section, error) {
 
 	// Then try to find wildcard matches, prioritizing longer patterns first
 	var bestMatchName string
-	var bestMatchNumSegments int = -1 // Use -1 to indicate no match found yet
+	var bestMatchNumSegments = -1 // Use -1 to indicate no match found yet
 
 	for name, section := range c.Sections {
 		pattern := strings.Trim(section.PathPattern, "/")

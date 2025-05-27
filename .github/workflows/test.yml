@@ -18,5 +18,5 @@ jobs:
         go-version: '1.24'
         check-latest: true
 
-    - name: Run Tests
-      run: go test -v ./... 
+    - name: Run Checks
+      run: make check

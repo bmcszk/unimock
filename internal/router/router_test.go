@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -66,7 +67,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 
 	// Store the test scenarios
 	for _, scenario := range scenarios {
-		err := scenarioService.CreateScenario(nil, scenario)
+		err := scenarioService.CreateScenario(context.TODO(), scenario)
 		if err != nil {
 			t.Fatalf("Failed to create test scenario: %v", err)
 		}

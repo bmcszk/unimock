@@ -33,25 +33,6 @@ func NewMockHandler(service service.MockService, logger *slog.Logger, cfg *confi
 	}
 }
 
-// writeJSONResponse writes a JSON array response for collection endpoints
-func writeJSONResponse(w http.ResponseWriter, data []byte) error {
-	w.Header().Set("Content-Type", "application/json")
-	_, err := w.Write(data)
-	return err
-}
-
-// writeErrorResponse writes an error response with appropriate status code
-func writeErrorResponse(w http.ResponseWriter, msg string, statusCode int) {
-	http.Error(w, msg, statusCode)
-}
-
-// writeResourceResponse writes a JSON response for a single resource
-func writeResourceResponse(w http.ResponseWriter, data []byte) error {
-	w.Header().Set("Content-Type", "application/json")
-	_, err := w.Write(data)
-	return err
-}
-
 // getSectionForRequest finds the matching configuration section for a given request path.
 func (h *MockHandler) getSectionForRequest(reqPath string) (*config.Section, string, error) {
 	if h.mockCfg == nil {
@@ -75,11 +56,7 @@ func (h *MockHandler) extractIDs(ctx context.Context, req *http.Request, section
 		patternSegments := getPathInfo(section.PathPattern)
 
 		// Check if this is a resource path (contains an ID)
-		if len(pathSegments) > len(patternSegments) ||
-			(len(patternSegments) > 0 && len(pathSegments) > 0 &&
-				patternSegments[len(patternSegments)-1] == "*" &&
-				len(pathSegments) == len(patternSegments)) {
-
+		if len(pathSegments) > len(patternSegments) || (len(patternSegments) > 0 && len(pathSegments) > 0 && patternSegments[len(patternSegments)-1] == "*" && len(pathSegments) == len(patternSegments)) {
 			// Use the last path segment as the ID
 			lastSegment := pathSegments[len(pathSegments)-1]
 			if lastSegment != "" && lastSegment != sectionName {
@@ -421,6 +398,10 @@ func (h *MockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("failed to handle request", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if resp != nil && resp.Body != nil {
+		defer func() { _ = resp.Body.Close() }()
 	}
 
 	// Copy response headers

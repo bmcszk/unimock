@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+
+	// "log/slog"
+	// "os"
 	"strings"
 
 	"github.com/bmcszk/unimock/internal/storage"
@@ -13,47 +16,61 @@ import (
 // scenarioService implements the ScenarioService interface
 type scenarioService struct {
 	storage storage.ScenarioStorage
+	// logger  *slog.Logger
 }
 
 // NewScenarioService creates a new instance of ScenarioService
 func NewScenarioService(storage storage.ScenarioStorage) ScenarioService {
+	// logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	return &scenarioService{
 		storage: storage,
+		// logger:  logger,
 	}
 }
 
 // GetScenarioByPath returns a scenario matching the given path and method
 func (s *scenarioService) GetScenarioByPath(ctx context.Context, path string, method string) *model.Scenario {
+	// s.logger.Debug("GetScenarioByPath called", "path", path, "method", method)
 	scenarios := s.storage.List()
-
+	// s.logger.Debug("GetScenarioByPath: scenarios from storage", "count", len(scenarios))
 	for _, scenario := range scenarios {
+		// s.logger.Debug("GetScenarioByPath: checking scenario", "index", i, "uuid", scenario.UUID, "requestPath", scenario.RequestPath)
+
 		// Split the RequestPath into method and path
 		parts := strings.SplitN(scenario.RequestPath, " ", 2)
 		if len(parts) != 2 {
+			// s.logger.Debug("GetScenarioByPath: scenario has invalid RequestPath format", "index", i, "requestPath", scenario.RequestPath)
 			continue
 		}
 
 		scenarioMethod := parts[0]
 		scenarioPath := parts[1]
+		// s.logger.Debug("GetScenarioByPath: parsed scenario parts", "index", i, "scenarioMethod", scenarioMethod, "scenarioPath", scenarioPath)
 
 		// Match method first
 		if scenarioMethod != method {
+			// s.logger.Debug("GetScenarioByPath: method mismatch", "index", i, "scenarioMethod", scenarioMethod, "expectedMethod", method)
 			continue
 		}
 
 		// Check for exact path match
 		if scenarioPath == path {
+			// s.logger.Debug("GetScenarioByPath: exact path match found", "index", i, "uuid", scenario.UUID)
 			return scenario
 		}
 
 		// Check for wildcard path match
 		if strings.HasSuffix(scenarioPath, "/*") {
 			basePath := strings.TrimSuffix(scenarioPath, "/*")
+			// s.logger.Debug("GetScenarioByPath: checking wildcard match", "index", i, "basePath", basePath, "targetPath", path)
 			if strings.HasPrefix(path, basePath+"/") {
+				// s.logger.Debug("GetScenarioByPath: wildcard path match found", "index", i, "uuid", scenario.UUID)
 				return scenario
 			}
 		}
+		// s.logger.Debug("GetScenarioByPath: no match for scenario", "index", i, "uuid", scenario.UUID)
 	}
+	// s.logger.Debug("GetScenarioByPath: no scenario matched")
 	return nil
 }
 

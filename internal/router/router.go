@@ -52,7 +52,9 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(scenario.StatusCode)
 
 		// Write the response body from the scenario
-		w.Write([]byte(scenario.Data))
+		if _, err := w.Write([]byte(scenario.Data)); err != nil {
+			r.logger.Error("failed to write scenario response in router", "error", err)
+		}
 		return
 	}
 

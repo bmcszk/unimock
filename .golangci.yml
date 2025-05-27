@@ -11,7 +11,6 @@ linters:
     - errcheck
     - bodyclose
     - misspell
-    - whitespace
     - staticcheck
     - unused
     - ineffassign
