@@ -17,7 +17,7 @@ K8S_CLUSTER_NAME=unimock
 # Test parameters
 TEST_FLAGS=-v -race -cover
 
-all: test build
+all: build
 
 test:
 	$(GOTEST) $(TEST_FLAGS) ./...
@@ -83,9 +83,9 @@ k8s-setup: kind-start
 help:
 	@echo "Available targets:"
 	@echo "  all        - Run tests and build"
-	@echo "  test       - Run all tests with race detection and coverage"
-	@echo "  test-unit  - Run unit tests"
-	@echo "  test-e2e   - Run end-to-end tests"
+	@echo "  test       - Run all tests (unit and E2E) with race detection and coverage"
+	@echo "  test-unit  - Run unit tests (all tests not tagged 'e2e')"
+	@echo "  test-e2e   - Run end-to-end tests (tests tagged 'e2e')"
 	@echo "  test-short - Run only short tests"
 	@echo "  build      - Build the application"
 	@echo "  clean      - Remove build artifacts"
@@ -93,7 +93,7 @@ help:
 	@echo "  deps       - Download dependencies"
 	@echo "  tidy       - Tidy up dependencies"
 	@echo "  vet        - Run go vet"
-	@echo "  lint       - Run golangci-lint"
+	@echo "  lint       - Lint the codebase"
 	@echo "  kind-start - Create a Kind Kubernetes cluster"
 	@echo "  kind-stop  - Delete the Kind Kubernetes cluster"
 	@echo "  helm-lint  - Lint the Helm chart"
