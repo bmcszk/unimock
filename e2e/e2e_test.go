@@ -9,21 +9,8 @@ import (
 	"github.com/bmcszk/go-restclient"
 )
 
-func TestE2E(t *testing.T) {
-	client, err := restclient.NewClient(restclient.WithBaseURL("http://localhost:8080"))
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-	resps, err := client.ExecuteFile(context.Background(), "http/scenario1.http")
-	if err != nil {
-		t.Fatalf("Failed to execute file: %v", err)
-	}
-	err = restclient.ValidateResponses("http/scenario1.hresp", resps...)
-	if err != nil {
-		t.Fatalf("Failed to validate responses: %v", err)
-	}
-}
-
+// TestE2E_SCEN_RM_MULTI_ID_001 tests REQ-RM-MULTI-ID - Scenario 001
+// Create a resource with multiple IDs (one from header, one from body JSON path) and verify it can be retrieved by either ID.
 func TestE2E_SCEN_RM_MULTI_ID_001(t *testing.T) {
 	client, err := restclient.NewClient(restclient.WithBaseURL("http://localhost:8080"))
 	if err != nil {

@@ -159,7 +159,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - HTTP status code 200 OK.
     - Response body is `{"message": "exact scenario matched"}`.
     - Content-Type header is `application/json`.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_SH_001_ExactPathScenarioMatch`
 
 **Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling" -> "Scenarios must be matched by RequestPath in the mock handler."
 **Scenario ID:** SCEN-SH-002
@@ -174,7 +174,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - HTTP status code 201 Created.
     - Response body is `wildcard scenario matched`.
     - Content-Type header is `text/plain`.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_SH_002_WildcardPathScenarioMatch`
 
 **Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling" -> "If a scenario is found by RequestPath, the mock handler must return the scenario details and skip all other mock handling logic."
 **Scenario ID:** SCEN-SH-003
@@ -190,7 +190,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - Response body is `<scenario>overridden</scenario>`.
     - Content-Type header is `application/xml`.
     - The regular mock resource data is NOT returned.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_SH_003_ScenarioSkipsMockHandling`
 
 **Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling" -> "Scenarios must be matched by RequestPath in the mock handler."
 **Scenario ID:** SCEN-SH-004
@@ -211,7 +211,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - HTTP status code 200 OK.
     - Response body is `{"id": "regular", "data": "GET response"}`.
     - Content-Type header is `application/json`.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_SH_004_ScenarioMethodMismatch`
 
 **Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling"
 **Scenario ID:** SCEN-SH-005
@@ -226,7 +226,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - Response body is empty.
     - Content-Type header is `application/json`.
     - Location header is `/resource/creation/new-id-from-scenario`.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation`
 
 ---
 
@@ -245,7 +245,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 4. Expected: HTTP 200 OK. Response body is `{"product": {"sku": "skuABC"}, "name": "Multi-ID Product"}`.
 5. Send a GET request to `/products/skuABC`.
 6. Expected: HTTP 200 OK. Response body is `{"product": {"sku": "skuABC"}, "name": "Multi-ID Product"}`.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_001`
 
 **Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
 **Scenario ID:** SCEN-RM-MULTI-ID-002
@@ -259,7 +259,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 2. Expected: HTTP 200 OK (or 204).
 3. Send a GET request to `/items/id_B`.
 4. Expected: HTTP 200 OK. Response body is `{"value": "updated"}`.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_002`
 
 **Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
 **Scenario ID:** SCEN-RM-MULTI-ID-003
@@ -275,7 +275,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 4. Expected: HTTP 404 Not Found.
 5. Send a GET request to `/resources/id_Z`.
 6. Expected: HTTP 404 Not Found.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_003`
 
 **Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
 **Scenario ID:** SCEN-RM-MULTI-ID-004
@@ -289,7 +289,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Expected Result:**
     - HTTP status code 409 Conflict.
     - The original resource associated with `existing_token` remains unchanged.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_004`
 
 **Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
 **Scenario ID:** SCEN-RM-MULTI-ID-005
@@ -304,4 +304,4 @@ Each scenario should be described with enough detail to understand its purpose, 
 4. Expected: HTTP 200 OK with the document body.
 5. Send a GET request to `/documents/altIDXYZ`.
 6. Expected: HTTP 200 OK with the document body.
-**E2E Test Link/Reference:** TBD
+**E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_005`
