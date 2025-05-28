@@ -14,6 +14,13 @@ Unimock is a mock service that handles HTTP requests and provides mock responses
 
 ### 2. Resource Management
 
+#### REQ-RM-MULTI-ID: Multiple Identifiers per Resource (New: 2025-05-28)
+- A single resource instance MUST be identifiable and accessible via multiple unique identifiers.
+- During resource creation (e.g., POST), the system MUST be able to extract and associate multiple identifiers with the created resource. This includes, but is not limited to, identifiers from headers (e.g., `X-User-ID`, `X-Correlation-ID`) and fields within the request body (e.g., `id`, `customIdField`).
+- The specific headers and body paths for these additional identifiers MUST be configurable.
+- All associated identifiers MUST resolve to the same resource data for retrieval (GET) and modification (PUT, DELETE) operations.
+- The system MUST ensure that an identifier is not associated with more than one resource to prevent ambiguity.
+
 #### GET Requests
 - Must first try to get resource by ID (last part of path)
 - If resource not found by ID, must try to get resources collection by the exact path (e.g., /users/999)

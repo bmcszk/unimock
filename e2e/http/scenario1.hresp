@@ -1,0 +1,25 @@
+HTTP/1.1 404 Not Found
+
+resource not found
+
+###
+
+HTTP/1.1 201 Created
+
+###
+
+HTTP/1.1 200 OK
+
+{
+    "id": "id1",
+    "name": "name1"
+}
+
+###
+
+HTTP/1.1 200 OK
+
+{
+    "id": "id1",
+    "name": "name1"
+}
