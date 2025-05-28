@@ -1,0 +1,5 @@
+DELETE /test/resource/itemToDelete HTTP/1.1
+
+###
+
+GET /test/resource/itemToDelete HTTP/1.1 

@@ -1,0 +1,15 @@
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"id": "override-put-id-e2e-003", "value": "this should be skipped"}
+
+###
+
+HTTP/1.1 418 I'm a teapot
+Content-Type: application/vnd.custom.teapot
+
+{"message": "I am a teapot because of the scenario!"}
+
+###
+
+HTTP/1.1 204 No Content 

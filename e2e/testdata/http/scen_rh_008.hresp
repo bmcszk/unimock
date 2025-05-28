@@ -1,0 +1,4 @@
+HTTP/1.1 404 Not Found
+Content-Type: text/plain; charset=utf-8
+
+Not Found: No matching mock configuration or active scenario for path 
