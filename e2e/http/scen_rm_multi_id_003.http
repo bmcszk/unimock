@@ -1,0 +1,21 @@
+# Step 0: Create resource with three IDs
+POST /api/resources HTTP/1.1
+X-Res-ID: id_X
+Content-Type: application/json
+
+{"mainID": "id_Y", "altID": "id_Z", "data": "to be deleted"}
+
+###
+
+# Step 1: DELETE by id_Y
+DELETE /api/resources/id_Y HTTP/1.1
+
+###
+
+# Step 2: GET id_X (should be 404)
+GET /api/resources/id_X HTTP/1.1
+
+###
+
+# Step 3: GET id_Z (should be 404)
+GET /api/resources/id_Z HTTP/1.1 

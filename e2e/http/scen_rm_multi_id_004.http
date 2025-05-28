@@ -1,0 +1,15 @@
+# Step 0: Create initial resource
+POST /api/gadgets HTTP/1.1
+X-Gadget-Token: existing_token
+Content-Type: application/json
+
+{"name": "Original Gadget"}
+
+###
+
+# Step 1: Attempt to create conflicting resource
+POST /api/gadgets HTTP/1.1
+X-Gadget-Token: existing_token
+Content-Type: application/json
+
+{"name": "Conflicting Gadget"} 

@@ -22,13 +22,39 @@ orders:
 
 # Section for product-related endpoints
 products:
-  path_pattern: "/api/products/*"
+  path_pattern: "/products/*"
   body_id_paths:
-    - "//id"
-    - "//@id"
-    - "//product/id"
-    - "//product/@id"
-  header_id_name: "X-Product-ID"
+    - "/product/sku"
+  header_id_name: "X-Product-Token"
+
+# Section for items (new)
+items:
+  path_pattern: "/api/items/*"
+  header_id_name: "X-Item-ID"
+  body_id_paths:
+    - "/itemID"
+
+# Section for resources (new)
+resources:
+  path_pattern: "/api/resources/*"
+  header_id_name: "X-Res-ID"
+  body_id_paths:
+    - "/mainID"
+    - "/altID"
+
+# Section for gadgets (new)
+gadgets:
+  path_pattern: "/api/gadgets/*"
+  header_id_name: "X-Gadget-Token"
+  body_id_paths:
+    - "/gadget_id"
+
+# Section for documents (new)
+documents:
+  path_pattern: "/api/documents/*"
+  body_id_paths:
+    - "/meta/uuid"
+    - "/alt_id"
 
 # Section for payment-related endpoints
 payments:

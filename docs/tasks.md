@@ -18,10 +18,11 @@ Each task should follow the format:
 
 ## Current Tasks
 
-[TASK-011] - Skipped - 2025-05-27 - Implement E2E test for SCEN-SMB-001: Scenario overrides default status code and body
-[TASK-012] - Skipped - 2025-05-27 - Implement E2E test for SCEN-SMB-002: Scenario overrides default response body, keeps status code
-[TASK-013] - Skipped - 2025-05-27 - Implement E2E test for SCEN-SMB-003: Scenario overrides status code, default body used
-[TASK-014] - Skipped - 2025-05-27 - Implement E2E test for SCEN-SMB-004: Scenario overrides body, default status code used
-[TASK-015] - Skipped - 2025-05-27 - Implement E2E test for SCEN-SMB-005: Default behavior preserved when no relevant scenario is active
-[TASK-016] - Skipped - 2025-05-27 - Implement scenario matching logic in mock handler based on RequestPath.
-[TASK-021] - Done - 2025-05-27 - Implement E2E test for SCEN-SH-005: Scenario matching with empty data and custom location header.
+[TASK-022] - Done - 2025-05-28 - Design: Data structure for storing resources with multiple IDs.
+[TASK-023] - Done - 2025-05-28 - Implement: Update storage layer (mock_storage.go) to support multiple IDs per resource.
+[TASK-024] - Done - 2025-05-28 - Implement: Update ID extraction logic in mock_handler.go.
+[TASK-025] - Skipped - 2025-05-28 - Config: Add configuration options for specifying multiple ID headers and body paths.
+[TASK-026] - Done - 2025-05-28 - Test: Write unit tests for multiple ID functionality in storage and handler.
+[TASK-027] - Done - 2025-05-28 - Scenario: Define test scenarios for REQ-RM-MULTI-ID in docs/scenarios.md.
+[TASK-028] - Done - 2025-05-28 - Test: Implement E2E tests for REQ-RM-MULTI-ID.
+

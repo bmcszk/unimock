@@ -1,0 +1,16 @@
+HTTP/1.1 201 Created
+Location: /api/documents/docUUID1
+
+###
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"meta": {"uuid": "docUUID1"}, "alt_id": "altIDXYZ", "content": "Test document"}
+
+###
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"meta": {"uuid": "docUUID1"}, "alt_id": "altIDXYZ", "content": "Test document"} 

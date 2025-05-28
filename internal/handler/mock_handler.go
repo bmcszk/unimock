@@ -54,34 +54,43 @@ func (h *MockHandler) getSectionForRequest(reqPath string) (*config.Section, str
 
 // extractIDs extracts IDs from the request using configured paths
 func (h *MockHandler) extractIDs(ctx context.Context, req *http.Request, section *config.Section, sectionName string) ([]string, error) {
-	// For GET/PUT/DELETE requests, try to extract ID from path first
-	if req.Method == http.MethodGet || req.Method == http.MethodPut || req.Method == http.MethodDelete {
-		pathSegments := getPathInfo(req.URL.Path)
-		patternSegments := getPathInfo(section.PathPattern)
+	var collectedIDs []string
+	seenIDs := make(map[string]bool)
 
-		// Check if this is a resource path (contains an ID)
+	// Helper to add an ID if it's valid and not already seen
+	addID := func(id string) {
+		if id != "" && id != sectionName && !seenIDs[id] {
+			collectedIDs = append(collectedIDs, id)
+			seenIDs[id] = true
+		}
+	}
+
+	// 1. Try to extract ID from path (primary for GET/PUT/DELETE, potential for POST)
+	pathSegments := getPathInfo(req.URL.Path)
+	if req.Method == http.MethodGet || req.Method == http.MethodPut || req.Method == http.MethodDelete {
+		patternSegments := getPathInfo(section.PathPattern)
 		if len(pathSegments) > len(patternSegments) || (len(patternSegments) > 0 && len(pathSegments) > 0 && patternSegments[len(patternSegments)-1] == "*" && len(pathSegments) == len(patternSegments)) {
-			// Use the last path segment as the ID
 			lastSegment := pathSegments[len(pathSegments)-1]
-			if lastSegment != "" && lastSegment != sectionName {
-				return []string{lastSegment}, nil
+			addID(lastSegment)
+			// For GET/PUT/DELETE, if path ID is found, it's usually the only one we care about for addressing the resource.
+			// However, REQ-RM-MULTI-ID implies any ID can be used. Here, we assume the path ID is the target.
+			// If `collectedIDs` has this path ID, we can return it directly for these methods.
+			if len(collectedIDs) > 0 {
+				return collectedIDs, nil
 			}
 		}
-
-		// If we got here, it's a collection path without an ID
+		// If no path ID for GET/PUT/DELETE, it's likely a collection operation or error, return empty or let POST logic run if applicable.
+		// For now, if it's strictly GET/PUT/DELETE and no path ID, return no IDs.
 		return nil, nil
 	}
 
-	// For POST requests, try to extract ID from header first
+	// For POST requests (or if other methods fall through, though less likely with above return)
+	// 2. Try primary Header ID Name
 	if section.HeaderIDName != "" {
-		if id := req.Header.Get(section.HeaderIDName); id != "" {
-			if id != sectionName {
-				return []string{id}, nil
-			}
-		}
+		addID(req.Header.Get(section.HeaderIDName))
 	}
 
-	// Try to extract ID from body
+	// 4. Try Body IDs (Primary and Alternatives)
 	contentType := req.Header.Get("Content-Type")
 	contentTypeLower := strings.ToLower(contentType)
 	if strings.Contains(contentTypeLower, "json") || strings.Contains(contentTypeLower, "xml") {
@@ -89,42 +98,52 @@ func (h *MockHandler) extractIDs(ctx context.Context, req *http.Request, section
 		if err != nil {
 			return nil, fmt.Errorf("failed to read request body: %w", err)
 		}
-		req.Body = io.NopCloser(bytes.NewBuffer(body)) // Restore body for later use
+		req.Body = io.NopCloser(bytes.NewBuffer(body)) // Restore body
 
-		if len(body) == 0 {
-			return nil, fmt.Errorf("no IDs found in request")
-		}
+		if len(body) > 0 {
+			var bodyExtractionError error
+			var extractedFromBody []string
 
-		var ids []string
-		seenIDs := make(map[string]bool) // Track unique IDs
+			// Use only primary BodyIDPaths as alternative paths were removed
+			primaryBodyIdPaths := section.BodyIDPaths
 
-		if strings.Contains(contentTypeLower, "json") {
-			ids, err = extractJSONIDs(body, section.BodyIDPaths, seenIDs)
-			if err != nil {
-				return nil, fmt.Errorf("invalid JSON")
+			if strings.Contains(contentTypeLower, "json") {
+				extractedFromBody, bodyExtractionError = extractJSONIDs(body, primaryBodyIdPaths, seenIDs)
+			} else if strings.Contains(contentTypeLower, "xml") {
+				extractedFromBody, bodyExtractionError = extractXMLIDs(body, primaryBodyIdPaths, seenIDs)
 			}
-		} else if strings.Contains(contentTypeLower, "xml") {
-			ids, err = extractXMLIDs(body, section.BodyIDPaths, seenIDs)
-			if err != nil {
-				return nil, fmt.Errorf("invalid XML")
-			}
-		}
 
-		if len(ids) > 0 {
-			return ids, nil
+			if bodyExtractionError != nil {
+				h.logger.WarnContext(ctx, "error extracting some IDs from body", "error", bodyExtractionError)
+				// If body extraction itself fails (e.g. malformed JSON/XML), this should be a hard error.
+				return nil, bodyExtractionError // Propagate body parsing errors
+			}
+			for _, id := range extractedFromBody { // Add successfully extracted and newly seen IDs
+				addID(id) // addID handles uniqueness via seenIDs
+			}
 		}
 	}
 
-	// For non-JSON requests or if no IDs found in body, try to extract from path
-	pathSegments := getPathInfo(req.URL.Path)
-	if len(pathSegments) > 0 {
-		lastSegment := pathSegments[len(pathSegments)-1]
-		if lastSegment != "" && lastSegment != sectionName {
-			return []string{lastSegment}, nil
+	// 5. Fallback for POST: if still no IDs, try last path segment (e.g., POST /collection/newIdToCreate)
+	if req.Method == http.MethodPost && len(collectedIDs) == 0 {
+		if len(pathSegments) > 0 {
+			lastSegment := pathSegments[len(pathSegments)-1]
+			// Check if lastSegment looks like a collection name vs an ID
+			// This logic might need refinement based on how PathPattern is defined (e.g. /collection/* vs /collection)
+			patternSegments := getPathInfo(section.PathPattern)
+			if len(pathSegments) > len(patternSegments) || (len(pathSegments) == len(patternSegments) && strings.HasSuffix(section.PathPattern, "*")) {
+				addID(lastSegment)
+			}
 		}
 	}
 
-	return nil, fmt.Errorf("no IDs found in request")
+	if len(collectedIDs) == 0 {
+		// For POST, this signals to the caller to generate a UUID.
+		// For other methods, if it reaches here, it implies no specific resource ID was found by path.
+		return nil, nil // No IDs found, but not an error in extraction itself.
+	}
+
+	return collectedIDs, nil
 }
 
 // Helper functions moved from service
@@ -132,49 +151,49 @@ func getPathInfo(path string) []string {
 	return strings.Split(strings.Trim(path, "/"), "/")
 }
 
-func extractJSONIDs(body []byte, paths []string, seenIDs map[string]bool) ([]string, error) {
+func extractJSONIDs(body []byte, idPaths []string, seenIDs map[string]bool) ([]string, error) {
 	doc, err := jsonquery.Parse(bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON body: %w", err)
 	}
 
 	var ids []string
-	for _, path := range paths {
+	for _, path := range idPaths {
 		nodes, err := jsonquery.QueryAll(doc, path)
 		if err != nil {
 			continue
 		}
 		for _, node := range nodes {
-			if id := fmt.Sprintf("%v", node.Value()); id != "" && !seenIDs[id] {
-				ids = append(ids, id)
-				seenIDs[id] = true
+			if idStr := fmt.Sprintf("%v", node.Value()); idStr != "" {
+				if !seenIDs[idStr] {
+					ids = append(ids, idStr)
+				}
 			}
 		}
 	}
-
 	return ids, nil
 }
 
-func extractXMLIDs(body []byte, paths []string, seenIDs map[string]bool) ([]string, error) {
+func extractXMLIDs(body []byte, idPaths []string, seenIDs map[string]bool) ([]string, error) {
 	doc, err := xmlquery.Parse(bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse XML body: %w", err)
 	}
 
 	var ids []string
-	for _, path := range paths {
+	for _, path := range idPaths {
 		nodes, err := xmlquery.QueryAll(doc, path)
 		if err != nil {
 			continue
 		}
 		for _, node := range nodes {
-			if id := node.InnerText(); id != "" && !seenIDs[id] {
-				ids = append(ids, id)
-				seenIDs[id] = true
+			if idStr := node.InnerText(); idStr != "" {
+				if !seenIDs[idStr] {
+					ids = append(ids, idStr)
+				}
 			}
 		}
 	}
-
 	return ids, nil
 }
 
@@ -273,32 +292,26 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 		}, nil
 
 	case http.MethodPost:
-		var id string                   // This will be the definitive ID for the resource
-		var createdResourceIDs []string // IDs to be used for storage
+		var id string                   // Definitive ID for Location header, logging
+		var createdResourceIDs []string // All IDs to be passed to storage.Create
 
-		// Pass section and sectionName to extractIDs
 		idsFromExtractor, err := h.extractIDs(ctx, req, section, sectionName)
-		if err != nil {
-			if err.Error() == "no IDs found in request" {
-				generatedUUID := uuid.New().String()
-				id = generatedUUID                // Assign to id for Location header and logging
-				createdResourceIDs = []string{id} // Use generated ID for storage
-				err = nil                         // Clear the error, as we've handled it by generating an ID
-				h.logger.Debug("POST: no ID found in request, generated new UUID", "uuid", id)
-			} else {
-				h.logger.Error("failed to extract IDs for POST", "path", req.URL.Path, "error", err)
-				return &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(strings.NewReader("invalid request: " + err.Error()))}, nil
-			}
-		} else if len(idsFromExtractor) == 0 { // No error, but no IDs found (e.g. empty body for relevant content types)
+		if err != nil { // An actual error occurred during extraction (e.g., bad JSON, IO error)
+			h.logger.Error("failed to extract IDs for POST", "path", req.URL.Path, "error", err)
+			return &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(strings.NewReader("invalid request: " + err.Error()))}, nil
+		} else if len(idsFromExtractor) == 0 { // No error from extractIDs, and no IDs were found from any source
 			generatedUUID := uuid.New().String()
-			id = generatedUUID                // Assign to id for Location header and logging
-			createdResourceIDs = []string{id} // Use generated ID for storage
-			h.logger.Debug("POST: extractIDs returned no error but empty IDs, generated new UUID", "uuid", id)
-		} else {
-			id = idsFromExtractor[0]              // Use the first ID for Location header and logging if multiple are found
-			createdResourceIDs = idsFromExtractor // Use all extracted IDs for storage if that's the intent for batch
+			id = generatedUUID
+			createdResourceIDs = []string{id} // Use generated UUID for storage
+			h.logger.Debug("POST: no IDs found by extractIDs, generated new UUID", "uuid", id)
+		} else { // One or more IDs were successfully extracted by extractIDs
+			id = idsFromExtractor[0]              // Use the first ID for Location header and logging
+			createdResourceIDs = idsFromExtractor // Use all extracted IDs for storage
 			if len(idsFromExtractor) > 1 {
-				h.logger.Warn("multiple IDs found in POST request, using the first for Location header, all for creation", "path", req.URL.Path, "all_ids", idsFromExtractor, "location_id", id)
+				h.logger.Info("multiple IDs found in POST request, using first for Location, all for creation",
+					"path", req.URL.Path, "all_ids", createdResourceIDs, "location_id", id)
+			} else {
+				h.logger.Debug("POST: using extracted ID(s)", "path", req.URL.Path, "ids", createdResourceIDs)
 			}
 		}
 

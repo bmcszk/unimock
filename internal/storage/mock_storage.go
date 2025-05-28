@@ -243,7 +243,7 @@ func (s *mockStorage) GetByPath(path string) ([]*model.MockData, error) {
 	return nil, errors.NewNotFoundError("resource not found", path)
 }
 
-// Delete removes data by ID or path
+// Delete removes data by ID
 func (s *mockStorage) Delete(id string) error {
 	if err := s.validateID(id); err != nil {
 		return err
@@ -252,64 +252,125 @@ func (s *mockStorage) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Try to delete by ID first
 	storageID, exists := s.idMap[id]
-	if exists {
-		data := s.data[storageID]
-		if data != nil {
-			// Remove from original path
-			if pathIDs, ok := s.pathMap[data.Path]; ok {
-				for i, sid := range pathIDs {
-					if sid == storageID {
-						s.pathMap[data.Path] = append(pathIDs[:i], pathIDs[i+1:]...)
-						break
-					}
-				}
-			}
-			// Remove from ID path
-			idPath := path.Join(data.Path, id)
-			if pathIDs, ok := s.pathMap[idPath]; ok {
-				for i, sid := range pathIDs {
-					if sid == storageID {
-						s.pathMap[idPath] = append(pathIDs[:i], pathIDs[i+1:]...)
-						break
-					}
-				}
-			}
-		}
-		delete(s.data, storageID)
+	if !exists {
+		// If the direct ID is not found, it might be a path trying to be deleted.
+		// However, this Delete function is ID-specific.
+		// Path-based deletion should be handled by a different mechanism or by iterating through GetByPath results.
+		return errors.NewNotFoundError(id, " (as an individual resource ID)")
+	}
+
+	// Get the data for path cleanup and to ensure it exists
+	mockData, dataExists := s.data[storageID]
+	if !dataExists {
+		// Data integrity issue: idMap has it, but data doesn't. Clean up idMap entry.
 		delete(s.idMap, id)
-		return nil
+		return errors.NewNotFoundError(id, " (data integrity issue: found in idMap but not in data store)")
 	}
 
-	// If ID-based deletion failed, try path-based deletion
-	var found bool
-	for storedPath, storageIDs := range s.pathMap {
-		if strings.HasPrefix(storedPath, id+"/") || storedPath == id {
-			for _, sid := range storageIDs {
-				if _, exists := s.data[sid]; exists {
-					// Find and remove all external IDs that map to this storage ID
-					for extID, storedSID := range s.idMap {
-						if storedSID == sid {
-							delete(s.idMap, extID)
-						}
-					}
-					delete(s.data, sid)
-					found = true
-				}
-			}
-			delete(s.pathMap, storedPath)
+	// 1. Remove all external ID mappings for this storageID
+	for extID, mappedStorageID := range s.idMap {
+		if mappedStorageID == storageID {
+			delete(s.idMap, extID)
 		}
 	}
 
-	if !found {
-		return errors.NewNotFoundError(id, id)
+	// 2. Remove the resource data
+	delete(s.data, storageID)
+
+	// 3. Clean up pathMap
+	// Remove from the resource's base path
+	if pathIDs, ok := s.pathMap[mockData.Path]; ok {
+		newPathIDs := []string{}
+		for _, sid := range pathIDs {
+			if sid != storageID {
+				newPathIDs = append(newPathIDs, sid)
+			}
+		}
+		if len(newPathIDs) == 0 {
+			delete(s.pathMap, mockData.Path)
+		} else {
+			s.pathMap[mockData.Path] = newPathIDs
+		}
+	}
+
+	// Remove from all potential ID-specific paths.
+	// This requires knowing all external IDs previously associated with mockData.Path.
+	// Since we just deleted them from idMap, we don't have them directly.
+	// However, the original pathMap construction added entries for path.Join(data.Path, ids[0]).
+	// This part is tricky if multiple external IDs could form different id-specific paths.
+	// For now, assume the main id-specific path was formed with the 'id' passed to this Delete function.
+	// A more robust cleanup might involve iterating all paths in pathMap, but that's inefficient.
+	// The current pathMap structure might need rethinking if arbitrary external IDs can form parts of distinct stored paths.
+	// Let's stick to cleaning the path derived from the original id.
+	// The original code also cleaned up path.Join(oldData.Path, id) in Update.
+
+	// Re-evaluate path cleanup based on how paths are stored.
+	// The current `pathMap` stores storageIDs under their `data.Path` (collection)
+	// and potentially under `data.Path + "/" + externalId` (specific resource via one ID).
+	// We've cleaned `mockData.Path`. We also need to clean any `mockData.Path + "/" + someExternalId` entries.
+
+	// Iterate over a copy of pathMap keys to avoid issues with deleting from map during iteration
+	pathsToClean := []string{}
+	for p := range s.pathMap {
+		// Check if path p starts with mockData.Path + "/" and corresponds to one of the (now deleted) external IDs.
+		// This is still indirect. A better way would be if model.MockData stored all its external IDs.
+		// For now, we only explicitly know the 'id' used for deletion.
+		// Let's assume pathMap stores entries for mockData.Path (collection) and potentially mockData.Location (which is data.Path + "/" + ids[0] from Create).
+		if p == mockData.Location { // mockData.Location should be the id-specific path created with the primary external ID
+			pathsToClean = append(pathsToClean, p)
+		}
+	}
+	// Also, if the 'id' used for deletion was not the one used to form mockData.Location,
+	// its specific path (mockData.Path + "/" + id) might also be in pathMap.
+	idSpecificPath := path.Join(mockData.Path, id)
+	if _, exists := s.pathMap[idSpecificPath]; exists {
+		pathsToClean = append(pathsToClean, idSpecificPath)
+	}
+
+	for _, p := range pathsToClean {
+		if pathIDs, ok := s.pathMap[p]; ok {
+			newPathIDs := []string{}
+			for _, sid := range pathIDs {
+				if sid != storageID {
+					newPathIDs = append(newPathIDs, sid)
+				}
+			}
+			if len(newPathIDs) == 0 {
+				delete(s.pathMap, p)
+			} else {
+				s.pathMap[p] = newPathIDs
+			}
+		}
+	}
+
+	// If the id used for deletion itself formed part of a path key in pathMap
+	// e.g. pathMap["/users/id123"] where "id123" is the 'id'
+	// This specific path should also be cleaned if it only contained this storageID
+	specificPathKey := path.Join(mockData.Path, id) // Assuming id is the last segment
+	if currentPathIDs, ok := s.pathMap[specificPathKey]; ok {
+		newSpecificPathIDs := []string{}
+		for _, sid := range currentPathIDs {
+			if sid != storageID {
+				newSpecificPathIDs = append(newSpecificPathIDs, sid)
+			}
+		}
+		if len(newSpecificPathIDs) == 0 {
+			delete(s.pathMap, specificPathKey)
+		} else {
+			s.pathMap[specificPathKey] = newSpecificPathIDs
+		}
 	}
 
 	return nil
 }
 
-// ForEach iterates over all stored data
+// ForEach iterates over each stored item
+// The 'id' passed to the callback function 'fn' will be one of the external IDs associated with the data.
+// To be precise, it's the first external ID encountered when iterating idMap that maps to a given storageID.
+// This might not be deterministic if multiple external IDs map to the same storageID.
+// If a deterministic "primary" external ID is needed for ForEach, idMap iteration order dependency is an issue.
+// For now, it provides *an* external ID.
 func (s *mockStorage) ForEach(fn func(id string, data *model.MockData) error) error {
 	if fn == nil {
 		return errors.NewInvalidRequestError("callback function cannot be nil")

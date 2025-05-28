@@ -1,0 +1,12 @@
+POST /api/documents HTTP/1.1
+Content-Type: application/json
+
+{"meta": {"uuid": "docUUID1"}, "alt_id": "altIDXYZ", "content": "Test document"}
+
+###
+
+GET /api/documents/docUUID1 HTTP/1.1
+
+###
+
+GET /api/documents/altIDXYZ HTTP/1.1 

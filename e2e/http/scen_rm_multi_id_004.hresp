@@ -1,0 +1,11 @@
+# Resp for Step 0 (POST)
+HTTP/1.1 201 Created
+Location: /api/gadgets/existing_token
+
+###
+
+# Resp for Step 1 (Conflicting POST)
+HTTP/1.1 409 Conflict
+Content-Type: text/plain; charset=utf-8
+
+resource already exists 

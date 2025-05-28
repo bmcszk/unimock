@@ -227,3 +227,81 @@ Each scenario should be described with enough detail to understand its purpose, 
     - Content-Type header is `application/json`.
     - Location header is `/resource/creation/new-id-from-scenario`.
 **E2E Test Link/Reference:** TBD
+
+---
+
+### Section X: Resource Management - Multiple IDs (REQ-RM-MULTI-ID)
+
+**Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
+**Scenario ID:** SCEN-RM-MULTI-ID-001
+**Description:** Create a resource with multiple IDs (one from header, one from body JSON path) and verify it can be retrieved by either ID.
+**Preconditions:**
+    - Unimock service is running.
+    - Mock config section `products` exists with `path_pattern: "/products/*"`, `header_id_name: "X-Product-Token"`, `body_id_paths: ["/product/sku"]`.
+**Steps:**
+1. Send a POST request to `/products` with header `X-Product-Token: token123` and JSON body `{"product": {"sku": "skuABC"}, "name": "Multi-ID Product"}`.
+2. Expected: HTTP 201 Created. Location header might point to one of the IDs (e.g., `/products/token123` or `/products/skuABC`).
+3. Send a GET request to `/products/token123`.
+4. Expected: HTTP 200 OK. Response body is `{"product": {"sku": "skuABC"}, "name": "Multi-ID Product"}`.
+5. Send a GET request to `/products/skuABC`.
+6. Expected: HTTP 200 OK. Response body is `{"product": {"sku": "skuABC"}, "name": "Multi-ID Product"}`.
+**E2E Test Link/Reference:** TBD
+
+**Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
+**Scenario ID:** SCEN-RM-MULTI-ID-002
+**Description:** Update a resource (identified by one of its multiple IDs) and verify the update is reflected when retrieving by another of its IDs.
+**Preconditions:**
+    - Unimock service is running.
+    - A resource exists, associated with external IDs `id_A` and `id_B`. Original data: `{"value": "original"}`.
+    - Mock config allows PUT to `/items/{id}`.
+**Steps:**
+1. Send a PUT request to `/items/id_A` with JSON body `{"value": "updated"}`.
+2. Expected: HTTP 200 OK (or 204).
+3. Send a GET request to `/items/id_B`.
+4. Expected: HTTP 200 OK. Response body is `{"value": "updated"}`.
+**E2E Test Link/Reference:** TBD
+
+**Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
+**Scenario ID:** SCEN-RM-MULTI-ID-003
+**Description:** Delete a resource (identified by one of its multiple IDs) and verify it's no longer accessible by any of its other associated IDs.
+**Preconditions:**
+    - Unimock service is running.
+    - A resource exists, associated with external IDs `id_X`, `id_Y`, and `id_Z`.
+    - Mock config allows DELETE to `/resources/{id}`.
+**Steps:**
+1. Send a DELETE request to `/resources/id_Y`.
+2. Expected: HTTP 200 OK or 204 No Content.
+3. Send a GET request to `/resources/id_X`.
+4. Expected: HTTP 404 Not Found.
+5. Send a GET request to `/resources/id_Z`.
+6. Expected: HTTP 404 Not Found.
+**E2E Test Link/Reference:** TBD
+
+**Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
+**Scenario ID:** SCEN-RM-MULTI-ID-004
+**Description:** Attempt to create a new resource providing an external ID that is already associated with an existing resource, verify conflict.
+**Preconditions:**
+    - Unimock service is running.
+    - A resource exists and is associated with external ID `existing_token`.
+    - Mock config section `gadgets` exists with `path_pattern: "/gadgets/*"`, `header_id_name: "X-Gadget-Token"`.
+**Steps:**
+1. Send a POST request to `/gadgets` with header `X-Gadget-Token: existing_token` and JSON body `{"name": "Conflicting Gadget"}`.
+**Expected Result:**
+    - HTTP status code 409 Conflict.
+    - The original resource associated with `existing_token` remains unchanged.
+**E2E Test Link/Reference:** TBD
+
+**Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
+**Scenario ID:** SCEN-RM-MULTI-ID-005
+**Description:** Create a resource via POST where IDs are extracted from multiple body paths (JSON), retrieve by each.
+**Preconditions:**
+    - Unimock service is running.
+    - Mock config section `documents` exists with `path_pattern: "/documents/*"`, `body_id_paths: ["/meta/uuid", "/alt_id"]`.
+**Steps:**
+1. Send a POST request to `/documents` with JSON body `{"meta": {"uuid": "docUUID1"}, "alt_id": "altIDXYZ", "content": "Test document"}`.
+2. Expected: HTTP 201 Created.
+3. Send a GET request to `/documents/docUUID1`.
+4. Expected: HTTP 200 OK with the document body.
+5. Send a GET request to `/documents/altIDXYZ`.
+6. Expected: HTTP 200 OK with the document body.
+**E2E Test Link/Reference:** TBD
