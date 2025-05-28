@@ -11,7 +11,7 @@ This document MANDATES the workflow for task creation, management, and completio
 
 1.  Upon changes to `docs/requirements.md`, AI Agent MUST create new tasks in **ToDo** state. New tasks MUST ALWAYS be appended to `docs/tasks.md`.
     *   For functional requirements, AI Agent MUST add test scenarios to `docs/scenarios.md` AND create a task to implement E2E tests for EVERY scenario.
-2.  After creating new tasks, AI Agent MUST remove all tasks with **Done** status from `docs/tasks.md`.
+2.  When new tasks are added to `docs/tasks.md`, AI Agent MUST then remove tasks that are in the **Done** state from `docs/tasks.md`. Tasks in **Skipped** or any other non-Done state MUST NOT be removed during this process.
 3.  AI Agent MUST ALWAYS create and manage tasks, including assigning IDs and tracking status in `docs/tasks.md`.
 
 ## AI Assistant Task Processing Workflow
