@@ -5,41 +5,50 @@ alwaysApply: true
 ---
 # Task Workflow
 
-This document outlines the workflow for creating, managing, and completing tasks within the project.
+This document MANDATES the workflow for task creation, management, and completion. AI Agents MUST ALWAYS adhere to this workflow.
 
-## Task Creation & Management (from `docs/tasks.md`)
+## Task Creation & Management (Target: `docs/tasks.md`)
 
-1.  When requirements change (i.e., `docs/requirements.md` is updated), create a set of tasks in **ToDo** state. These new tasks **must** be appended to the end of the `docs/tasks.md` file.
-    *   When a requirement is a functional requirement, test scenarios should be added to `docs/scenarios.md` and a task should be created to implement E2E tests for every scenario.
-2.  After new tasks are created, remove all tasks with **Done** status from `docs/tasks.md`.
-3.  Tasks should be always created and managed by the AI agent, including assigning IDs and tracking status in `docs/tasks.md`.
+1.  Upon changes to `docs/requirements.md`, AI Agent MUST create new tasks in **ToDo** state. New tasks MUST ALWAYS be appended to `docs/tasks.md`.
+    *   For functional requirements, AI Agent MUST add test scenarios to `docs/scenarios.md` AND create a task to implement E2E tests for EVERY scenario.
+2.  After creating new tasks, AI Agent MUST remove all tasks with **Done** status from `docs/tasks.md`.
+3.  AI Agent MUST ALWAYS create and manage tasks, including assigning IDs and tracking status in `docs/tasks.md`.
 
 ## AI Assistant Task Processing Workflow
 
 1.  **Task Selection:**
-    *   Go through tasks from `docs/tasks.md` one at a time, by taking the first task from the list in **ToDo** state.
-    *   If there are no more tasks in **ToDo** state, take the first in **Blocked** state.
-    *   If a task is marked as **Blocked**, skip it and move to the next available **ToDo** task. Return to any **Blocked** tasks at the end, after all other **ToDo** tasks have been addressed, or when the blocking condition is resolved.
-2.  **Update Task Status:** Before starting work on a task, the AI assistant **must** update its status to **In Progress** in `docs/tasks.md`.
+    *   AI Agent MUST process tasks from `docs/tasks.md` sequentially, selecting the first task in **ToDo** state.
+    *   If no tasks are in **ToDo** state, AI Agent MUST select the first task in **Blocked** state.
+    *   AI Agent MUST skip **Blocked** tasks if **ToDo** tasks exist. AI Agent MUST return to **Blocked** tasks only after all **ToDo** tasks are addressed or when the blocking condition is resolved.
+2.  **Update Task Status:** Before commencing work, AI Agent MUST update the task's status to **In Progress** in `docs/tasks.md`.
 3.  **Task Execution:**
-    *   Perform the task changes using TDD (if possible).
-    *   Ensure all relevant documentation (`docs/requirements.md`, `docs/scenarios.md`, `docs/tasks.md`, `docs/decisions.md`, `README.md`, `docs/project_structure.md`, `docs/learnings.md`) is considered and updated if necessary.
-    *   Proactively suggest or perform checks (compile, lint, test) as part of the development process for the current task.
-4.  **Task Completion:** A task is completed when:
-    *   Code changes are done.
-    *   Functional requirements are met.
-    *   Relevant test scenarios from `docs/scenarios.md` are covered by E2E tests (if applicable).
-    *   `make check` is passing for the task's changes.
-    *   `make test-e2e` is passing for the task's changes.
-    *   Mark the task as **Done** in `docs/tasks.md`.
+    *   AI Agent MUST apply Test-Driven Development (TDD) for ALL code changes. If TDD is not applicable, AI Agent MUST explicitly state the rationale in its thought process.
+    *   AI Agent MUST ALWAYS consider and update ALL relevant documentation (`docs/requirements.md`, `docs/scenarios.md`, `docs/tasks.md`, `docs/decisions.md`, `README.md`, `docs/project_structure.md`, `docs/learnings.md`).
+    *   AI Agent MUST ALWAYS proactively perform checks (compile, lint, test) during development.
+    *   **`edit_file` Tool Protocol:**
+        *   AI Agent MUST exercise caution with `edit_file` for full-file replacements or large-scale markdown changes (e.g., `docs/tasks.md`).
+        *   If `edit_file` reports issues or fails to apply changes correctly, AI Agent MUST verify the actual file state.
+        *   AI Agent MUST break down large edits.
+        *   If `edit_file` problems persist, AI Agent MUST use the following alternative:
+            1.  Generate a patch file in standard `git diff` format.
+            2.  Save the patch to a temporary file (e.g., `temp.patch`).
+            3.  Use `run_terminal_cmd` to apply the patch: `git apply temp.patch`. AI Agent MUST consult `git apply` documentation for options if needed.
+            4.  Verify changes and delete the temporary patch file.
+4.  **Task Completion Criteria:** A task is ONLY considered **Done** when ALL the following conditions are met:
+    *   ALL code changes are implemented.
+    *   ALL functional requirements are met.
+    *   ALL relevant test scenarios from `docs/scenarios.md` are covered by E2E tests (if applicable).
+    *   `make check` command passes successfully for the task's changes.
+    *   `make test-e2e` command passes successfully for the task's changes.
+    *   The task is marked as **Done** in `docs/tasks.md`.
 5.  **Post-Completion:**
-    *   After successfully committing and pushing changes for a completed task, immediately start processing the next task in **ToDo** status from `docs/tasks.md` (if any), following the same workflow.
-    *   Whenever the AI knows what to do next (including starting a new task), it should proceed without asking for confirmation.
+    *   After successfully committing and pushing changes for a **Done** task, AI Agent MUST immediately process the next **ToDo** task from `docs/tasks.md`.
+    *   AI Agent MUST ALWAYS proceed autonomously without asking for confirmation if the next step is clear.
 
 ## Task Completion & Version Control
 
-1.  When a task from `docs/tasks.md` is marked as **Done** (i.e., functional requirements met, relevant test scenarios from `docs/scenarios.md` covered by E2E tests, and all pre-commit checks like `make check` and `make test-e2e` have passed for the task's changes):
-    *   The AI assistant **must** ensure all changed and new files related to the task are staged for commit (e.g., by using appropriate tool calls to accept/stage all proposed and applied changes).
-    *   The AI assistant **must** then propose a Git commit. The commit message **must** follow the convention: `[TASK-ID] Short descriptive title for the task` (e.g., `[TASK-109] Add unit tests for StockPriceWorker`).
-    *   After the commit is successfully made (simulated or confirmed by the user), the AI assistant **must** propose a Git push to the current branch.
-2.  Push other working changes (even if a task is not fully **Done**) to the remote repository frequently, after ensuring they pass pre-commit checks and are committed. This applies especially to the AI assistant's work on a feature/fix branch as per `requirement_workflow.mdc`.
+1.  When a task meets ALL **Task Completion Criteria** and is marked **Done**:
+    *   AI Agent MUST ensure ALL changed and new files for the task are staged for commit.
+    *   AI Agent MUST then propose a Git commit. Commit message MUST follow: `[TASK-ID] Short descriptive title`.
+    *   After successful commit, AI Agent MUST propose a Git push to the current branch.
+2.  AI Agent MUST frequently push other working changes (even for tasks not fully **Done**) to the remote repository, ONLY AFTER ensuring they pass pre-commit checks (`make check`) and are committed. This is MANDATORY for work on feature/fix branches (see `requirement_workflow.mdc`).

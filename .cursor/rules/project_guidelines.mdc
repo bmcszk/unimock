@@ -5,49 +5,49 @@ alwaysApply: true
 ---
 # Project Overview & Workflow
 
+This document MANDATES project overview and workflow rules. AI Agents MUST ALWAYS adhere to these rules.
 This is a Go project (`github.com/bmcszk/unimock`).
 
 ## Development Methodology: Test-Driven Development (TDD)
-- Always write tests *before* writing implementation code.
-- Ensure tests cover requirements adequately.
-- For every task (as defined in `docs/tasks.md`), proceed with TDD principles.
+- AI Agent MUST ALWAYS write tests *before* writing implementation code.
+- AI Agent MUST ensure tests ADEQUATELY cover requirements (cross-reference `docs/scenarios.md`).
+- AI Agent MUST apply TDD principles for EVERY task (defined in `docs/tasks.md`).
 
 ## Documentation
-Refer to `.cursor/rules/requirement_workflow.mdc` for guidelines on managing requirements and test scenarios.
-Refer to `.cursor/rules/task_workflow.mdc` for guidelines on task creation and management.
+AI Agent MUST ALWAYS consult and adhere to:
+- `.cursor/rules/requirement_workflow.mdc` for managing requirements and test scenarios.
+- `.cursor/rules/task_workflow.mdc` for task creation and management.
 
-1.  **Decisions:** All significant architectural or design decisions must be documented incrementally in `docs/decisions.md`. Include the rationale behind each decision.
-2.  **README:** The `README.md` file must be kept up-to-date with the most essential project information, including setup, build, and usage instructions. Update it as the project evolves.
-3.  **Date/Time in Documentation:** When the current date or time is needed in any documentation, it must be obtained by running an appropriate command line instruction (e.g., `date +%Y-%m-%d` for date).
-4.  **Project Structure Document:** A document outlining the project structure, key components, and their interactions, specifically for the AI assistant\'s understanding and context. This is located at `docs/project_structure.md`.
-5.  **Learnings Document:** A document (`docs/learnings.md`) where the AI assistant (you) records any mistakes made during development, along with their resolutions once fixed. This serves as a continuous improvement log.
+1.  **Decisions:** AI Agent MUST document ALL significant architectural or design decisions incrementally in `docs/decisions.md`, including rationale.
+2.  **README:** AI Agent MUST keep `README.md` up-to-date with essential project information (setup, build, usage).
+3.  **Date/Time in Documentation:** AI Agent MUST obtain current date/time for ANY documentation via command line (e.g., `date +%Y-%m-%d`).
+4.  **Project Structure Document:** AI Agent MUST use `docs/project_structure.md` for understanding project structure.
+5.  **Learnings Document:** AI Agent MUST record ALL mistakes and resolutions in `docs/learnings.md`.
 
 ## Quality Assurance & Workflow
-1.  **Pre-commit Checks:** Before committing any code, every change *must* be verified by:
-    *   Running the consolidated Makefile target (`make check`). This target will typically include:
+1.  **Pre-commit Checks:** AI Agent MUST NEVER commit code UNLESS it has been verified by ALL of the following, which MUST pass:
+    *   Running the consolidated Makefile target: `make check`. This target MUST include:
         *   Compiling the project (e.g., `go build ./...`)
-        *   Running linters (e.g., `golangci-lint run` or other configured linters)
-        *   Running all **unit tests** (e.g., `make test-unit` or `go test -tags=unit ./...`)
-    *   Running all **End-to-End (E2E) tests** (e.g., `make test-e2e`).
-2.  **Makefile Targets for Tools:** All essential development tools used in the project (e.g., `sqlc`, `migrate`, linters) should have corresponding targets in the main `Makefile` for easy and consistent execution.
-3.  **Test Coverage:**
-    *   Refer to `.cursor/rules/requirement_workflow.mdc` for test coverage guidelines related to requirements and scenarios.
-4.  **Task Completion & Version Control:**
-    *   Refer to `.cursor/rules/task_workflow.mdc` for guidelines on task completion and version control.
+        *   Running linters (e.g., `golangci-lint run`)
+        *   Running ALL **unit tests** (e.g., `make test-unit` or `go test -tags=unit ./...`)
+    *   Running ALL **End-to-End (E2E) tests** (e.g., `make test-e2e`).
+2.  **Makefile Targets for Tools:** ALL essential development tools (e.g., `sqlc`, `migrate`, linters) MUST have corresponding targets in the main `Makefile`.
+3.  **Test Coverage:** AI Agent MUST adhere to test coverage guidelines in `requirement_workflow.mdc`.
+4.  **Task Completion & Version Control:** AI Agent MUST adhere to task completion and version control guidelines in `task_workflow.mdc`.
 
 ## AI Assistant (You)
-- You are expected to adhere to all the above guidelines in every interaction and code modification without being explicitly reminded.
-- At the start of processing any request, ensure you are aware of the project\'s root directory (the directory containing the main `Makefile`, usually the workspace root) and the current date (obtain using `date +%Y-%m-%d`).
-- When asked to perform a task, ensure all relevant documentation (including the new workflow files) is considered and updated if necessary.
-- Refer to `.cursor/rules/task_workflow.mdc` for detailed AI assistant responsibilities regarding task processing.
-- Refer to `.cursor/rules/requirement_workflow.mdc` for detailed AI assistant responsibilities regarding requirements and test scenarios.
-- If you encounter a "file or directory not found" error when attempting to access a path, first check your current working directory using `pwd`, then consult `docs/project_structure.md` to verify the expected location before trying again or reporting an issue.
-- **Mistake Logging**: If you make a mistake (e.g., an incorrect code change, a misunderstanding of requirements, a deviation from guidelines), you must:
+- AI Agent MUST ALWAYS adhere to ALL guidelines in this document and ALL referenced `.mdc` files WITHOUT explicit reminders.
+- AI Agent MUST ALWAYS, at the start of ANY request, verify project root and current date (using `date +%Y-%m-%d`).
+- When asked to perform a task, AI Agent MUST ALWAYS consider and update relevant documentation.
+- AI Agent MUST follow `.cursor/rules/task_workflow.mdc` for task processing.
+- AI Agent MUST follow `.cursor/rules/requirement_workflow.mdc` for requirements and scenarios.
+- If a "file or directory not found" error occurs, AI Agent MUST first run `pwd`, then consult `docs/project_structure.md` to verify the expected location BEFORE trying again or reporting an issue.
+- **Mistake Logging**: If AI Agent makes a mistake (e.g., incorrect code, misinterpreting requirements, deviating from guidelines), it MUST:
     1.  Acknowledge the mistake.
-    2.  Document the mistake in `docs/learnings.md`, including a brief description of what went wrong.
-    3.  Once the mistake is corrected, update the entry in `docs/learnings.md` with the resolution or what was learned.
+    2.  Document the mistake in `docs/learnings.md` (what went wrong).
+    3.  Once corrected, update the entry in `docs/learnings.md` with the resolution/learning.
 
 ## Testing Guidelines
-- **End-to-End (E2E) / Integration Tests:** These tests verify the behavior of the system as a whole or integrated parts. They should be written in a Behavior-Driven Development (BDD) style using tools like Godog. These tests typically require a running instance of the application and its dependencies (like databases) managed via Docker Compose. Use Go build tags (e.g., `//go:build e2e`) to identify them.
-- **E2E tests MUST strive to cover all functional requirements outlined in `docs/requirements.md` and all scenarios listed in `docs/scenarios.md`, ensuring key user flows and API interactions are validated against a realistic (Dockerized) environment.**
+- **End-to-End (E2E) / Integration Tests:** These tests MUST verify system behavior (whole or integrated parts). They MUST be written BDD-style (e.g., Godog). They REQUIRE a running application and dependencies (e.g., Docker Compose). Go build tag `//go:build e2e` MUST be used.
+- E2E tests MUST cover ALL functional requirements in `docs/requirements.md` and ALL scenarios in `docs/scenarios.md`. This ensures validation of key user flows and API interactions against a realistic (Dockerized) environment.
 - Both unit and E2E tests MUST be runnable via dedicated Makefile targets (e.g., `make test-unit`, `make test-e2e`).

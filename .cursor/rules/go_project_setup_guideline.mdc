@@ -5,16 +5,17 @@ alwaysApply: false
 ---
 # Go Project Setup Guide
 
-**Objective:** Standardize setup for new Go services/microservices.
+This guide MANDATES the standard setup for new Go services/microservices. AI Agents and developers MUST adhere to this guide when initializing new projects or services.
 
 ## 1. Directory Structure (Root Level)
+This structure MUST be followed:
 -   `services/<service_name>/`: Main application and its internal logic.
     -   `main.go` or `cmd/main.go`: Application entry point.
     -   `internal/`: Core service logic.
         -   `handler/`: HTTP request handlers (e.g., Chi).
         -   `service/`: Business logic.
         -   `storage/`: Data persistence (DB interactions).
-        -   `model/`: Core data structures (if not co-located/generated).
+        -   `model/`: Core data structures (refer to `go_guideline.mdc`).
         -   `worker/`: Background/periodic task processors.
         -   `config/`: Configuration management.
     -   `db/`: Database assets.
@@ -32,64 +33,66 @@ alwaysApply: false
 -   `go.mod`, `go.sum`: Go module files.
 
 ## 2. Core Tooling & Libraries
+The following tools and libraries MUST be used as specified:
 -   **HTTP Routing:** `github.com/go-chi/chi`
 -   **Configuration:** `github.com/caarlos0/env/v6`
 -   **DB Migrations (`golang-migrate`):** `github.com/golang-migrate/migrate`
-    -   Location: `services/<service_name>/db/migration/`.
-    -   Naming: Lexicographical (e.g., `001_initial_schema.up.sql`).
-    -   Execution: Consider auto-run on app startup (in `main.go` or `entrypoint.sh`).
+    -   Location MUST be: `services/<service_name>/db/migration/`.
+    -   Naming MUST be lexicographical (e.g., `001_initial_schema.up.sql`).
+    -   Execution SHOULD be automated on app startup (in `main.go` or `entrypoint.sh`).
 -   **DB Interaction (`sqlc`):** `github.com/sqlc-dev/sqlc`
-    -   Config: `sqlc.yaml` in `services/<service_name>/`.
-    -   Queries: `services/<service_name>/db/query/`.
-    -   Generated Code: `services/<service_name>/db/sqlc_generated/`.
--   **Logging:** Standard `log/slog`.
--   **Error Handling:** Wrap errors: `fmt.Errorf("context: %w", err)`.
--   **Concurrency:** `golang.org/x/sync/errgroup`.
--   **Messaging (Optional):** `github.com/ThreeDotsLabs/watermill` (for event-driven needs).
+    -   Config (`sqlc.yaml`) MUST be in `services/<service_name>/`.
+    -   Queries MUST be in `services/<service_name>/db/query/`.
+    -   Generated Code MUST be in `services/<service_name>/db/sqlc_generated/`.
+-   **Logging:** `log/slog` MUST be used for ALL application logging.
+-   **Error Handling:** ALL returned errors MUST be wrapped with context: `fmt.Errorf("context: %w", err)`.
+-   **Concurrency:** `golang.org/x/sync/errgroup` MUST be used for managing concurrent goroutines.
+-   **Messaging (Optional, if event-driven):** `github.com/ThreeDotsLabs/watermill`.
 
 ## 3. Standard Makefile Targets
--   `build`: Compile.
--   `run`: Run locally.
--   `lint`: `golangci-lint run`.
--   `test-unit`: Run unit tests.
--   `test-e2e`: Run E2E tests (often uses Docker Compose).
--   `check`: Pre-commit (build, lint, unit tests).
+These targets MUST exist in the root `Makefile` and function as described:
+-   `build`: Compile the project.
+-   `run`: Run the project locally.
+-   `lint`: Run `golangci-lint run`.
+-   `test-unit`: Run unit tests ONLY (tag `unit`).
+-   `test-e2e`: Run E2E tests ONLY (tag `e2e`). MUST require Docker (e.g., via Docker Compose).
+-   `check`: Pre-commit checks. MUST include `build`, `lint`, `test-unit`. MUST NOT require Docker.
 -   `sqlc`: Generate SQLC code.
 -   `migrate-up`/`migrate-down`: Manual DB migration control.
 -   `docker-build`: Build Docker image.
--   `docker-run`: Run via Docker.
+-   `docker-run`: Run project via Docker.
 
 ## 4. Testing Strategy
 -   **Unit Tests:**
-    -   In-package (`_test.go` files), tag `//go:build unit`.
-    -   Mock all external dependencies (DB, APIs).
-    -   Fast, no Docker/external services needed.
+    -   MUST be in-package (`_test.go` files) and use build tag `//go:build unit`.
+    -   ALL external dependencies (DB, APIs, other services) MUST be mocked/stubbed.
+    -   MUST be fast; NO Docker or external services required.
 -   **E2E / Integration Tests:**
-    -   Verify system/integrated parts, tag `//go:build e2e`.
-    -   Requires running app & dependencies (Docker Compose).
-    -   Location: Root `e2e/` directory.
-    -   Style: BDD (e.g., Godog).
-    -   **Isolated Config:** Use `docker-compose.e2e.yml` (includes main `docker-compose.yml`, overrides for E2E specifics like ports, test env vars, test data volumes). See Docker docs on [multiple Compose files](https://docs.docker.com/compose/how-tos/multiple-compose-files/include).
--   **Makefile Integration:**
-    -   `make test-unit`: Runs only unit tests.
-    -   `make test-e2e`: Runs only E2E tests.
-    -   `make check`: Includes `make test-unit`.
+    -   MUST verify system/integrated parts and use build tag `//go:build e2e`.
+    -   MUST require a running application and its dependencies (typically via Docker Compose).
+    -   Location MUST be the root `e2e/` directory.
+    -   Style SHOULD be BDD (e.g., Godog).
+    -   **Isolated Config:** MUST use a separate Docker Compose file for E2E (e.g., `docker-compose.e2e.yml`) that includes the main `docker-compose.yml` and overrides for E2E specifics.
+-   **Makefile Integration:** The following Makefile targets MUST exist and integrate tests as specified:
+    -   `make test-unit`: MUST run ONLY unit tests.
+    -   `make test-e2e`: MUST run ONLY E2E tests.
+    -   `make check`: MUST include `make test-unit`.
 
 ## 5. Documentation Practice
--   Primary docs in `docs/` (see section 1).
--   `README.md`: Current setup/usage instructions.
+-   Primary project documentation MUST be in the `docs/` directory (see section 1).
+-   `README.md` MUST contain current setup/usage instructions.
 
 ## 6. AI Assistant Guidelines
--   Store in `.cursor/rules/` (MDC files).
--   Follow TDD (tests before code).
--   Manage tasks via `docs/tasks.md`.
+-   AI Agent rules (MDC files) MUST be stored in `.cursor/rules/`.
+-   AI Agent MUST follow TDD (see `go_guideline.mdc`).
+-   AI Agent MUST manage tasks via `docs/tasks.md` (see `task_workflow.mdc`).
 
 ## 7. Service Health Checks (Mandatory)
--   Implement liveness (`/healthz/live`) and readiness (`/healthz/ready`) probes.
-    -   **Liveness:** Is app running? (Simple, no external dependencies). Failure -> Restart container.
-    -   **Readiness:** Ready for traffic? (Can check DB, etc.). Failure -> No traffic sent.
+-   Liveness (`/healthz/live`) and readiness (`/healthz/ready`) probes MUST be implemented.
+    -   **Liveness:** Checks if app is running (MUST be simple, no external dependencies). Failure results in container restart.
+    -   **Readiness:** Checks if app is ready for traffic (MAY check DB, etc.). Failure results in no traffic being sent.
 
 ## 8. Dependency Management
--   **Versioning:** Check for latest stable versions (Go, Docker images, Go libs) before adding/updating. Prefer stable releases for prod.
+-   **Versioning:** AI Agent (or developer) MUST check for latest STABLE versions (Go, Docker images, Go libraries) before adding/updating. STABLE releases MUST ALWAYS be preferred for production environments.
 
 **Note:** Adapt this guide as needed for your project.

@@ -5,36 +5,38 @@ alwaysApply: true
 ---
 # Requirement Workflow
 
-This document outlines the workflow related to managing requirements and their corresponding test scenarios.
+This document MANDATES the workflow for managing requirements and their corresponding test scenarios. AI Agents MUST ALWAYS adhere to this workflow.
 
 ## Documentation of Requirements & Test Scenarios
+
 1.  **Requirements File (`docs/requirements.md`):**
-    *   All functional and non-functional requirements **must** be documented in `docs/requirements.md`.
-    *   Before starting work on a new feature or change, consult and update this file.
+    *   ALL functional and non-functional requirements MUST be documented in `docs/requirements.md`.
+    *   AI Agent MUST ALWAYS consult and update `docs/requirements.md` BEFORE starting work on ANY new feature or change.
 
 2.  **Test Scenarios File (`docs/scenarios.md`):**
-    *   For every requirement defined in `docs/requirements.md`, corresponding test scenarios (covering common cases and edge cases) **must** be documented in `docs/scenarios.md`.
-    *   This file serves as a checklist for test coverage.
+    *   For EVERY requirement in `docs/requirements.md`, corresponding test scenarios (covering common and edge cases) MUST be documented in `docs/scenarios.md`.
+    *   AI Agent MUST use `docs/scenarios.md` as a MANDATORY checklist for test coverage.
 
 ## Test Coverage for Requirements
-- All functional requirements in `docs/requirements.md` **must** have corresponding test scenarios documented in `docs/scenarios.md`.
-- Every test scenario listed in `docs/scenarios.md` **must** be covered by an End-to-End (E2E) test.
-- The AI assistant is responsible for verifying this coverage when implementing or modifying E2E tests related to a requirement.
+
+-   ALL functional requirements in `docs/requirements.md` MUST have corresponding test scenarios documented in `docs/scenarios.md`.
+-   EVERY test scenario listed in `docs/scenarios.md` MUST be covered by an End-to-End (E2E) test.
+-   AI Agent MUST ALWAYS verify E2E test coverage when implementing or modifying E2E tests related to a requirement.
 
 ## AI Assistant Responsibilities for Requirements
-- When asked to perform a task, ensure all relevant documentation (`docs/requirements.md`, `docs/scenarios.md`, etc.) is considered and updated if necessary. This includes:
-    - Defining test scenarios in `docs/scenarios.md` for new or modified requirements.
-    - Ensuring E2E test coverage for scenarios in `docs/scenarios.md`.
+
+-   AI Agent MUST ALWAYS consider and update ALL relevant documentation (`docs/requirements.md`, `docs/scenarios.md`) for ANY task. This INCLUDES:
+    -   Defining test scenarios in `docs/scenarios.md` for new or modified requirements.
+    -   Ensuring E2E test coverage for ALL scenarios in `docs/scenarios.md`.
 
 ## Git Workflow for Requirements
 
 -   **Branching:**
-    -   On every requirement change (new feature or fix), a new branch **must** be created from `master`.
-    -   Branch naming convention: `feature/requirement-name` for new features or `fix/fix-name` for bug fixes. (e.g., `feature/user-authentication`, `fix/login-csrf-vulnerability`).
+    -   For EVERY requirement change (new feature or fix), a new branch MUST be created from `master`.
+    -   Branch naming convention MUST be: `feature/requirement-name` or `fix/fix-name` (e.g., `feature/user-auth`, `fix/login-csrf`).
 -   **Committing and Pushing:**
-    -   Each task related to the requirement should be committed and pushed to this feature/fix branch.
-    -   Follow guidelines in `task_workflow.mdc` for task completion and version control for individual tasks.
+    *   ALL tasks related to the requirement MUST be committed and pushed to this feature/fix branch.
+    *   AI Agent MUST follow `task_workflow.mdc` for task completion and version control for individual tasks.
 -   **Pull Requests:**
-    -   After all tasks for the requirement are **Done** (or **Skipped**), and all associated work is committed and pushed to the feature/fix branch:
-        -   A pull request **must** be created to merge the feature/fix branch into `master`.
-        -   Use the `gh pr create` command. For example: `gh pr create --base master --head feature/your-branch-name --title "Feature: Implement X" --body "Details of the feature and related tasks."`. The title and body should be descriptive.
+    -   ONLY AFTER ALL tasks for the requirement are **Done** (or **Skipped**), AND all associated work is committed and pushed to the feature/fix branch, AI Agent MUST create a Pull Request to merge the feature/fix branch into `master`.
+    -   AI Agent MUST use the `gh pr create` command. Example: `gh pr create --base master --head your-branch --title "Feature: X" --body "Details."`. Title and body MUST be descriptive.
