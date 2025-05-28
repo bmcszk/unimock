@@ -305,3 +305,25 @@ Each scenario should be described with enough detail to understand its purpose, 
 5. Send a GET request to `/documents/altIDXYZ`.
 6. Expected: HTTP 200 OK with the document body.
 **E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_005`
+
+**Requirement Ref:** Implied - Comprehensive E2E Test
+**Scenario ID:** SCEN-E2E-COMPLEX-001
+**Description:** Verify a complex multistage workflow involving resource CRUD, multiple ID retrieval, and dynamic scenario injection/removal.
+**Preconditions:**
+    - Unimock service is running.
+    - Mock config section `widgets` exists with `path_pattern: "/widgets/*"`, `primary_id_source: "body"`, `header_id_name: "X-Widget-Serial"`, `body_id_paths: ["/widget/id"]`.
+**Steps:**
+1.  HEAD `/widgets/widget123`. Expected: 404 Not Found.
+2.  POST to `/widgets` with header `X-Widget-Serial: serialABC` and body `{"widget": {"id": "widget123"}, "data": "initial data"}`. Expected: 201 Created. Location header refers to primary ID (e.g., `/widgets/widget123`).
+3.  GET `/widgets/widget123` (ID from body path). Expected: 200 OK, body `{"widget": {"id": "widget123"}, "data": "initial data"}`.
+4.  GET `/widgets/serialABC` (ID from header). Expected: 200 OK, body `{"widget": {"id": "widget123"}, "data": "initial data"}`.
+5.  GET `/widgets`. Expected: 200 OK, response is a JSON array containing the created widget.
+6.  PUT to `/widgets/widget123` with body `{"widget": {"id": "widget123"}, "data": "updated data"}`. Expected: 200 OK.
+7.  GET `/widgets/widget123`. Expected: 200 OK, body `{"widget": {"id": "widget123"}, "data": "updated data"}`.
+8.  POST to `/_uni/scenarios` with body `{"requestPath": "GET /widgets/widget123", "statusCode": 418, "contentType": "text/plain", "data": "I am a teapot", "times": 1}`. Expected: 201 Created (or 200 OK). Get scenario UUID from response.
+9.  GET `/widgets/widget123`. Expected: 418 I'm a teapot, body "I am a teapot".
+10. DELETE `/_uni/scenarios/{scenario_uuid}`. Expected: 200 OK or 204 No Content.
+11. GET `/widgets/widget123`. Expected: 200 OK, body `{"widget": {"id": "widget123"}, "data": "updated data"}`.
+12. DELETE `/widgets/widget123`. Expected: 200 OK or 204 No Content.
+13. HEAD `/widgets/widget123`. Expected: 404 Not Found.
+**E2E Test Link/Reference:** TBD

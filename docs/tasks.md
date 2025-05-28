@@ -30,3 +30,14 @@ Each task should follow the format:
 [TASK-019] - Done - 2025-05-27 - Implement E2E test for SCEN-SH-003: Scenario match skips normal mock handling.
 [TASK-020] - Done - 2025-05-27 - Implement E2E test for SCEN-SH-004: Scenario for specific HTTP method does not match other methods.
 [TASK-021] - Done - 2025-05-27 - Implement E2E test for SCEN-SH-005: Scenario matching with empty data and custom location header.
+
+---
+ID: TASK-029
+Description: Implement a multistage E2E scenario covering resource lifecycle and scenario management.
+Status: Blocked
+Reason: `edit_file` tool is unable to reliably modify `config.yaml` to the required state. Manual intervention is needed to fix `config.yaml`. See `docs/learnings.md` entry for 2025-05-28.
+Assigned: AI
+Created: 2025-05-28
+Updated: 2025-05-28
+REQ: REQ-E2E-COMPLEX-001 (Implied)
+---

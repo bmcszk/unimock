@@ -42,6 +42,11 @@ AI Agent MUST ALWAYS consult and adhere to:
 - AI Agent MUST follow `.cursor/rules/task_workflow.mdc` for task processing.
 - AI Agent MUST follow `.cursor/rules/requirement_workflow.mdc` for requirements and scenarios.
 - If a "file or directory not found" error occurs, AI Agent MUST first run `pwd`, then consult `docs/project_structure.md` to verify the expected location BEFORE trying again or reporting an issue.
+- If the AI agent encounters issues with its tools for core filesystem operations (e.g., `read_file` errors/timeouts/stale content, or `edit_file` failing to apply changes correctly), it MUST:
+    1. First, attempt to search online for solutions to the specific tool problem, using a search query prefixed with 'cursor ai' (e.g., "cursor ai edit_file not appending correctly").
+    2. If a viable solution or workaround is found, the AI Agent MUST attempt to apply it.
+    3. The AI Agent MUST strive to complete file modifications autonomously and AVOID asking the user to perform manual file edits for such tasks.
+    4. Only after exhausting self-help measures (including online search and alternative strategies with available tools) should an issue be reported to the user as a blocker.
 - **Mistake Logging**: If AI Agent makes a mistake (e.g., incorrect code, misinterpreting requirements, deviating from guidelines), it MUST:
     1.  Acknowledge the mistake.
     2.  Document the mistake in `docs/learnings.md` (what went wrong).
