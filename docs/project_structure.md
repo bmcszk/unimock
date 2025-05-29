@@ -5,8 +5,6 @@ This document outlines the project structure, key components, and their interact
 ## Top-Level Directories
 
 - **`.github/`**: Contains GitHub Actions workflows for CI/CD and other automation.
-- **`cmd/`**: Contains main applications (entry points) for the project. (Note: This project uses a single `main.go` in the root for the primary application).
-- **`config/`**: Contains static configuration files, if any (e.g., default settings). Dynamic configuration is typically handled via environment variables.
 - **`docs/`**: Contains all project documentation, including requirements, design decisions, task lists, etc.
 - **`example/`**: Contains example usage of the `unimock` library/tool.
 - **`helm/`**: Contains Helm charts for Kubernetes deployment.
