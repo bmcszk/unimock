@@ -214,6 +214,12 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 		if scenario.Location != "" {
 			responseHeaders.Set("Location", scenario.Location)
 		}
+		// Apply custom headers from scenario
+		if scenario.Headers != nil {
+			for k, v := range scenario.Headers {
+				responseHeaders.Set(k, v)
+			}
+		}
 		return &http.Response{
 			StatusCode: scenario.StatusCode,
 			Header:     responseHeaders,

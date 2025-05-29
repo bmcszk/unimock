@@ -52,6 +52,12 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if scenario.Location != "" {
 			w.Header().Set("Location", scenario.Location)
 		}
+		// Apply custom headers from scenario
+		if scenario.Headers != nil {
+			for k, v := range scenario.Headers {
+				w.Header().Set(k, v)
+			}
+		}
 		w.WriteHeader(scenario.StatusCode)
 
 		// Write the response body from the scenario

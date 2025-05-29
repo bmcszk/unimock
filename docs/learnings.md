@@ -64,3 +64,52 @@ The `edit_file` tool struggles with multi-line edits within JSON structures in `
 Resolution:
 When `edit_file` fails for specific block replacements (like a JSON object), a full file replacement (if the file is small enough and its content is known) or breaking down the edit into extremely small, sequential, single-line changes might be more reliable. For very complex or repeated failures, manual edit by user is the fallback, but the AI should exhaust all tool-based alternatives first, including trying to reconstruct the entire file content with the fix and using `edit_file` to replace the whole file.
 ---
+
+---
+Date: 2025-05-29
+Tool: edit_file / reapply
+File: docs/tasks.md
+Version: N/A
+Mistake:
+When attempting to update `docs/tasks.md` by removing multiple 'Done' tasks (lines spread throughout the task list) and appending a new 'ToDo' task, both `edit_file` and `reapply` failed to correctly remove all specified 'Done' tasks. They successfully added the new task but only partially removed the 'Done' tasks or removed none of them, even when the `code_edit` parameter for `edit_file` specified the complete desired state of the relevant section.
+Resolution:
+For complex list manipulations in Markdown files (like removing multiple non-contiguous items and adding new ones), providing the full desired content of the file to `edit_file` for a complete replacement is the most reliable approach. If `edit_file` still struggles, it indicates a limitation in its ability to process large diffs or complex Markdown structures. In such cases, if the primary goal (e.g., adding a new task) is achieved, minor cleanup (like removing all stale 'Done' tasks) might be deferred or noted for manual review if the tool remains ineffective after multiple attempts with full content replacement. The key is that core workflow steps (like new task addition) should not be blocked if possible.
+---
+
+---
+Date: 2025-05-29
+Tool: edit_file, read_file
+File: docs/scenarios.md
+Version: N/A
+Mistake:
+Multiple attempts to edit `docs/scenarios.md` to add a new scenario and then update its E2E test link reference were problematic. `edit_file` with partial content (`// ... existing code ...`) sometimes misapplied changes, or updated incorrect sections if duplicated content existed. `read_file` also sometimes returned incomplete or inconsistent views of the file, making it hard to confirm the true state before attempting an edit. This led to duplicated scenario entries and incorrectly applied updates.
+Resolution:
+The most robust way to handle edits to complex Markdown files, especially when previous edits might have been problematic or the exact file state is uncertain, is to:
+1. Use `read_file` (potentially in multiple calls if the file is large, or with `should_read_entire_file=True` if feasible and allowed) to get the complete current content.
+2. Manually (in the AI's thought process) verify and reconstruct the *entire desired state* of the file, correcting any duplications or errors identified from the read content.
+3. Use `edit_file` with the *entire corrected content* as the `code_edit` argument to replace the whole file. This minimizes ambiguities for the `edit_file` tool.
+4. After the edit, use `read_file` again to verify the changes were applied exactly as intended.
+This process is more verbose but significantly more reliable for maintaining the integrity of documentation files when using tools that may struggle with partial or complex diffs.
+---
+
+---
+Date: 2025-05-29
+Tool: edit_file
+File: temp.patch
+Version: N/A
+Mistake:
+The `edit_file` tool failed to create a new file (`temp.patch`) with the specified `code_edit` content. When `temp.patch` already existed, `edit_file` (when attempting to overwrite by providing full new content) incorrectly modified the provided `code_edit` content by prepending lines with `+` and removing git diff header lines (`--- a/...`, `+++ b/...`, `@@ ... @@`). This rendered the resulting `temp.patch` file unusable for `git apply`. This occurred even after successfully deleting the pre-existing `temp.patch` file.
+Resolution:
+The `edit_file` tool appears unreliable for creating or overwriting files intended to be used as patches, or files with diff-like syntax. If this issue persists, an alternative might be to construct the file line-by-line using multiple `edit_file` calls if creating a new file, or to request user intervention for applying such changes. For now, the workflow to apply the patch via `git apply temp.patch` is blocked by the inability to correctly create `temp.patch`.
+---
+
+---
+Date: 2025-05-29
+Tool: N/A (Application Logic)
+File: Unimock Core Logic (not a specific file, but general behavior)
+Version: N/A
+Mistake:
+Identified an application bug: When a scenario is defined via `POST /_uni/scenarios` including a `Headers` map, these headers are not returned by the Unimock application when the scenario is matched and served. This was observed in the existing E2E test `TestSCEN_E2E_COMPLEX_001` (in `e2e/complex_lifecycle_test.go`), specifically in `Step7_VerifyScenarioActive`, where an expected header `X-Scenario-Source` was not present in the actual response.
+Resolution:
+This is an application bug that needs to be addressed in the Unimock core logic. A new task should be created to investigate and fix this behavior. The E2E test `TestSCEN_E2E_COMPLEX_001` correctly identifies this issue. For now, this test will continue to fail until the application bug is resolved.
+---
