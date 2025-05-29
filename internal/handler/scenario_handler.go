@@ -132,7 +132,6 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 
 	// Write response
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Location", scenario.Location)
 	w.WriteHeader(http.StatusCreated)
 
 	// Convert scenario to JSON and write response

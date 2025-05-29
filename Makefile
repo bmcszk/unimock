@@ -16,6 +16,7 @@ K8S_CLUSTER_NAME=unimock
 
 # Test parameters
 TEST_FLAGS=-v -race -cover
+TEST_E2E_FLAGS=-v -p 1 -count=1 -tags=e2e -timeout=10m
 
 # Health check parameters for E2E tests
 HEALTH_CHECK_URL=http://localhost:8080/_uni/health
@@ -67,7 +68,7 @@ test-e2e: build
 	    echo "Application is healthy." ; \
 	    \
 	    echo "Running E2E tests..." ; \
-	    $(GOTEST) $(TEST_FLAGS) -tags=e2e ./e2e/... ; \
+	    $(GOTEST) $(TEST_E2E_FLAGS) ./e2e/... ; \
 	    LAST_EXIT_CODE=$$? ; \
 	) || LAST_EXIT_CODE=$$? ; \
 	exit $$LAST_EXIT_CODE
