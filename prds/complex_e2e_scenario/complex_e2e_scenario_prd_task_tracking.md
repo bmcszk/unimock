@@ -35,23 +35,23 @@ Notes: Optional notes or comments.
 ---
 ID: CES-TASK-001
 Description: Review and refine all requirements in the Complex E2E Test Scenario PRD for clarity, consistency, and testability.
-Status: ToDo
+Status: Done
 Assigned: User
 Created: 2025-05-30
 Updated: 2025-05-30
 DependsOn: []
 PRDRequirement: All sections in complex_e2e_scenario_prd.md
-Notes: Initial review task.
+Notes: Initial review task. Clarifications provided by user regarding use of go-restclient, static IDs, and assumptions on dependencies. Approach for test implementation agreed.
 ---
 ID: CES-TASK-002 (was TASK-029)
-Description: Implement the E2E test (e.g., `TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle`) covering resource lifecycle and scenario management as detailed in REQ-E2E-COMPLEX-001.
-Status: In Progress
+Description: Implement the E2E test (e.g., `TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle`) covering resource lifecycle and scenario management as detailed in REQ-E2E-COMPLEX-001, using static IDs and go-restclient.
+Status: Blocked
 Assigned: AI
 Created: 2025-05-28 (original)
-Updated: 2025-05-30 (migrated - was: E2E test `TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle`. The .hresp file whitespace issue should now be resolved. Verifying E2E test.)
+Updated: 2025-05-30 (migrated - approach revised for static IDs)
 DependsOn: [ARI-TASK-007] (Implied dependency on Advanced Resource ID features being testable)
 PRDRequirement: REQ-E2E-COMPLEX-001
-Notes: Migrated from old tasks.md. Original description: Implement a multistage E2E scenario covering resource lifecycle and scenario management.
+Notes: Migrated from old tasks.md. Original description: Implement a multistage E2E scenario covering resource lifecycle and scenario management. To use static IDs: primaryId='e2e-static-prod-001', secondaryId='SKU-E2E-STATIC-001'. Blocked pending investigation of Unimock behavior for secondary ID retrieval (Step 2) and scenario API (Steps 5, 7).
 ---
 ID: CES-TASK-003 (was TASK-030)
 Description: Ensure E2E test for SCEN-E2E-COMPLEX-001 passes, resolving any blocking issues (e.g., .hresp tool issue if still relevant).

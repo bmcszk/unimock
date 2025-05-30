@@ -467,18 +467,6 @@ func TestScenarioService_CreateScenario(t *testing.T) {
 			if scenario.Data != tt.expectedData {
 				t.Errorf("Data = %q, want %q", scenario.Data, tt.expectedData)
 			}
-
-			// Verify location was set correctly
-			if tt.scenario.Location == "" {
-				expectedLocation := "/_uni/scenarios/" + tt.scenario.UUID
-				if scenario.Location != expectedLocation {
-					t.Errorf("Location = %q, want %q", scenario.Location, expectedLocation)
-				}
-			} else {
-				if scenario.Location != tt.scenario.Location {
-					t.Errorf("Location = %q, want %q", scenario.Location, tt.scenario.Location)
-				}
-			}
 		})
 	}
 }

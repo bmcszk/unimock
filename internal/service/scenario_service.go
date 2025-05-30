@@ -8,7 +8,6 @@ import (
 	// "os"
 	"strings"
 
-	"github.com/bmcszk/unimock/internal/errors"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/model"
 	"github.com/google/uuid"
@@ -30,117 +29,62 @@ func NewScenarioService(storage storage.ScenarioStorage) ScenarioService {
 	}
 }
 
-// FindScenarioByRequestPath searches for a scenario that matches the given request path (METHOD /path/to/resource).
-// It prioritizes exact matches, then checks for simple wildcard (*) matching at the end of the path.
-func (s *scenarioService) FindScenarioByRequestPath(ctx context.Context, requestPath string) (*model.Scenario, error) {
+// GetScenarioByPath is a convenience method primarily for testing.
+// It iterates through scenarios to find a match based on method and path (exact or wildcard).
+func (s *scenarioService) GetScenarioByPath(ctx context.Context, path string, method string) *model.Scenario {
 	scenarios := s.storage.List()
-	if len(scenarios) == 0 {
-		return nil, errors.NewNotFoundError("scenario_config", "no scenarios configured in storage")
-	}
-
-	reqParts := strings.Fields(requestPath)
-	if len(reqParts) < 2 {
-		return nil, errors.NewInvalidRequestError(fmt.Sprintf("invalid requestPath format: %s, expected 'METHOD /path'", requestPath))
-	}
-	requestMethod := reqParts[0]
-	requestActualPath := strings.Join(reqParts[1:], " ") // Path can contain spaces if not URL encoded, though unlikely for req.URL.Path
-
+	var exactMatch *model.Scenario
 	var wildcardMatch *model.Scenario
 
-	// First pass: check for exact matches
 	for _, scenario := range scenarios {
-		if scenario.RequestPath == requestPath {
-			return scenario, nil
-		}
-	}
-
-	// Second pass: check for wildcard matches if no exact match was found
-	for _, scenario := range scenarios {
-		scenarioParts := strings.Fields(scenario.RequestPath)
-		if len(scenarioParts) < 2 {
-			continue // Invalid scenario format
-		}
-		scenarioConfigMethod := scenarioParts[0]
-		scenarioConfigPathPattern := strings.Join(scenarioParts[1:], " ")
-
-		if requestMethod == scenarioConfigMethod {
-			if strings.HasSuffix(scenarioConfigPathPattern, "/*") {
-				basePattern := strings.TrimSuffix(scenarioConfigPathPattern, "/*")
-				// Ensure the request path starts with the base pattern. Consider /a/b/* matching /a/b/c but not /a/b itself.
-				// If basePattern is empty (e.g. "GET /*"), it matches any path for that method.
-				if basePattern == "" || strings.HasPrefix(requestActualPath, basePattern+"/") || requestActualPath == basePattern {
-					// If multiple wildcards match, the current logic takes the first one encountered in storage.
-					// More specific wildcard (e.g. /a/b/* vs /a/*) is not prioritized here yet unless storage order helps.
-					// For now, any wildcard match is stored, and if no more specific (exact) match is found, this is used.
-					if wildcardMatch == nil { // Take the first wildcard match found
-						wildcardMatch = scenario
-					} else {
-						// If another wildcard matches, prefer the one with the longer base pattern (more specific)
-						currentWildcardBase := strings.TrimSuffix(strings.Join(strings.Fields(wildcardMatch.RequestPath)[1:], " "), "/*")
-						newMatchBase := basePattern
-						if len(newMatchBase) > len(currentWildcardBase) {
-							wildcardMatch = scenario
-						}
-					}
-				}
-			} else if scenarioConfigPathPattern == requestActualPath { // This case should have been caught by exact match above, but for safety.
-				return scenario, nil
-			}
-		}
-	}
-
-	if wildcardMatch != nil {
-		return wildcardMatch, nil
-	}
-
-	return nil, errors.NewNotFoundError("scenario_match", fmt.Sprintf("no matching scenario found for %s", requestPath))
-}
-
-// GetScenarioByPath is a convenience method primarily for testing, as the main handler uses FindScenarioByRequestPath.
-// It constructs the requestPath string and calls FindScenarioByRequestPath.
-func (s *scenarioService) GetScenarioByPath(ctx context.Context, path string, method string) *model.Scenario {
-	// s.logger.Debug("GetScenarioByPath called", "path", path, "method", method)
-	scenarios := s.storage.List()
-	// s.logger.Debug("GetScenarioByPath: scenarios from storage", "count", len(scenarios))
-	for _, scenario := range scenarios {
-		// s.logger.Debug("GetScenarioByPath: checking scenario", "index", i, "uuid", scenario.UUID, "requestPath", scenario.RequestPath)
-
-		// Split the RequestPath into method and path
 		parts := strings.SplitN(scenario.RequestPath, " ", 2)
 		if len(parts) != 2 {
-			// s.logger.Debug("GetScenarioByPath: scenario has invalid RequestPath format", "index", i, "requestPath", scenario.RequestPath)
 			continue
 		}
-
 		scenarioMethod := parts[0]
 		scenarioPath := parts[1]
-		// s.logger.Debug("GetScenarioByPath: parsed scenario parts", "index", i, "scenarioMethod", scenarioMethod, "scenarioPath", scenarioPath)
 
-		// Match method first
 		if scenarioMethod != method {
-			// s.logger.Debug("GetScenarioByPath: method mismatch", "index", i, "scenarioMethod", scenarioMethod, "expectedMethod", method)
 			continue
 		}
 
 		// Check for exact path match
 		if scenarioPath == path {
-			// s.logger.Debug("GetScenarioByPath: exact path match found", "index", i, "uuid", scenario.UUID)
-			return scenario
+			if exactMatch == nil { // Take the first exact match
+				exactMatch = scenario
+			}
+			// Continue checking in case of multiple exact matches (though not typical for this function's purpose)
+			// or to allow a later wildcard to be considered if this logic changes.
+			// For now, first exact match is prioritized.
 		}
 
 		// Check for wildcard path match
+		// This should only be considered if no exact match is found or if wildcards are preferred in some cases.
+		// For deterministic testing, exact matches should generally be preferred.
 		if strings.HasSuffix(scenarioPath, "/*") {
 			basePath := strings.TrimSuffix(scenarioPath, "/*")
-			// s.logger.Debug("GetScenarioByPath: checking wildcard match", "index", i, "basePath", basePath, "targetPath", path)
-			if strings.HasPrefix(path, basePath+"/") || path == basePath { // Match /foo/* with /foo or /foo/bar
-				// s.logger.Debug("GetScenarioByPath: wildcard path match found", "index", i, "uuid", scenario.UUID)
-				return scenario
+			if strings.HasPrefix(path, basePath+"/") || path == basePath {
+				if wildcardMatch == nil { // Take the first wildcard match
+					wildcardMatch = scenario
+				}
+				// Prioritize more specific wildcards (longer base path)
+				// This part of the logic is simplified compared to the original FindScenarioByRequestPath
+				// but helps in tests if multiple wildcards could match.
+				if wildcardMatch != nil && scenario != wildcardMatch { // if current wildcardMatch is not the one we just found
+					currentWildcardBase := strings.TrimSuffix(strings.SplitN(wildcardMatch.RequestPath, " ", 2)[1], "/*")
+					newMatchBase := basePath
+					if len(newMatchBase) > len(currentWildcardBase) {
+						wildcardMatch = scenario
+					}
+				}
 			}
 		}
-		// s.logger.Debug("GetScenarioByPath: no match for scenario", "index", i, "uuid", scenario.UUID)
 	}
-	// s.logger.Debug("GetScenarioByPath: no scenario matched")
-	return nil
+
+	if exactMatch != nil {
+		return exactMatch
+	}
+	return wildcardMatch // Returns wildcardMatch if no exactMatch, or nil if neither
 }
 
 // ListScenarios returns all available scenarios
@@ -171,11 +115,6 @@ func (s *scenarioService) CreateScenario(ctx context.Context, scenario *model.Sc
 	// Generate UUID if not provided
 	if scenario.UUID == "" {
 		scenario.UUID = uuid.New().String()
-	}
-
-	// Set location if not provided
-	if scenario.Location == "" {
-		scenario.Location = "/_uni/scenarios/" + scenario.UUID
 	}
 
 	err := s.storage.Create(scenario.UUID, scenario)

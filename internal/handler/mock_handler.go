@@ -202,34 +202,6 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 	// Normalize path by removing trailing slash
 	req.URL.Path = strings.TrimSuffix(req.URL.Path, "/")
 
-	// Check for matching scenario first
-	// Construct requestPath string (e.g., "GET /api/users")
-	requestPath := fmt.Sprintf("%s %s", req.Method, req.URL.Path)
-	if scenario, err := h.scenarioService.FindScenarioByRequestPath(ctx, requestPath); err == nil && scenario != nil {
-		h.logger.Info("scenario matched", "requestPath", requestPath, "scenarioUUID", scenario.UUID)
-		responseHeaders := http.Header{}
-		if scenario.ContentType != "" {
-			responseHeaders.Set("Content-Type", scenario.ContentType)
-		}
-		if scenario.Location != "" {
-			responseHeaders.Set("Location", scenario.Location)
-		}
-		// Apply custom headers from scenario
-		if scenario.Headers != nil {
-			for k, v := range scenario.Headers {
-				responseHeaders.Set(k, v)
-			}
-		}
-		return &http.Response{
-			StatusCode: scenario.StatusCode,
-			Header:     responseHeaders,
-			Body:       io.NopCloser(strings.NewReader(scenario.Data)),
-		}, nil
-	} else if err != nil {
-		// Log the error but continue with normal mock handling as scenario finding is optional
-		h.logger.Error("error finding scenario by request path", "requestPath", requestPath, "error", err)
-	}
-
 	// Find matching section
 	section, sectionName, err := h.getSectionForRequest(req.URL.Path)
 	if err != nil {

@@ -1,0 +1,73 @@
+HTTP/1.1 201 Created
+
+###
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "name": "Test Product Static",
+  "product": {
+    "sku": "SKU-E2E-STATIC-001"
+  }
+}
+
+###
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "name": "Updated Test Product Static",
+  "sku": "SKU-E2E-STATIC-001"
+}
+
+###
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "name": "Updated Test Product Static",
+  "sku": "SKU-E2E-STATIC-001"
+}
+
+###
+
+HTTP/1.1 201 Created
+Content-Type: application/json
+
+{"uuid":"{{$anyGuid}}","requestPath":"GET /products/e2e-static-prod-001","statusCode":418,"contentType":"application/json","data":"{\"message\": \"I'm a teapot\"}","headers":{"X-Custom-Header":"Teapot"}}
+
+###
+
+HTTP/1.1 418 I'm a teapot
+Content-Type: application/json
+X-Custom-Header: Teapot
+
+{"message": "I'm a teapot"}
+
+###
+
+HTTP/1.1 204 No Content
+
+###
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "name": "Updated Test Product Static",
+  "sku": "SKU-E2E-STATIC-001"
+}
+
+###
+
+HTTP/1.1 204 No Content
+
+###
+
+HTTP/1.1 404 Not Found
+Content-Type: text/plain; charset=utf-8
+
+resource not found
