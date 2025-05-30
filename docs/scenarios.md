@@ -306,24 +306,51 @@ Each scenario should be described with enough detail to understand its purpose, 
 6. Expected: HTTP 200 OK with the document body.
 **E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_005`
 
-**Requirement Ref:** Implied - Comprehensive E2E Test
+---
+
+### Section 12: Complex End-to-End Scenarios (Corresponds to "### 12. Complex End-to-End Scenarios" in `docs/requirements.md`)
+
+**Requirement Ref:** `docs/requirements.md` - "### 12. Complex End-to-End Scenarios" -> "REQ-E2E-COMPLEX-001: Multistage Resource Lifecycle with Scenario Override"
 **Scenario ID:** SCEN-E2E-COMPLEX-001
-**Description:** Verify a complex multistage workflow involving resource CRUD, multiple ID retrieval, and dynamic scenario injection/removal.
+**Description:** Verify the complete lifecycle of a resource, including creation with multiple identifiers, retrieval, updates, dynamic behavior modification via Unimock scenarios, and eventual deletion. This scenario tests the integration of resource management and scenario overriding capabilities.
 **Preconditions:**
     - Unimock service is running.
-    - Mock config section `widgets` exists with `path_pattern: "/widgets/*"`, `primary_id_source: "body"`, `header_id_name: "X-Widget-Serial"`, `body_id_paths: ["/widget/id"]`.
+    - Unimock is configured to support a `/products` collection.
+    - ID extraction is configured for `POST /products`:
+        - Primary ID: auto-generated UUID if not in path.
+        - Secondary ID from body: e.g., `body_id_paths: ["/sku"]`.
+    - Unimock scenario management endpoints are available (e.g., `POST /_unimock/scenarios`, `DELETE /_unimock/scenarios/{scenario_id}`).
 **Steps:**
-1.  HEAD `/widgets/widget123`. Expected: 404 Not Found.
-2.  POST to `/widgets` with header `X-Widget-Serial: serialABC` and body `{"widget": {"id": "widget123"}, "data": "initial data"}`. Expected: 201 Created. Location header refers to primary ID (e.g., `/widgets/widget123`).
-3.  GET `/widgets/widget123` (ID from body path). Expected: 200 OK, body `{"widget": {"id": "widget123"}, "data": "initial data"}`.
-4.  GET `/widgets/serialABC` (ID from header). Expected: 200 OK, body `{"widget": {"id": "widget123"}, "data": "initial data"}`.
-5.  GET `/widgets`. Expected: 200 OK, response is a JSON array containing the created widget.
-6.  PUT to `/widgets/widget123` with body `{"widget": {"id": "widget123"}, "data": "updated data"}`. Expected: 200 OK.
-7.  GET `/widgets/widget123`. Expected: 200 OK, body `{"widget": {"id": "widget123"}, "data": "updated data"}`.
-8.  POST to `/_uni/scenarios` with body `{"requestPath": "GET /widgets/widget123", "statusCode": 418, "contentType": "text/plain", "data": "I am a teapot", "times": 1}`. Expected: 201 Created (or 200 OK). Get scenario UUID from response.
-9.  GET `/widgets/widget123`. Expected: 418 I'm a teapot, body "I am a teapot".
-10. DELETE `/_uni/scenarios/{scenario_uuid}`. Expected: 200 OK or 204 No Content.
-11. GET `/widgets/widget123`. Expected: 200 OK, body `{"widget": {"id": "widget123"}, "data": "updated data"}`.
-12. DELETE `/widgets/widget123`. Expected: 200 OK or 204 No Content.
-13. HEAD `/widgets/widget123`. Expected: 404 Not Found.
-**E2E Test Link/Reference:** TBD
+1.  **Create Resource:** Send a POST request to `/products` with body `{"sku": "E2ECOMPLEXSKU001", "name": "Complex Product", "version": 1}`.
+    - Verify HTTP 201 Created.
+    - Extract the auto-generated primary ID (e.g., `productID1`) from the Location header or response.
+    - Store `productID1` and `sku: "E2ECOMPLEXSKU001"`.
+2.  **Retrieve by Secondary ID (SKU):** Send a GET request to `/products?sku=E2ECOMPLEXSKU001`. (This step implies functionality to query by attributes. If not directly supported, this step might need to be adapted, e.g. GET /products/E2ECOMPLEXSKU001 if SKU is treated as an ID).
+    - Verify HTTP 200 OK.
+    - Verify response body contains `{"sku": "E2ECOMPLEXSKU001", "name": "Complex Product", "version": 1}`.
+3.  **Update Resource:** Send a PUT request to `/products/{productID1}` with body `{"sku": "E2ECOMPLEXSKU001", "name": "Complex Product Updated", "version": 2}`.
+    - Verify HTTP 200 OK (or 204 No Content).
+4.  **Verify Update:** Send a GET request to `/products/{productID1}`.
+    - Verify HTTP 200 OK.
+    - Verify response body contains `{"sku": "E2ECOMPLEXSKU001", "name": "Complex Product Updated", "version": 2}`.
+5.  **Apply Unimock Scenario:** Create a Unimock scenario targeting `GET /products/{productID1}`.
+    - Request: POST to `/_unimock/scenarios` with body like:
+      `{"request_path": "GET /products/{productID1}", "status_code": 418, "response_body": "{\"message\": \"I am a teapot - scenario active!\"}", "content_type": "application/json"}`.
+    - Verify HTTP 201 Created (for scenario creation).
+    - Store the scenario ID (e.g., `scenarioID1`).
+6.  **Verify Scenario Active:** Send a GET request to `/products/{productID1}`.
+    - Verify HTTP 418 I'm a teapot.
+    - Verify response body is `{"message": "I am a teapot - scenario active!"}`.
+7.  **Delete Unimock Scenario:** Send a DELETE request to `/_unimock/scenarios/{scenarioID1}`.
+    - Verify HTTP 200 OK or 204 No Content (for scenario deletion).
+8.  **Verify Scenario Removal (Resource Reverts):** Send a GET request to `/products/{productID1}`.
+    - Verify HTTP 200 OK.
+    - Verify response body contains `{"sku": "E2ECOMPLEXSKU001", "name": "Complex Product Updated", "version": 2}` (back to actual data).
+9.  **Delete Resource:** Send a DELETE request to `/products/{productID1}`.
+    - Verify HTTP 200 OK or 204 No Content.
+10. **Verify Deletion:** Send a GET request to `/products/{productID1}`.
+    - Verify HTTP 404 Not Found.
+**Expected Result:** All steps complete successfully, verifying the interactions between resource lifecycle and scenario management.
+**E2E Test Link/Reference:** e2e/e2e_complex_lifecycle_test.go#TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle (Covered by TASK-030)
+
+---

@@ -30,7 +30,7 @@ Each task should follow the format:
 ---
 ID: TASK-029
 Description: Implement a multistage E2E scenario covering resource lifecycle and scenario management.
-Status: Blocked - E2E test `TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle` fails due to tool inability to fix whitespace in `e2e/http/scen_e2e_complex_001.hresp`. Manual fix needed for the .hresp file.
+Status: In Progress - E2E test `TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle`. The .hresp file whitespace issue should now be resolved. Verifying E2E test.
 Assigned: AI
 Created: 2025-05-28
 Updated: 2025-05-29

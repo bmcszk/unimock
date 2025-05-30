@@ -23,3 +23,14 @@ Thumbs.db
 # Ignore binary
 /unimock 
 /unimock_e2e.log
+/.cursor.bak.*/
+/.cursorignore.bak.*/
+/.cursor/rules/go_guideline.mdc
+/.cursor/rules/go_project_setup_guideline.mdc
+/.cursor/rules/migration_to_prd_process_helper.mdc
+/.cursor/rules/prd_workflow.mdc
+/.cursor/rules/project_guidelines.mdc
+/.cursor/rules/requirement_workflow.mdc
+/.cursor/rules/task_workflow.mdc
+/.cursor/rules/testing_guidelines.mdc
+/.cursorignore
