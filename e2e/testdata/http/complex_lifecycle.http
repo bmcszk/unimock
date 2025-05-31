@@ -1,7 +1,7 @@
 @baseUrl = http://localhost:8080
 @primaryId = e2e-static-prod-001
 @secondaryId = SKU-E2E-STATIC-001
-@scenarioId = 1340b526-3d51-11f0-8981-002b672e43f2
+@scenarioId = {{$uuid}}
 
 ### Step 1: Create Resource with static primary and secondary IDs
 POST {{baseUrl}}/products

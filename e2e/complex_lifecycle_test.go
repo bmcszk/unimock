@@ -29,13 +29,13 @@ func TestComplexLifecycle(t *testing.T) {
 	// }
 
 	// When: Executing all requests defined in the .http file
-	responses, execErr := client.ExecuteFile(context.Background(), requestFilePath, nil) // Passing nil for apiVars as they are in the file
+	responses, execErr := client.ExecuteFile(context.Background(), requestFilePath) // Passing nil for apiVars as they are in the file
 	// It's important to check execErr AFTER validation for some types of errors,
 	// but critical execution errors (like file not found for requests) should be checked here.
 	// However, go-restclient.ValidateResponses will also fail if responses array is empty or nil.
 
 	// Then: Validate all responses against the .hresp file
-	validationErr := restclient.ValidateResponses(expectedResponseFilePath, responses...)
+	validationErr := client.ValidateResponses(expectedResponseFilePath, responses...)
 
 	// Consolidate error reporting
 	if execErr != nil {

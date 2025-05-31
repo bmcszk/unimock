@@ -20,7 +20,7 @@ func TestE2E_SCEN_RM_MULTI_ID_001(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to execute file http/scen_rm_multi_id_001.http: %v", err)
 	}
-	err = restclient.ValidateResponses("http/scen_rm_multi_id_001.hresp", resps...)
+	err = client.ValidateResponses("http/scen_rm_multi_id_001.hresp", resps...)
 	if err != nil {
 		t.Fatalf("Failed to validate responses for http/scen_rm_multi_id_001.hresp: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestE2E_SCEN_RM_MULTI_ID_002(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to execute file http/scen_rm_multi_id_002.http: %v", err)
 	}
-	err = restclient.ValidateResponses("http/scen_rm_multi_id_002.hresp", resps...)
+	err = client.ValidateResponses("http/scen_rm_multi_id_002.hresp", resps...)
 	if err != nil {
 		t.Fatalf("Failed to validate responses for http/scen_rm_multi_id_002.hresp: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestE2E_SCEN_RM_MULTI_ID_003(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to execute file http/scen_rm_multi_id_003.http: %v", err)
 	}
-	err = restclient.ValidateResponses("http/scen_rm_multi_id_003.hresp", resps...)
+	err = client.ValidateResponses("http/scen_rm_multi_id_003.hresp", resps...)
 	if err != nil {
 		t.Fatalf("Failed to validate responses for http/scen_rm_multi_id_003.hresp: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestE2E_SCEN_RM_MULTI_ID_004(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to execute file http/scen_rm_multi_id_004.http: %v", err)
 	}
-	err = restclient.ValidateResponses("http/scen_rm_multi_id_004.hresp", resps...)
+	err = client.ValidateResponses("http/scen_rm_multi_id_004.hresp", resps...)
 	if err != nil {
 		t.Fatalf("Failed to validate responses for http/scen_rm_multi_id_004.hresp: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestE2E_SCEN_RM_MULTI_ID_005(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to execute file http/scen_rm_multi_id_005.http: %v", err)
 	}
-	err = restclient.ValidateResponses("http/scen_rm_multi_id_005.hresp", resps...)
+	err = client.ValidateResponses("http/scen_rm_multi_id_005.hresp", resps...)
 	if err != nil {
 		t.Fatalf("Failed to validate responses for http/scen_rm_multi_id_005.hresp: %v", err)
 	}

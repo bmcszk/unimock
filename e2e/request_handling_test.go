@@ -54,7 +54,7 @@ func TestSCEN_RH_001_GetExistingResource(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_001.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_rh_001.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_rh_001.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_rh_001.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_rh_001.hresp")
 }
 
@@ -106,7 +106,7 @@ func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_002.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_rh_002.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_rh_002.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_rh_002.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_rh_002.hresp")
 }
 
@@ -149,7 +149,7 @@ func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_003.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_rh_003.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_rh_003.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_rh_003.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_rh_003.hresp")
 }
 
@@ -189,7 +189,7 @@ func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_004.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_rh_004.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_rh_004.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_rh_004.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_rh_004.hresp")
 }
 
@@ -221,7 +221,7 @@ func TestSCEN_RH_005_GetIndividualResourceEndpoint(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_005.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_rh_005.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_rh_005.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_rh_005.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_rh_005.hresp")
 }
 
@@ -253,7 +253,7 @@ func TestSCEN_RH_006_GetCollectionEndpoint(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_006.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_rh_006.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_rh_006.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_rh_006.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_rh_006.hresp")
 }
 
@@ -273,7 +273,7 @@ func TestSCEN_RH_007_PostInvalidContentType(t *testing.T) {
 	// The .hresp file expects only one response
 	require.Len(t, resps, 1, "Expected one response from scen_rh_007.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_rh_007.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_rh_007.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_rh_007.hresp")
 }
 
@@ -293,7 +293,7 @@ func TestSCEN_RH_008_GetNonExistentResource(t *testing.T) {
 	// The .hresp file expects only one response
 	require.Len(t, resps, 1, "Expected one response from scen_rh_008.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_rh_008.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_rh_008.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_rh_008.hresp")
 }
 
@@ -340,7 +340,7 @@ func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_009.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_rh_009.http")
 
-	validationErr := go_restclient.ValidateResponses("testdata/http/scen_rh_009.hresp", resps...)
+	validationErr := rc.ValidateResponses("testdata/http/scen_rh_009.hresp", resps...)
 	require.NoError(t, validationErr, "Failed to validate responses against testdata/http/scen_rh_009.hresp")
 }
 
@@ -372,7 +372,7 @@ func TestSCEN_RH_010_WildcardPathMatching(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_010.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_rh_010.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_rh_010.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_rh_010.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_rh_010.hresp")
 }
 
@@ -412,7 +412,7 @@ func TestSCEN_SH_001_ExactPathScenarioMatch(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_sh_001.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_sh_001.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_sh_001.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_sh_001.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_sh_001.hresp")
 }
 
@@ -452,7 +452,7 @@ func TestSCEN_SH_002_WildcardPathScenarioMatch(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_sh_002.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_sh_002.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_sh_002.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_sh_002.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_sh_002.hresp")
 }
 
@@ -494,7 +494,7 @@ func TestSCEN_SH_003_ScenarioSkipsMockHandling(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_sh_003.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_sh_003.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_sh_003.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_sh_003.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_sh_003.hresp")
 }
 
@@ -531,7 +531,7 @@ func TestSCEN_SH_004_ScenarioMethodMismatch(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_sh_004.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_sh_004.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_sh_004.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_sh_004.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_sh_004.hresp")
 }
 
@@ -570,6 +570,6 @@ func TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation(t *testing.T) {
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_sh_005.http")
 	require.NoError(t, err, "Failed to execute testdata/http/scen_sh_005.http")
 
-	err = go_restclient.ValidateResponses("testdata/http/scen_sh_005.hresp", resps...)
+	err = rc.ValidateResponses("testdata/http/scen_sh_005.hresp", resps...)
 	require.NoError(t, err, "Failed to validate responses against testdata/http/scen_sh_005.hresp")
 }
