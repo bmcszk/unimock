@@ -1,0 +1,30 @@
+@baseUrl = http://localhost:8080
+@primaryId = e2e-static-prod-001
+@secondarySku = SKU-E2E-STATIC-001
+
+### REQ-E2E-COMPLEX-001: Step 1: Create Resource
+# Attempting to create a resource where its primary ID is client-defined.
+# This assumes Unimock's /products endpoint (or its configuration via mock_config.yaml)
+# supports using a client-provided ID (e.g., from X-Primary-ID header or a field in the body if that's how multi-ID is set up for POST).
+# If Unimock *must* generate the primaryId, this E2E test becomes more complex as the ID needs to be captured.
+# The task note "using static IDs: primaryId='e2e-static-prod-001'" suggests this is intended.
+POST {{baseUrl}}/products
+Content-Type: application/json
+X-Primary-ID: {{primaryId}} # Example: Informing Unimock of the desired primary ID
+
+{
+  "name": "Test Product Complex E2E",
+  "sku": "{{secondarySku}}"
+}
+
+### REQ-E2E-COMPLEX-001: Step 3: Update Resource
+PUT {{baseUrl}}/products/{{primaryId}}
+Content-Type: application/json
+
+{
+  "name": "Updated Test Product Complex E2E",
+  "sku": "{{secondarySku}}"
+}
+
+### REQ-E2E-COMPLEX-001: Step 4: Verify Update
+GET {{baseUrl}}/products/{{primaryId}} 

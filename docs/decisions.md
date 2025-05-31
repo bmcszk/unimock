@@ -22,6 +22,12 @@ This document records significant architectural and design decisions made throug
 - **Decoupling:** The internal primary ID decouples the physical storage from the multiple ways a resource can be identified externally.
 - **Integration with Path:** While `resourceData` and `idMappings` are global, `model.Resource` will still store its canonical request path. The primary ID for a resource will be unique globally. Path-based lookups (e.g. GET /collection/) will still iterate relevant resources, and individual resource lookups (GET /collection/some-id) will use `some-id` in `idMappings`.
 
+---
+
+**Date:** 2025-05-31
+**Decision:** Step 2 (Retrieve by Secondary ID, e.g., `GET /products?sku=...`) of PRD `REQ-E2E-COMPLEX-001` will be skipped in the E2E test `TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle`.
+**Rationale:** Unimock currently only supports resource retrieval via direct path identifiers (e.g., `url/{id}`). It does not support querying collections or filtering by secondary identifiers using query parameters like `?sku=...`. Therefore, this specific test step is untestable with the current Unimock capabilities and has been removed from the E2E HTTP request/response files and the corresponding Go test logic.
+
 <!-- Example Entry:
 **Date:** YYYY-MM-DD
 **Decision:** Adopted [Technology/Pattern X] for [Specific Purpose Y].
