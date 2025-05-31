@@ -1,0 +1,12 @@
+HTTP/1.1 201 Created
+Location: /test/collection/newItem
+Content-Type: application/json
+
+{"id": "newItem", "name": "New Item", "value": 42}
+
+###
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"id": "newItem", "name": "New Item", "value": 42} 

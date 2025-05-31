@@ -1,0 +1,24 @@
+# Resp for Step 0 (POST)
+HTTP/1.1 201 Created
+Location: /api/resources/id_X
+
+###
+
+# Resp for Step 1 (DELETE)
+HTTP/1.1 204 No Content
+
+###
+
+# Resp for Step 2 (GET id_X)
+HTTP/1.1 404 Not Found
+Content-Type: text/plain; charset=utf-8
+
+resource not found
+
+###
+
+# Resp for Step 3 (GET id_Z)
+HTTP/1.1 404 Not Found
+Content-Type: text/plain; charset=utf-8
+
+resource not found 

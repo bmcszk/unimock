@@ -26,4 +26,7 @@ type Scenario struct {
 	// Data is the response body to return
 	// For JSON responses, this should be a valid JSON string
 	Data string `json:"data"`
+
+	// Headers is a map of HTTP headers to return with the scenario response
+	Headers map[string]string `json:"headers,omitempty"`
 }

@@ -1,0 +1,20 @@
+### REQ-E2E-COMPLEX-001: Step 8: Verify Scenario Removal (Expected Response)
+# This should be the updated resource data from Step 4
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "name": "Updated Test Product Complex E2E",
+  "sku": "SKU-E2E-STATIC-001"
+}
+
+### REQ-E2E-COMPLEX-001: Step 9: Delete Resource (Expected Response)
+# PRD says 200 OK or 204 No Content. Let's expect 204 as it's common for DELETE.
+HTTP/1.1 204 No Content
+# No body expected for 204
+
+### REQ-E2E-COMPLEX-001: Step 10: Verify Deletion (Expected Response)
+HTTP/1.1 404 Not Found
+Content-Type: text/plain; charset=utf-8
+
+resource not found 

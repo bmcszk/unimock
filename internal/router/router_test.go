@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -39,7 +40,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 	techService := service.NewTechService(time.Now())
 
 	// Create handlers
-	mockHandler := handler.NewMockHandler(mockService, logger, cfg)
+	mockHandler := handler.NewMockHandler(mockService, scenarioService, logger, cfg)
 	techHandler := handler.NewTechHandler(techService, logger)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
@@ -66,7 +67,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 
 	// Store the test scenarios
 	for _, scenario := range scenarios {
-		err := scenarioService.CreateScenario(nil, scenario)
+		err := scenarioService.CreateScenario(context.TODO(), scenario)
 		if err != nil {
 			t.Fatalf("Failed to create test scenario: %v", err)
 		}
@@ -111,8 +112,8 @@ func TestRouter_ServeHTTP(t *testing.T) {
 			name:             "regular API endpoint",
 			method:           http.MethodGet,
 			path:             "/api/other",
-			wantStatusCode:   http.StatusBadRequest,
-			wantBodyContains: "no matching section found for path",
+			wantStatusCode:   http.StatusNotFound,
+			wantBodyContains: "Not Found: No matching mock configuration or active scenario for path",
 		},
 	}
 

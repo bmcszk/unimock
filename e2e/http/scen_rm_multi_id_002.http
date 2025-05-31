@@ -1,0 +1,19 @@
+# Step 0: Create the initial resource with two IDs (id_A from header, id_B from body)
+POST /api/items HTTP/1.1
+X-Item-ID: id_A
+Content-Type: application/json
+
+{"itemID": "id_B", "value": "original"}
+
+###
+
+# Step 1: PUT to /api/items/id_A
+PUT /api/items/id_A HTTP/1.1
+Content-Type: application/json
+
+{"value": "updated"}
+
+###
+
+# Step 2: GET from /api/items/id_B
+GET /api/items/id_B HTTP/1.1 

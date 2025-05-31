@@ -1,0 +1,13 @@
+# @name putOriginalMock
+PUT /api/users/override-put-id-e2e-003 HTTP/1.1
+Content-Type: application/json
+
+{"id": "override-put-id-e2e-003", "value": "this should be skipped"}
+
+###
+# @name getOverriddenResource
+GET /api/users/override-put-id-e2e-003 HTTP/1.1
+
+###
+# @name deleteOriginalMock
+DELETE /api/users/override-put-id-e2e-003 HTTP/1.1 

@@ -1,0 +1,4 @@
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+[{"mockId":"mock1","value":"First mock in collection"},{"mockId":"mock2","value":"Second mock in collection"}] 

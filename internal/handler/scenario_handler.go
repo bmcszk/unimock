@@ -92,6 +92,15 @@ func (h *ScenarioHandler) handleGet(w http.ResponseWriter, r *http.Request, uuid
 }
 
 func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+	isJson := strings.HasPrefix(strings.ToLower(contentType), "application/json")
+
+	if !isJson {
+		h.logger.Error("invalid content type for scenario creation", "content_type", contentType)
+		http.Error(w, "Unsupported Media Type: Content-Type must be application/json", http.StatusUnsupportedMediaType)
+		return
+	}
+
 	// Read request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -123,7 +132,6 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 
 	// Write response
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Location", scenario.Location)
 	w.WriteHeader(http.StatusCreated)
 
 	// Convert scenario to JSON and write response
@@ -132,10 +140,19 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("failed to marshal scenario", "error", err)
 		return
 	}
-	w.Write(scenarioJSON)
+	if _, err = w.Write(scenarioJSON); err != nil {
+		h.logger.Error("failed to write scenario response", "error", err)
+	}
 }
 
 func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, uuid string) {
+	contentType := r.Header.Get("Content-Type")
+	if !strings.HasPrefix(strings.ToLower(contentType), "application/json") {
+		h.logger.Error("invalid content type for scenario update", "content_type", contentType, "uuid", uuid)
+		http.Error(w, "Unsupported Media Type: Content-Type must be application/json", http.StatusUnsupportedMediaType)
+		return
+	}
+
 	// Read request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {

@@ -1,0 +1,11 @@
+@baseUrl = http://localhost:8080
+@primaryId = e2e-static-prod-001
+
+### REQ-E2E-COMPLEX-001: Step 8: Verify Scenario Removal (Resource Reverts to Actual Data)
+GET {{baseUrl}}/products/{{primaryId}}
+
+### REQ-E2E-COMPLEX-001: Step 9: Delete Resource
+DELETE {{baseUrl}}/products/{{primaryId}}
+
+### REQ-E2E-COMPLEX-001: Step 10: Verify Deletion
+GET {{baseUrl}}/products/{{primaryId}} 

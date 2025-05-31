@@ -1,0 +1,67 @@
+@baseUrl = http://localhost:8080
+@primaryId = e2e-static-prod-001
+@secondaryId = SKU-E2E-STATIC-001
+@scenarioId = {{$uuid}}
+
+### Step 1: Create Resource with static primary and secondary IDs
+POST {{baseUrl}}/products
+Content-Type: application/json
+X-Product-Token: {{primaryId}}
+
+{
+  "name": "Test Product Static",
+  "product": {
+    "sku": "{{secondaryId}}"
+  }
+}
+
+### Step 2: Retrieve by Secondary ID (actually retrieving by PrimaryID to verify)
+GET {{baseUrl}}/products/{{primaryId}}
+Accept: application/json
+
+### Step 3: Update Resource (by primaryId)
+PUT {{baseUrl}}/products/{{primaryId}}
+Content-Type: application/json
+
+{
+  "name": "Updated Test Product Static",
+  "sku": "{{secondaryId}}"
+}
+
+### Step 4: Verify Update (by primaryId)
+GET {{baseUrl}}/products/{{primaryId}}
+Accept: application/json
+
+### Step 5: Apply Scenario Override
+POST {{baseUrl}}/_uni/scenarios
+Content-Type: application/json
+@capture createdScenarioUUID scenarioResponse.uuid
+
+{
+  "uuid": "{{scenarioId}}",
+  "requestPath": "GET /products/{{primaryId}}",
+  "statusCode": 418,
+  "contentType": "application/json",
+  "headers": {
+    "X-Custom-Header": "Teapot"
+  },
+  "data": "{\"message\": \"I'm a teapot\"}"
+}
+
+### Step 6: Verify Scenario Override
+GET {{baseUrl}}/products/{{primaryId}}
+Accept: application/json
+
+### Step 7: Delete Scenario Override
+DELETE {{baseUrl}}/_uni/scenarios/{{scenarioId}}
+
+### Step 8: Verify Scenario Removal (Resource Reverts to Actual Data)
+GET {{baseUrl}}/products/{{primaryId}}
+Accept: application/json
+
+### Step 9: Delete Resource (by primaryId)
+DELETE {{baseUrl}}/products/{{primaryId}}
+
+### Step 10: Verify Deletion (by primaryId)
+GET {{baseUrl}}/products/{{primaryId}}
+Accept: application/json 

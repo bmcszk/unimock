@@ -26,3 +26,7 @@
 
 # Explicitly exclude vendor to avoid inconsistency
 vendor/
+.cursor.bak.*/
+.cursorignore.bak.*/
+/.cursor/
+/.cursorignore

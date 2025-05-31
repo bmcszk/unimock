@@ -1,0 +1,8 @@
+HTTP/1.1 204 No Content
+
+###
+
+HTTP/1.1 404 Not Found
+Content-Type: text/plain
+
+Resource not found 

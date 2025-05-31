@@ -1,0 +1,5 @@
+@baseUrl = http://localhost:8080
+@primaryId = e2e-static-prod-001
+
+### REQ-E2E-COMPLEX-001: Step 6: Verify Scenario Override
+GET {{baseUrl}}/products/{{primaryId}} 

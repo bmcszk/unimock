@@ -49,10 +49,21 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		// Set the status code and content type from the scenario
 		w.Header().Set("Content-Type", scenario.ContentType)
+		if scenario.Location != "" {
+			w.Header().Set("Location", scenario.Location)
+		}
+		// Apply custom headers from scenario
+		if scenario.Headers != nil {
+			for k, v := range scenario.Headers {
+				w.Header().Set(k, v)
+			}
+		}
 		w.WriteHeader(scenario.StatusCode)
 
 		// Write the response body from the scenario
-		w.Write([]byte(scenario.Data))
+		if _, err := w.Write([]byte(scenario.Data)); err != nil {
+			r.logger.Error("failed to write scenario response in router", "error", err)
+		}
 		return
 	}
 
@@ -78,7 +89,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		if section == nil {
 			r.logger.Warn("no matching section found for path in router", "path", requestPath)
-			http.Error(w, "no matching section found for path", http.StatusBadRequest)
+			http.Error(w, "Not Found: No matching mock configuration or active scenario for path", http.StatusNotFound)
 			return
 		}
 	} else {

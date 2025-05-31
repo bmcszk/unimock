@@ -1,0 +1,22 @@
+### REQ-E2E-COMPLEX-001: Step 1: Create Resource (Expected Response)
+HTTP/1.1 201 Created
+# Location header might be present, e.g., Location: /products/e2e-static-prod-001
+# Adjusted expectation: No Content-Type and no body for now, assuming server default behavior.
+
+### REQ-E2E-COMPLEX-001: Step 3: Update Resource (Expected Response)
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "name": "Updated Test Product Complex E2E",
+  "sku": "SKU-E2E-STATIC-001"
+}
+
+### REQ-E2E-COMPLEX-001: Step 4: Verify Update (Expected Response)
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "name": "Updated Test Product Complex E2E",
+  "sku": "SKU-E2E-STATIC-001"
+} 

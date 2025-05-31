@@ -1,0 +1,8 @@
+GET /api/test/method-specific HTTP/1.1
+
+###
+
+POST /api/test/method-specific HTTP/1.1
+Content-Type: application/json
+
+{"data": "some post data"} 

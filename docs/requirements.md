@@ -14,6 +14,13 @@ Unimock is a mock service that handles HTTP requests and provides mock responses
 
 ### 2. Resource Management
 
+#### REQ-RM-MULTI-ID: Multiple Identifiers per Resource (New: 2025-05-28)
+- A single resource instance MUST be identifiable and accessible via multiple unique identifiers.
+- During resource creation (e.g., POST), the system MUST be able to extract and associate multiple identifiers with the created resource. This includes, but is not limited to, identifiers from headers (e.g., `X-User-ID`, `X-Correlation-ID`) and fields within the request body (e.g., `id`, `customIdField`).
+- The specific headers and body paths for these additional identifiers MUST be configurable.
+- All associated identifiers MUST resolve to the same resource data for retrieval (GET) and modification (PUT, DELETE) operations.
+- The system MUST ensure that an identifier is not associated with more than one resource to prevent ambiguity.
+
 #### GET Requests
 - Must first try to get resource by ID (last part of path)
 - If resource not found by ID, must try to get resources collection by the exact path (e.g., /users/999)
@@ -187,6 +194,26 @@ Must handle:
 - Must handle timeout scenarios
 - Must handle rate limiting
 
+### 11. Scenario Handling
+- Scenarios must be matched by RequestPath in the mock handler.
+- If a scenario is found by RequestPath, the mock handler must return the scenario details and skip all other mock handling logic.
+
+### 12. Complex End-to-End Scenarios (New: 2025-05-29)
+
+#### REQ-E2E-COMPLEX-001: Multistage Resource Lifecycle with Scenario Override
+- **Objective:** Verify the complete lifecycle of a resource, including creation with multiple identifiers, retrieval using a secondary identifier, updates, dynamic behavior modification via scenarios, and eventual deletion.
+- **Steps:**
+    1.  **Create Resource:** POST a new resource to a collection endpoint (e.g., `/products`). The resource should be created with a primary ID (e.g., from path or auto-generated) and a secondary identifier extracted from the request body (e.g., `sku`).
+    2.  **Retrieve by Secondary ID:** GET the resource using its secondary identifier (e.g., `/products?sku=<sku_value>`). This might require a specific query parameter or a custom lookup mechanism if not directly supported by path. (Note: This step assumes such retrieval is possible or will be implemented. If not, an alternative verification for the secondary ID's association should be used.)
+    3.  **Update Resource:** PUT to the resource's primary ID endpoint (e.g., `/products/<primary_id>`) to modify its content.
+    4.  **Verify Update:** GET the resource by its primary ID and confirm the modifications.
+    5.  **Apply Scenario:** Create a Unimock scenario that targets the resource's path (e.g., `/products/<primary_id>`) and overrides its response (e.g., returns a 418 I'm a teapot status with a custom body).
+    6.  **Verify Scenario:** GET the resource by its primary ID again. The response should now match the defined scenario.
+    7.  **Delete Scenario:** Remove the Unimock scenario.
+    8.  **Verify Scenario Removal:** GET the resource by its primary ID. The response should revert to the actual resource data (as updated in step 4).
+    9.  **Delete Resource:** DELETE the resource using its primary ID.
+    10. **Verify Deletion:** GET the resource by its primary ID and expect a 404 Not Found.
+
 ## Configuration Examples
 
 ### Path Patterns
@@ -235,4 +262,7 @@ The system includes comprehensive test coverage for:
 - Error scenarios
 - Timeout scenarios
 - Resource limits
-- Concurrent access patterns
+- Concurrent access patterns 
+
+### 11. Scenario-based Mock Behavior
+- Scenarios should be able to modify the default mock handler's behavior by replacing the status code and the returned body.
