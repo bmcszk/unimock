@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	readTimeoutSeconds  = 10
-	writeTimeoutSeconds = 10
-	idleTimeoutSeconds  = 120
+	readTimeout  = 10 * time.Second
+	writeTimeout = 10 * time.Second
+	idleTimeout  = 120 * time.Second
 )
 
 // ConfigError represents a configuration error
@@ -160,9 +160,9 @@ func NewServer(serverConfig *config.ServerConfig, mockConfig *config.MockConfig)
 	srv := &http.Server{
 		Addr:         ":" + serverConfig.Port,
 		Handler:      appRouter,
-		ReadTimeout:  readTimeoutSeconds * time.Second,
-		WriteTimeout: writeTimeoutSeconds * time.Second,
-		IdleTimeout:  idleTimeoutSeconds * time.Second,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
 	}
 
 	// Return the created server

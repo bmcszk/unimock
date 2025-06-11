@@ -21,8 +21,8 @@ const (
 	// scenarioBasePath is the base path for the scenario API
 	scenarioBasePath = "/_uni/scenarios"
 
-	// HTTP client timeout in seconds
-	httpClientTimeout = 10
+	// HTTP client timeout
+	httpClientTimeout = 10 * time.Second
 
 	// HTTP status code boundaries
 	httpStatusOKMin = 200
@@ -58,7 +58,7 @@ func NewClient(baseURL string) (*Client, error) {
 	return &Client{
 		BaseURL: parsedURL,
 		HTTPClient: &http.Client{
-			Timeout: httpClientTimeout * time.Second,
+			Timeout: httpClientTimeout,
 		},
 	}, nil
 }
