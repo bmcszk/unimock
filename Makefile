@@ -1,4 +1,4 @@
-.PHONY: test build clean run helm-lint tilt-run kind-start kind-stop k8s-setup check
+.PHONY: test build clean run helm-lint tilt-run kind-start kind-stop k8s-setup check install-lint install-gotestsum
 
 # Go parameters
 GOCMD=go
@@ -124,6 +124,15 @@ tilt-run: kind-start
 
 k8s-setup: kind-start
 	helm upgrade --install $(BINARY_NAME) ./helm/unimock
+
+# Dependencies
+install-lint: ## Install golangci-lint
+	@echo "Installing golangci-lint..."
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+
+install-gotestsum: ## Install gotestsum
+	@echo "Installing gotestsum..."
+	@go install gotest.tools/gotestsum@latest
 
 help:
 	@echo "Available targets:"

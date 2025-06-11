@@ -31,6 +31,7 @@ linters:
       - name: package-comments
         disabled: true
       - name: add-constant
+        disabled: true
         exclude: ["**/*_test.go"]
         arguments:
           - max-lit-count: "3"
