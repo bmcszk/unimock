@@ -3,7 +3,7 @@
 # Go parameters
 GOCMD=go
 GOBUILD=$(GOCMD) build
-GOTEST=$(GOCMD) test
+GOTEST=gotestsum --junitfile unit-tests.xml --
 GOCLEAN=$(GOCMD) clean
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod

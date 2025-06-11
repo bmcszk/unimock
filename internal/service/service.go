@@ -39,9 +39,9 @@ type ScenarioService interface {
 // TechService handles technical operations
 type TechService interface {
 	// GetHealthStatus returns the health status of the service
-	GetHealthStatus(ctx context.Context) map[string]interface{}
+	GetHealthStatus(ctx context.Context) map[string]any
 	// GetMetrics returns metrics about the service
-	GetMetrics(ctx context.Context) map[string]interface{}
+	GetMetrics(ctx context.Context) map[string]any
 	// IncrementRequestCount increments the request counter
 	IncrementRequestCount(ctx context.Context, path string)
 }

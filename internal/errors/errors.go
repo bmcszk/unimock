@@ -46,19 +46,22 @@ func (e *StorageError) Error() string {
 	return fmt.Sprintf("storage error during %s: %v", e.Operation, e.Err)
 }
 
-// Helper functions to create errors
+// NewNotFoundError creates a new NotFoundError with the given ID and path.
 func NewNotFoundError(id, path string) error {
 	return &NotFoundError{ID: id, Path: path}
 }
 
+// NewConflictError creates a new ConflictError with the given ID.
 func NewConflictError(id string) error {
 	return &ConflictError{ID: id}
 }
 
+// NewInvalidRequestError creates a new InvalidRequestError with the given reason.
 func NewInvalidRequestError(reason string) error {
 	return &InvalidRequestError{Reason: reason}
 }
 
+// NewStorageError creates a new StorageError with the given operation and error.
 func NewStorageError(operation string, err error) error {
 	return &StorageError{Operation: operation, Err: err}
 }

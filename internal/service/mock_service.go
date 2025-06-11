@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"github.com/bmcszk/unimock/internal/errors"
+	unimockerrors "github.com/bmcszk/unimock/internal/errors"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/bmcszk/unimock/pkg/model"
@@ -18,22 +19,22 @@ type mockService struct {
 }
 
 // NewMockService creates a new instance of MockService
-func NewMockService(storage storage.MockStorage, cfg *config.MockConfig) MockService {
+func NewMockService(mockStorage storage.MockStorage, cfg *config.MockConfig) MockService {
 	return &mockService{
-		storage: storage,
+		storage: mockStorage,
 		mockCfg: cfg,
 		// logger: slog.New(slog.NewJSONHandler(os.Stdout, nil)), // Example initialization if used
 	}
 }
 
 // GetResource retrieves a resource by path and ID
-func (s *mockService) GetResource(ctx context.Context, path string, id string) (*model.MockData, error) {
+func (s *mockService) GetResource(_ context.Context, _ string, id string) (*model.MockData, error) {
 	data, err := s.storage.Get(id)
 	if err != nil {
-		if _, ok := err.(*errors.NotFoundError); ok {
-			return nil, fmt.Errorf("resource not found")
+		if _, ok := err.(*unimockerrors.NotFoundError); ok {
+			return nil, errors.New("resource not found")
 		}
-		if _, ok := err.(*errors.InvalidRequestError); ok {
+		if _, ok := err.(*unimockerrors.InvalidRequestError); ok {
 			return nil, err
 		}
 		return nil, fmt.Errorf("failed to get resource: %v", err)
@@ -42,14 +43,14 @@ func (s *mockService) GetResource(ctx context.Context, path string, id string) (
 }
 
 // GetResourcesByPath retrieves all resources at a given path
-func (s *mockService) GetResourcesByPath(ctx context.Context, path string) ([]*model.MockData, error) {
+func (s *mockService) GetResourcesByPath(_ context.Context, path string) ([]*model.MockData, error) {
 	data, err := s.storage.GetByPath(path)
 	if err != nil {
-		if _, ok := err.(*errors.NotFoundError); ok {
+		if _, ok := err.(*unimockerrors.NotFoundError); ok {
 			// Return empty array instead of error for collection endpoints
 			return []*model.MockData{}, nil
 		}
-		if _, ok := err.(*errors.InvalidRequestError); ok {
+		if _, ok := err.(*unimockerrors.InvalidRequestError); ok {
 			return nil, err
 		}
 		return nil, fmt.Errorf("failed to get resources: %v", err)
@@ -58,16 +59,16 @@ func (s *mockService) GetResourcesByPath(ctx context.Context, path string) ([]*m
 }
 
 // CreateResource creates a new resource
-func (s *mockService) CreateResource(ctx context.Context, path string, ids []string, data *model.MockData) error {
+func (s *mockService) CreateResource(_ context.Context, _ string, ids []string, data *model.MockData) error {
 	if len(ids) == 0 {
-		return errors.NewInvalidRequestError("no IDs found in request")
+		return unimockerrors.NewInvalidRequestError("no IDs found in request")
 	}
 	err := s.storage.Create(ids, data)
 	if err != nil {
-		if _, ok := err.(*errors.ConflictError); ok {
-			return fmt.Errorf("resource already exists")
+		if _, ok := err.(*unimockerrors.ConflictError); ok {
+			return errors.New("resource already exists")
 		}
-		if _, ok := err.(*errors.InvalidRequestError); ok {
+		if _, ok := err.(*unimockerrors.InvalidRequestError); ok {
 			return err
 		}
 		return fmt.Errorf("failed to create resource: %v", err)
@@ -76,47 +77,55 @@ func (s *mockService) CreateResource(ctx context.Context, path string, ids []str
 }
 
 // UpdateResource updates an existing resource or creates it if it doesn't exist (upsert).
-func (s *mockService) UpdateResource(ctx context.Context, path string, id string, data *model.MockData) error {
+func (s *mockService) UpdateResource(_ context.Context, _ string, id string, data *model.MockData) error {
 	err := s.storage.Update(id, data)
 	if err != nil {
-		if _, ok := err.(*errors.NotFoundError); ok {
-			// Resource not found, so attempt to create it.
-			// The 'path' parameter isn't directly used by storage.Create,
-			// as the mock data itself should contain necessary path info if storage needs it.
-			// storage.Create expects a slice of IDs.
-			// For a PUT to a specific resource /path/to/resourceId, 'id' is singular.
-			createErr := s.storage.Create([]string{id}, data)
-			if createErr != nil {
-				// Handle potential conflict if, by some race, it was created between Update and Create.
-				if _, conflictOk := createErr.(*errors.ConflictError); conflictOk {
-					// If it's a conflict, it means it now exists, try Update again just in case.
-					// This is a bit defensive but handles a potential race.
-					retryErr := s.storage.Update(id, data)
-					if retryErr != nil {
-						return fmt.Errorf("failed to retry update after create conflict: %w", retryErr)
-					}
-					return nil // Successfully updated on retry
-				}
-				return fmt.Errorf("failed to create resource after not found on update: %w", createErr)
-			}
-			return nil // Successfully created
-		}
-		if _, ok := err.(*errors.InvalidRequestError); ok {
-			return err
-		}
-		return fmt.Errorf("failed to update resource: %w", err)
+		return s.handleUpdateError(err, id, data)
+	}
+	return nil
+}
+
+// handleUpdateError handles various update errors including upsert logic
+func (s *mockService) handleUpdateError(err error, id string, data *model.MockData) error {
+	if _, ok := err.(*unimockerrors.NotFoundError); ok {
+		return s.handleNotFoundUpdate(id, data)
+	}
+	if _, ok := err.(*unimockerrors.InvalidRequestError); ok {
+		return err
+	}
+	return fmt.Errorf("failed to update resource: %w", err)
+}
+
+// handleNotFoundUpdate handles update when resource is not found (upsert create)
+func (s *mockService) handleNotFoundUpdate(id string, data *model.MockData) error {
+	createErr := s.storage.Create([]string{id}, data)
+	if createErr != nil {
+		return s.handleCreateConflict(createErr, id, data)
+	}
+	return nil
+}
+
+// handleCreateConflict handles potential conflicts during upsert create
+func (s *mockService) handleCreateConflict(createErr error, id string, data *model.MockData) error {
+	if _, conflictOk := createErr.(*unimockerrors.ConflictError); !conflictOk {
+		return fmt.Errorf("failed to create resource after not found on update: %w", createErr)
+	}
+
+	retryErr := s.storage.Update(id, data)
+	if retryErr != nil {
+		return fmt.Errorf("failed to retry update after create conflict: %w", retryErr)
 	}
 	return nil
 }
 
 // DeleteResource removes a resource
-func (s *mockService) DeleteResource(ctx context.Context, path string, id string) error {
+func (s *mockService) DeleteResource(_ context.Context, _ string, id string) error {
 	err := s.storage.Delete(id)
 	if err != nil {
-		if _, ok := err.(*errors.NotFoundError); ok {
-			return fmt.Errorf("resource not found")
+		if _, ok := err.(*unimockerrors.NotFoundError); ok {
+			return errors.New("resource not found")
 		}
-		if _, ok := err.(*errors.InvalidRequestError); ok {
+		if _, ok := err.(*unimockerrors.InvalidRequestError); ok {
 			return err
 		}
 		return fmt.Errorf("failed to delete resource: %v", err)

@@ -11,12 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	// pathSeparator represents the separator used in URL paths
+	pathSeparator = "/"
+)
+
 // MockStorage interface defines the operations for storing and retrieving data
 type MockStorage interface {
 	Create(ids []string, data *model.MockData) error
 	Update(id string, data *model.MockData) error
 	Get(id string) (*model.MockData, error)
-	GetByPath(path string) ([]*model.MockData, error)
+	GetByPath(requestPath string) ([]*model.MockData, error)
 	Delete(id string) error
 	ForEach(fn func(id string, data *model.MockData) error) error
 }
@@ -40,7 +45,7 @@ func NewMockStorage() MockStorage {
 }
 
 // validateData checks if the data is valid
-func (s *mockStorage) validateData(data *model.MockData) error {
+func (*mockStorage) validateData(data *model.MockData) error {
 	if data == nil {
 		return errors.NewInvalidRequestError("data cannot be nil")
 	}
@@ -48,7 +53,7 @@ func (s *mockStorage) validateData(data *model.MockData) error {
 }
 
 // validateID checks if the ID is valid
-func (s *mockStorage) validateID(id string) error {
+func (*mockStorage) validateID(id string) error {
 	if id == "" {
 		return errors.NewInvalidRequestError("ID cannot be empty")
 	}
@@ -75,15 +80,15 @@ func (s *mockStorage) Create(ids []string, data *model.MockData) error {
 	storageID := uuid.New().String()
 
 	// Ensure path doesn't have trailing slash
-	data.Path = strings.TrimRight(data.Path, "/")
+	data.Path = strings.TrimRight(data.Path, pathSeparator)
 
 	// Set location based on path and first ID
 	if len(ids) > 0 {
-		data.Location = data.Path + "/" + ids[0]
+		data.Location = data.Path + pathSeparator + ids[0]
 	} else {
 		// Generate UUID for path-based storage
 		generatedID := uuid.New().String()
-		data.Location = data.Path + "/" + generatedID
+		data.Location = data.Path + pathSeparator + generatedID
 		ids = []string{generatedID}
 	}
 
@@ -139,31 +144,7 @@ func (s *mockStorage) Update(id string, data *model.MockData) error {
 	// Update pathMap if the base path or the full path (if id changed, though id is fixed here) has changed
 	// This handles the case where the resource is moved to a different collection path.
 	if oldData.Path != data.Path {
-		// Remove from old base path in pathMap
-		if pathIDs, ok := s.pathMap[oldData.Path]; ok {
-			for i, sid := range pathIDs {
-				if sid == storageID {
-					s.pathMap[oldData.Path] = append(pathIDs[:i], pathIDs[i+1:]...)
-					break
-				}
-			}
-			if len(s.pathMap[oldData.Path]) == 0 {
-				delete(s.pathMap, oldData.Path)
-			}
-		}
-		// Remove from old id-specific path in pathMap
-		if pathIDs, ok := s.pathMap[oldIDPath]; ok {
-			for i, sid := range pathIDs {
-				if sid == storageID {
-					s.pathMap[oldIDPath] = append(pathIDs[:i], pathIDs[i+1:]...)
-					break
-				}
-			}
-			if len(s.pathMap[oldIDPath]) == 0 {
-				delete(s.pathMap, oldIDPath)
-			}
-		}
-
+		s.removeFromOldPaths(storageID, oldData.Path, oldIDPath)
 		// Add to new base path in pathMap
 		s.pathMap[data.Path] = append(s.pathMap[data.Path], storageID)
 		// Add to new id-specific path in pathMap
@@ -171,6 +152,31 @@ func (s *mockStorage) Update(id string, data *model.MockData) error {
 	}
 
 	return nil
+}
+
+// removeFromOldPaths removes storage ID from old path mappings
+func (s *mockStorage) removeFromOldPaths(storageID, oldPath, oldIDPath string) {
+	s.removeFromPath(storageID, oldPath)
+	s.removeFromPath(storageID, oldIDPath)
+}
+
+// removeFromPath removes storage ID from a specific path mapping
+func (s *mockStorage) removeFromPath(storageID, resourcePath string) {
+	pathIDs, ok := s.pathMap[resourcePath]
+	if !ok {
+		return
+	}
+
+	for i, sid := range pathIDs {
+		if sid == storageID {
+			s.pathMap[resourcePath] = append(pathIDs[:i], pathIDs[i+1:]...)
+			break
+		}
+	}
+
+	if len(s.pathMap[resourcePath]) == 0 {
+		delete(s.pathMap, resourcePath)
+	}
 }
 
 // Get retrieves data by ID
@@ -196,8 +202,8 @@ func (s *mockStorage) Get(id string) (*model.MockData, error) {
 }
 
 // GetByPath retrieves all data stored at the given path
-func (s *mockStorage) GetByPath(path string) ([]*model.MockData, error) {
-	if path == "" {
+func (s *mockStorage) GetByPath(requestPath string) ([]*model.MockData, error) { //nolint:revive
+	if requestPath == "" {
 		return nil, errors.NewInvalidRequestError("path cannot be empty")
 	}
 
@@ -208,10 +214,10 @@ func (s *mockStorage) GetByPath(path string) ([]*model.MockData, error) {
 	seen := make(map[string]bool) // Track seen storage IDs to prevent duplicates
 
 	// Normalize path by removing trailing slash
-	path = strings.TrimSuffix(path, "/")
+	requestPath = strings.TrimSuffix(requestPath, pathSeparator)
 
 	// Only allow exact case-sensitive match
-	if storageIDs, ok := s.pathMap[path]; ok {
+	if storageIDs, ok := s.pathMap[requestPath]; ok {
 		for _, sid := range storageIDs {
 			if data, exists := s.data[sid]; exists && !seen[sid] {
 				seen[sid] = true
@@ -225,8 +231,8 @@ func (s *mockStorage) GetByPath(path string) ([]*model.MockData, error) {
 
 	// For collections, only allow case-sensitive prefix match
 	for storedPath, storageIDs := range s.pathMap {
-		storedPath = strings.TrimSuffix(storedPath, "/")
-		if strings.HasPrefix(storedPath, path+"/") {
+		storedPath = strings.TrimSuffix(storedPath, pathSeparator)
+		if strings.HasPrefix(storedPath, requestPath+pathSeparator) {
 			for _, sid := range storageIDs {
 				if data, exists := s.data[sid]; exists && !seen[sid] {
 					seen[sid] = true
@@ -240,11 +246,11 @@ func (s *mockStorage) GetByPath(path string) ([]*model.MockData, error) {
 		return result, nil
 	}
 
-	return nil, errors.NewNotFoundError("resource not found", path)
+	return nil, errors.NewNotFoundError("resource not found", requestPath)
 }
 
 // Delete removes data by ID
-func (s *mockStorage) Delete(id string) error {
+func (s *mockStorage) Delete(id string) error { //nolint:revive
 	if err := s.validateID(id); err != nil {
 		return err
 	}
@@ -301,7 +307,8 @@ func (s *mockStorage) Delete(id string) error {
 	// This part is tricky if multiple external IDs could form different id-specific paths.
 	// For now, assume the main id-specific path was formed with the 'id' passed to this Delete function.
 	// A more robust cleanup might involve iterating all paths in pathMap, but that's inefficient.
-	// The current pathMap structure might need rethinking if arbitrary external IDs can form parts of distinct stored paths.
+	// The current pathMap structure might need rethinking if arbitrary external IDs
+	// can form parts of distinct stored paths.
 	// Let's stick to cleaning the path derived from the original id.
 	// The original code also cleaned up path.Join(oldData.Path, id) in Update.
 
@@ -316,8 +323,10 @@ func (s *mockStorage) Delete(id string) error {
 		// Check if path p starts with mockData.Path + "/" and corresponds to one of the (now deleted) external IDs.
 		// This is still indirect. A better way would be if model.MockData stored all its external IDs.
 		// For now, we only explicitly know the 'id' used for deletion.
-		// Let's assume pathMap stores entries for mockData.Path (collection) and potentially mockData.Location (which is data.Path + "/" + ids[0] from Create).
-		if p == mockData.Location { // mockData.Location should be the id-specific path created with the primary external ID
+		// Let's assume pathMap stores entries for mockData.Path (collection) and potentially
+		// mockData.Location (which is data.Path + "/" + ids[0] from Create).
+		// mockData.Location should be the id-specific path created with the primary external ID
+		if p == mockData.Location {
 			pathsToClean = append(pathsToClean, p)
 		}
 	}

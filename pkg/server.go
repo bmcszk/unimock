@@ -13,6 +13,12 @@ import (
 	"github.com/bmcszk/unimock/pkg/config"
 )
 
+const (
+	readTimeoutSeconds  = 10
+	writeTimeoutSeconds = 10
+	idleTimeoutSeconds  = 120
+)
+
 // ConfigError represents a configuration error
 type ConfigError struct {
 	Message string
@@ -41,8 +47,8 @@ func setupLogger(level string) *slog.Logger {
 	opts := &slog.HandlerOptions{
 		Level: logLevel,
 	}
-	handler := slog.NewJSONHandler(os.Stdout, opts)
-	return slog.New(handler)
+	jsonHandler := slog.NewJSONHandler(os.Stdout, opts)
+	return slog.New(jsonHandler)
 }
 
 // NewServer initializes a new HTTP server with the provided configurations.
@@ -154,9 +160,9 @@ func NewServer(serverConfig *config.ServerConfig, mockConfig *config.MockConfig)
 	srv := &http.Server{
 		Addr:         ":" + serverConfig.Port,
 		Handler:      appRouter,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  readTimeoutSeconds * time.Second,
+		WriteTimeout: writeTimeoutSeconds * time.Second,
+		IdleTimeout:  idleTimeoutSeconds * time.Second,
 	}
 
 	// Return the created server
