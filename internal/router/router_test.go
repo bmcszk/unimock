@@ -1,4 +1,4 @@
-package router
+package router_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bmcszk/unimock/internal/handler"
+	"github.com/bmcszk/unimock/internal/router"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
@@ -18,6 +19,26 @@ import (
 )
 
 func TestRouter_ServeHTTP(t *testing.T) {
+	appRouter, scenarioService := setupTestRouter(t)
+	setupTestScenarios(t, scenarioService)
+	tests := getRouterTestCases()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executeRouterTest(t, appRouter, tt)
+		})
+	}
+}
+
+type routerTestCase struct {
+	name             string
+	method           string
+	path             string
+	wantStatusCode   int
+	wantBodyContains string
+}
+
+func setupTestRouter(_ *testing.T) (*router.Router, service.ScenarioService) {
 	// Create a mock logger
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -45,9 +66,13 @@ func TestRouter_ServeHTTP(t *testing.T) {
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create router
-	router := NewRouter(mockHandler, techHandler, scenarioHandler, scenarioService, logger, cfg)
+	appRouter := router.NewRouter(mockHandler, techHandler, scenarioHandler, scenarioService, logger, cfg)
 
-	// Setup test scenarios
+	return appRouter, scenarioService
+}
+
+func setupTestScenarios(t *testing.T, scenarioService service.ScenarioService) {
+	t.Helper()
 	scenarios := []*model.Scenario{
 		{
 			UUID:        "test-scenario-1",
@@ -65,22 +90,16 @@ func TestRouter_ServeHTTP(t *testing.T) {
 		},
 	}
 
-	// Store the test scenarios
 	for _, scenario := range scenarios {
 		err := scenarioService.CreateScenario(context.TODO(), scenario)
 		if err != nil {
 			t.Fatalf("Failed to create test scenario: %v", err)
 		}
 	}
+}
 
-	// Test cases
-	tests := []struct {
-		name             string
-		method           string
-		path             string
-		wantStatusCode   int
-		wantBodyContains string
-	}{
+func getRouterTestCases() []routerTestCase {
+	return []routerTestCase{
 		{
 			name:             "scenario GET request",
 			method:           http.MethodGet,
@@ -116,27 +135,26 @@ func TestRouter_ServeHTTP(t *testing.T) {
 			wantBodyContains: "Not Found: No matching mock configuration or active scenario for path",
 		},
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, nil)
-			w := httptest.NewRecorder()
+func executeRouterTest(t *testing.T, appRouter *router.Router, tt routerTestCase) {
+	t.Helper()
+	req := httptest.NewRequest(tt.method, tt.path, nil)
+	w := httptest.NewRecorder()
 
-			router.ServeHTTP(w, req)
+	appRouter.ServeHTTP(w, req)
 
-			resp := w.Result()
-			defer resp.Body.Close()
+	resp := w.Result()
+	defer resp.Body.Close()
 
-			if resp.StatusCode != tt.wantStatusCode {
-				t.Errorf("Status code = %d, want %d", resp.StatusCode, tt.wantStatusCode)
-			}
+	if resp.StatusCode != tt.wantStatusCode {
+		t.Errorf("Status code = %d, want %d", resp.StatusCode, tt.wantStatusCode)
+	}
 
-			if tt.wantBodyContains != "" {
-				body, _ := io.ReadAll(resp.Body)
-				if !strings.Contains(string(body), tt.wantBodyContains) {
-					t.Errorf("Body = %q, want to contain %q", string(body), tt.wantBodyContains)
-				}
-			}
-		})
+	if tt.wantBodyContains != "" {
+		body, _ := io.ReadAll(resp.Body)
+		if !strings.Contains(string(body), tt.wantBodyContains) {
+			t.Errorf("Body = %q, want to contain %q", string(body), tt.wantBodyContains)
+		}
 	}
 }

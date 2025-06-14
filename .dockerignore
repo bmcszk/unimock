@@ -30,3 +30,7 @@ vendor/
 .cursorignore.bak.*/
 /.cursor/
 /.cursorignore
+.cursorignore
+.cursor/
+.windsurfignore
+.windsurf/

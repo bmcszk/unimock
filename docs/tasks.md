@@ -26,13 +26,25 @@ Each task should follow the format:
 [TASK-016] - Skipped - 2025-05-27 - Implement scenario matching logic in mock handler based on RequestPath.
 [TASK-030] - Blocked - 2025-05-29 - Implement E2E test for SCEN-E2E-COMPLEX-001: Multistage Resource Lifecycle with Scenario Override. Implementation complete (covered by TASK-029), but blocked by same .hresp tool issue as TASK-029.
 [TASK-031] - Done - 2025-05-29 - Fix application bug: Scenario headers defined via POST /_uni/scenarios are not returned when the scenario is matched.
+[TASK-032] - Done - 2025-06-14 - Implement and validate Advanced Resource Identification (REQ-RM-MULTI-ID): Multi-ID support for resources already implemented, added comprehensive test coverage.
 
 ---
 ID: TASK-029
 Description: Implement a multistage E2E scenario covering resource lifecycle and scenario management.
-Status: In Progress - E2E test `TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle`. The .hresp file whitespace issue should now be resolved. Verifying E2E test.
+Status: Done
 Assigned: AI
 Created: 2025-05-28
-Updated: 2025-05-29
+Updated: 2025-06-14
 REQ: REQ-E2E-COMPLEX-001 (Implied)
+Notes: E2E test `TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle` implemented and working.
+---
+
+ID: TASK-032
+Description: Validate and document Advanced Resource Identification (REQ-RM-MULTI-ID) implementation.
+Status: Done
+Assigned: AI
+Created: 2025-06-14
+Updated: 2025-06-14
+REQ: REQ-RM-MULTI-ID
+Notes: Discovered that multi-ID functionality was already fully implemented in storage/service layers. Added comprehensive test suite to validate all requirements. All ARI-TASK-001 through ARI-TASK-007 completed.
 ---

@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"bytes"
@@ -10,6 +10,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/model"
@@ -22,7 +23,7 @@ func TestScenarioHandler_Create(t *testing.T) {
 	store := storage.NewScenarioStorage()
 	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(scenarioService, logger)
+	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create a new scenario
 	scenario := model.Scenario{
@@ -49,7 +50,7 @@ func TestScenarioHandler_Create(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Serve HTTP request
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	// Check the status code
 	if status := rr.Code; status != http.StatusCreated {
@@ -79,7 +80,7 @@ func TestScenarioHandler_Get(t *testing.T) {
 	store := storage.NewScenarioStorage()
 	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(scenarioService, logger)
+	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create a new scenario
 	scenario := model.Scenario{
@@ -94,7 +95,7 @@ func TestScenarioHandler_Get(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/_uni/scenarios", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	// Get the created scenario's UUID
 	var createdScenario model.Scenario
@@ -108,7 +109,7 @@ func TestScenarioHandler_Get(t *testing.T) {
 	}
 
 	rr = httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	// Check the status code
 	if status := rr.Code; status != http.StatusOK {
@@ -136,7 +137,7 @@ func TestScenarioHandler_List(t *testing.T) {
 	store := storage.NewScenarioStorage()
 	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(scenarioService, logger)
+	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create multiple scenarios
 	scenarios := []model.Scenario{
@@ -160,7 +161,7 @@ func TestScenarioHandler_List(t *testing.T) {
 		req, _ := http.NewRequest("POST", "/_uni/scenarios", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
-		handler.ServeHTTP(rr, req)
+		scenarioHandler.ServeHTTP(rr, req)
 	}
 
 	// Now test the list endpoint
@@ -170,7 +171,7 @@ func TestScenarioHandler_List(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	// Check the status code
 	if status := rr.Code; status != http.StatusOK {
@@ -195,7 +196,7 @@ func TestScenarioHandler_Update(t *testing.T) {
 	store := storage.NewScenarioStorage()
 	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(scenarioService, logger)
+	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create a new scenario
 	scenario := model.Scenario{
@@ -210,7 +211,7 @@ func TestScenarioHandler_Update(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/_uni/scenarios", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	// Get the created scenario's UUID
 	var createdScenario model.Scenario
@@ -226,7 +227,7 @@ func TestScenarioHandler_Update(t *testing.T) {
 	req, _ = http.NewRequest("PUT", "/_uni/scenarios/"+uuid, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr = httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	// Check the status code
 	if status := rr.Code; status != http.StatusOK {
@@ -236,7 +237,7 @@ func TestScenarioHandler_Update(t *testing.T) {
 	// Verify the scenario was updated
 	req, _ = http.NewRequest("GET", "/_uni/scenarios/"+uuid, nil)
 	rr = httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	var updated model.Scenario
 	json.Unmarshal(rr.Body.Bytes(), &updated)
@@ -254,7 +255,7 @@ func TestScenarioHandler_Delete(t *testing.T) {
 	store := storage.NewScenarioStorage()
 	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(scenarioService, logger)
+	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create a new scenario
 	scenario := model.Scenario{
@@ -269,7 +270,7 @@ func TestScenarioHandler_Delete(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/_uni/scenarios", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	// Get the created scenario's UUID
 	var createdScenario model.Scenario
@@ -279,7 +280,7 @@ func TestScenarioHandler_Delete(t *testing.T) {
 	// Now delete the scenario
 	req, _ = http.NewRequest("DELETE", "/_uni/scenarios/"+uuid, nil)
 	rr = httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	// Check the status code
 	if status := rr.Code; status != http.StatusNoContent {
@@ -289,7 +290,7 @@ func TestScenarioHandler_Delete(t *testing.T) {
 	// Try to get the deleted scenario - should return 404
 	req, _ = http.NewRequest("GET", "/_uni/scenarios/"+uuid, nil)
 	rr = httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusNotFound {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
@@ -301,12 +302,12 @@ func TestScenarioHandler_NotFound(t *testing.T) {
 	store := storage.NewScenarioStorage()
 	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(scenarioService, logger)
+	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Request a non-existent scenario
 	req, _ := http.NewRequest("GET", "/_uni/scenarios/non-existent", nil)
 	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	// Check the status code
 	if status := rr.Code; status != http.StatusNotFound {
@@ -319,13 +320,13 @@ func TestScenarioHandler_InvalidJSON(t *testing.T) {
 	store := storage.NewScenarioStorage()
 	scenarioService := service.NewScenarioService(store)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	handler := NewScenarioHandler(scenarioService, logger)
+	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create a request with invalid JSON
 	req, _ := http.NewRequest("POST", "/_uni/scenarios", bytes.NewBufferString(`{"invalid JSON`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	scenarioHandler.ServeHTTP(rr, req)
 
 	// Check the status code - should be BadRequest for invalid JSON
 	if status := rr.Code; status != http.StatusBadRequest {

@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,6 +20,22 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	// lastElementIndex represents the offset to get the last element of a slice
+	lastElementIndex = 1
+	
+	// Common strings
+	errorLogKey = "error"
+	pathLogKey  = "path"
+	idLogKey    = "id"
+	contentTypeHeader = "Content-Type"
+	pathSeparator = "/"
+	resourceNotFoundMsg = "resource not found"
+	
+	// Array sizes
+	singleItem = 1
+)
+
 // MockHandler represents our HTTP request handler
 type MockHandler struct {
 	service         service.MockService
@@ -28,9 +45,14 @@ type MockHandler struct {
 }
 
 // NewMockHandler creates a new instance of Handler
-func NewMockHandler(service service.MockService, scenarioService service.ScenarioService, logger *slog.Logger, cfg *config.MockConfig) *MockHandler {
+func NewMockHandler(
+	mockService service.MockService, 
+	scenarioService service.ScenarioService, 
+	logger *slog.Logger, 
+	cfg *config.MockConfig,
+) *MockHandler {
 	return &MockHandler{
-		service:         service,
+		service:         mockService,
 		scenarioService: scenarioService,
 		logger:          logger,
 		mockCfg:         cfg,
@@ -40,7 +62,7 @@ func NewMockHandler(service service.MockService, scenarioService service.Scenari
 // getSectionForRequest finds the matching configuration section for a given request path.
 func (h *MockHandler) getSectionForRequest(reqPath string) (*config.Section, string, error) {
 	if h.mockCfg == nil {
-		return nil, "", fmt.Errorf("service configuration is missing")
+		return nil, "", errors.New("service configuration is missing")
 	}
 	sectionName, section, err := h.mockCfg.MatchPath(reqPath)
 	if err != nil {
@@ -53,7 +75,12 @@ func (h *MockHandler) getSectionForRequest(reqPath string) (*config.Section, str
 }
 
 // extractIDs extracts IDs from the request using configured paths
-func (h *MockHandler) extractIDs(ctx context.Context, req *http.Request, section *config.Section, sectionName string) ([]string, error) {
+func (h *MockHandler) extractIDs(
+	ctx context.Context, 
+	req *http.Request, 
+	section *config.Section, 
+	sectionName string,
+) ([]string, error) {
 	var collectedIDs []string
 	seenIDs := make(map[string]bool)
 
@@ -65,85 +92,181 @@ func (h *MockHandler) extractIDs(ctx context.Context, req *http.Request, section
 		}
 	}
 
-	// 1. Try to extract ID from path (primary for GET/PUT/DELETE, potential for POST)
-	pathSegments := getPathInfo(req.URL.Path)
+	// Handle path-based ID extraction for GET/PUT/DELETE methods
 	if req.Method == http.MethodGet || req.Method == http.MethodPut || req.Method == http.MethodDelete {
-		patternSegments := getPathInfo(section.PathPattern)
-		if len(pathSegments) > len(patternSegments) || (len(patternSegments) > 0 && len(pathSegments) > 0 && patternSegments[len(patternSegments)-1] == "*" && len(pathSegments) == len(patternSegments)) {
-			lastSegment := pathSegments[len(pathSegments)-1]
-			addID(lastSegment)
-			// For GET/PUT/DELETE, if path ID is found, it's usually the only one we care about for addressing the resource.
-			// However, REQ-RM-MULTI-ID implies any ID can be used. Here, we assume the path ID is the target.
-			// If `collectedIDs` has this path ID, we can return it directly for these methods.
-			if len(collectedIDs) > 0 {
-				return collectedIDs, nil
-			}
-		}
-		// If no path ID for GET/PUT/DELETE, it's likely a collection operation or error, return empty or let POST logic run if applicable.
-		// For now, if it's strictly GET/PUT/DELETE and no path ID, return no IDs.
-		return nil, nil
+		return h.extractPathIDs(req, section, addID)
 	}
 
-	// For POST requests (or if other methods fall through, though less likely with above return)
-	// 2. Try primary Header ID Name
-	if section.HeaderIDName != "" {
-		addID(req.Header.Get(section.HeaderIDName))
-	}
+	// For POST requests, extract IDs from headers and body
+	return h.extractPostIDs(ctx, req, section, addID, collectedIDs)
+}
 
-	// 4. Try Body IDs (Primary and Alternatives)
-	contentType := req.Header.Get("Content-Type")
-	contentTypeLower := strings.ToLower(contentType)
-	if strings.Contains(contentTypeLower, "json") || strings.Contains(contentTypeLower, "xml") {
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read request body: %w", err)
-		}
-		req.Body = io.NopCloser(bytes.NewBuffer(body)) // Restore body
-
-		if len(body) > 0 {
-			var bodyExtractionError error
-			var extractedFromBody []string
-
-			// Use only primary BodyIDPaths as alternative paths were removed
-			primaryBodyIdPaths := section.BodyIDPaths
-
-			if strings.Contains(contentTypeLower, "json") {
-				extractedFromBody, bodyExtractionError = extractJSONIDs(body, primaryBodyIdPaths, seenIDs)
-			} else if strings.Contains(contentTypeLower, "xml") {
-				extractedFromBody, bodyExtractionError = extractXMLIDs(body, primaryBodyIdPaths, seenIDs)
-			}
-
-			if bodyExtractionError != nil {
-				h.logger.WarnContext(ctx, "error extracting some IDs from body", "error", bodyExtractionError)
-				// If body extraction itself fails (e.g. malformed JSON/XML), this should be a hard error.
-				return nil, bodyExtractionError // Propagate body parsing errors
-			}
-			for _, id := range extractedFromBody { // Add successfully extracted and newly seen IDs
-				addID(id) // addID handles uniqueness via seenIDs
-			}
+// extractPathIDs extracts IDs from the request path for GET/PUT/DELETE methods
+func (*MockHandler) extractPathIDs(req *http.Request, section *config.Section, addID func(string)) ([]string, error) {
+	var collectedIDs []string
+	
+	pathSegments := getPathInfo(req.URL.Path)
+	patternSegments := getPathInfo(section.PathPattern)
+	
+	if len(pathSegments) > len(patternSegments) || 
+		(len(patternSegments) > 0 && len(pathSegments) > 0 && 
+		 patternSegments[len(patternSegments)-lastElementIndex] == "*" && 
+		 len(pathSegments) == len(patternSegments)) {
+		lastSegment := pathSegments[len(pathSegments)-lastElementIndex]
+		addID(lastSegment)
+		
+		// For GET/PUT/DELETE, if path ID is found, return it directly
+		if lastSegment != "" {
+			collectedIDs = append(collectedIDs, lastSegment)
+			return collectedIDs, nil
 		}
 	}
+	
+	// If no path ID for GET/PUT/DELETE, return empty
+	return nil, nil
+}
 
-	// 5. Fallback for POST: if still no IDs, try last path segment (e.g., POST /collection/newIdToCreate)
-	if req.Method == http.MethodPost && len(collectedIDs) == 0 {
-		if len(pathSegments) > 0 {
-			lastSegment := pathSegments[len(pathSegments)-1]
-			// Check if lastSegment looks like a collection name vs an ID
-			// This logic might need refinement based on how PathPattern is defined (e.g. /collection/* vs /collection)
-			patternSegments := getPathInfo(section.PathPattern)
-			if len(pathSegments) > len(patternSegments) || (len(pathSegments) == len(patternSegments) && strings.HasSuffix(section.PathPattern, "*")) {
-				addID(lastSegment)
-			}
-		}
+// extractPostIDs extracts IDs from headers and body for POST requests
+func (h *MockHandler) extractPostIDs(
+	ctx context.Context, 
+	req *http.Request, 
+	section *config.Section, 
+	addID func(string), 
+	collectedIDs []string,
+) ([]string, error) {
+	collectedIDs = h.tryExtractHeaderID(section, req, addID, collectedIDs)
+	
+	bodyIDs, err := h.extractBodyIDs(ctx, req, section, addID)
+	if err != nil {
+		return nil, err
+	}
+	collectedIDs = append(collectedIDs, bodyIDs...)
+
+	if len(collectedIDs) == 0 {
+		collectedIDs = h.tryExtractPathID(req, section, addID, collectedIDs)
 	}
 
 	if len(collectedIDs) == 0 {
-		// For POST, this signals to the caller to generate a UUID.
-		// For other methods, if it reaches here, it implies no specific resource ID was found by path.
-		return nil, nil // No IDs found, but not an error in extraction itself.
+		return nil, nil
 	}
 
 	return collectedIDs, nil
+}
+
+// tryExtractHeaderID attempts to extract ID from request headers
+func (*MockHandler) tryExtractHeaderID(
+	section *config.Section, 
+	req *http.Request, 
+	addID func(string), 
+	collectedIDs []string,
+) []string {
+	if section.HeaderIDName != "" {
+		headerID := req.Header.Get(section.HeaderIDName)
+		if headerID != "" {
+			addID(headerID)
+			collectedIDs = append(collectedIDs, headerID)
+		}
+	}
+	return collectedIDs
+}
+
+// tryExtractPathID attempts to extract ID from request path
+func (h *MockHandler) tryExtractPathID(
+	req *http.Request, 
+	section *config.Section, 
+	addID func(string), 
+	collectedIDs []string,
+) []string {
+	pathSegments := getPathInfo(req.URL.Path)
+	if len(pathSegments) == 0 {
+		return collectedIDs
+	}
+
+	lastSegment := pathSegments[len(pathSegments)-lastElementIndex]
+	patternSegments := getPathInfo(section.PathPattern)
+	
+	if h.shouldUsePathSegment(pathSegments, patternSegments, section.PathPattern) {
+		addID(lastSegment)
+		collectedIDs = append(collectedIDs, lastSegment)
+	}
+	
+	return collectedIDs
+}
+
+// shouldUsePathSegment determines if path segment should be used as ID
+func (*MockHandler) shouldUsePathSegment(pathSegments, patternSegments []string, pathPattern string) bool {
+	return len(pathSegments) > len(patternSegments) || 
+		(len(pathSegments) == len(patternSegments) && strings.HasSuffix(pathPattern, "*"))
+}
+
+// extractBodyIDs extracts IDs from request body
+func (h *MockHandler) extractBodyIDs(
+	ctx context.Context, 
+	req *http.Request, 
+	section *config.Section, 
+	addID func(string),
+) ([]string, error) {
+	contentTypeLower := strings.ToLower(req.Header.Get("Content-Type"))
+	
+	if !h.isSupportedContentType(contentTypeLower) {
+		return nil, nil
+	}
+
+	body, err := h.readAndRestoreBody(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(body) == 0 {
+		return nil, nil
+	}
+
+	return h.extractIDsFromBody(ctx, body, contentTypeLower, section, addID)
+}
+
+// isSupportedContentType checks if content type is supported for ID extraction
+func (*MockHandler) isSupportedContentType(contentType string) bool {
+	return strings.Contains(contentType, "json") || strings.Contains(contentType, "xml")
+}
+
+// readAndRestoreBody reads request body and restores it for later use
+func (*MockHandler) readAndRestoreBody(req *http.Request) ([]byte, error) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read request body: %w", err)
+	}
+	req.Body = io.NopCloser(bytes.NewBuffer(body))
+	return body, nil
+}
+
+// extractIDsFromBody extracts IDs from parsed body content
+func (h *MockHandler) extractIDsFromBody(
+	ctx context.Context, 
+	body []byte, 
+	contentType string, 
+	section *config.Section, 
+	addID func(string),
+) ([]string, error) {
+	var extractedFromBody []string
+	var err error
+	seenIDs := make(map[string]bool)
+
+	if strings.Contains(contentType, "json") {
+		extractedFromBody, err = extractJSONIDs(body, section.BodyIDPaths, seenIDs)
+	} else {
+		extractedFromBody, err = extractXMLIDs(body, section.BodyIDPaths, seenIDs)
+	}
+
+	if err != nil {
+		h.logger.WarnContext(ctx, "error extracting some IDs from body", "error", err)
+		return nil, err
+	}
+
+	for _, id := range extractedFromBody {
+		addID(id)
+	}
+
+	return extractedFromBody, nil
 }
 
 // Helper functions moved from service
@@ -159,19 +282,27 @@ func extractJSONIDs(body []byte, idPaths []string, seenIDs map[string]bool) ([]s
 
 	var ids []string
 	for _, path := range idPaths {
-		nodes, err := jsonquery.QueryAll(doc, path)
-		if err != nil {
-			continue
-		}
-		for _, node := range nodes {
-			if idStr := fmt.Sprintf("%v", node.Value()); idStr != "" {
-				if !seenIDs[idStr] {
-					ids = append(ids, idStr)
-				}
+		pathIDs := extractJSONIDsFromPath(doc, path, seenIDs)
+		ids = append(ids, pathIDs...)
+	}
+	return ids, nil
+}
+
+func extractJSONIDsFromPath(doc *jsonquery.Node, path string, seenIDs map[string]bool) []string {
+	nodes, err := jsonquery.QueryAll(doc, path)
+	if err != nil {
+		return nil
+	}
+
+	var ids []string
+	for _, node := range nodes {
+		if idStr := fmt.Sprintf("%v", node.Value()); idStr != "" {
+			if !seenIDs[idStr] {
+				ids = append(ids, idStr)
 			}
 		}
 	}
-	return ids, nil
+	return ids
 }
 
 func extractXMLIDs(body []byte, idPaths []string, seenIDs map[string]bool) ([]string, error) {
@@ -182,244 +313,51 @@ func extractXMLIDs(body []byte, idPaths []string, seenIDs map[string]bool) ([]st
 
 	var ids []string
 	for _, path := range idPaths {
-		nodes, err := xmlquery.QueryAll(doc, path)
-		if err != nil {
-			continue
-		}
-		for _, node := range nodes {
-			if idStr := node.InnerText(); idStr != "" {
-				if !seenIDs[idStr] {
-					ids = append(ids, idStr)
-				}
-			}
-		}
+		pathIDs := extractXMLIDsFromPath(doc, path, seenIDs)
+		ids = append(ids, pathIDs...)
 	}
 	return ids, nil
 }
 
+func extractXMLIDsFromPath(doc *xmlquery.Node, path string, seenIDs map[string]bool) []string {
+	nodes, err := xmlquery.QueryAll(doc, path)
+	if err != nil {
+		return nil
+	}
+
+	var ids []string
+	for _, node := range nodes {
+		if idStr := node.InnerText(); idStr != "" {
+			if !seenIDs[idStr] {
+				ids = append(ids, idStr)
+			}
+		}
+	}
+	return ids
+}
+
 // HandleRequest processes the HTTP request and returns appropriate response
 func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
-	// Normalize path by removing trailing slash
 	req.URL.Path = strings.TrimSuffix(req.URL.Path, "/")
 
-	// Find matching section
 	section, sectionName, err := h.getSectionForRequest(req.URL.Path)
 	if err != nil {
-		// If no matching section, typically a 404 or specific error from getSectionForRequest
-		// The router should ideally prevent this, but if it happens:
-		h.logger.Warn("no matching section in HandleRequest", "path", req.URL.Path, "error", err)
+		h.logger.Warn("no matching section in HandleRequest", pathLogKey, req.URL.Path, errorLogKey, err)
 		return &http.Response{
-			StatusCode: http.StatusNotFound, // Or http.StatusBadRequest depending on error
+			StatusCode: http.StatusNotFound,
 			Body:       io.NopCloser(strings.NewReader(err.Error())),
 		}, nil
 	}
 
-	// Handle different HTTP methods
 	switch req.Method {
 	case http.MethodGet:
-		// First try to get resource by ID
-		pathSegments := getPathInfo(req.URL.Path)
-		lastSegment := pathSegments[len(pathSegments)-1]
-
-		if lastSegment != "" && lastSegment != sectionName {
-			// Try to get resource by ID
-			resource, err := h.service.GetResource(ctx, req.URL.Path, lastSegment)
-			if err == nil && resource != nil {
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Header:     http.Header{"Content-Type": []string{resource.ContentType}},
-					Body:       io.NopCloser(bytes.NewReader(resource.Body)),
-				}, nil
-			}
-		}
-
-		// If resource not found by ID, try to get collection at the exact path
-		resources, err := h.service.GetResourcesByPath(ctx, req.URL.Path)
-		if err == nil && len(resources) > 0 {
-			var items [][]byte
-			for _, r := range resources {
-				if strings.Contains(strings.ToLower(r.ContentType), "json") {
-					items = append(items, r.Body)
-				}
-			}
-			var responseBody []byte
-			if len(items) == 1 {
-				responseBody = append([]byte("["), items[0]...)
-				responseBody = append(responseBody, byte(']'))
-			} else if len(items) > 1 {
-				responseBody = append(responseBody, byte('['))
-				for i, item := range items {
-					responseBody = append(responseBody, item...)
-					if i < len(items)-1 {
-						responseBody = append(responseBody, []byte(",")...)
-					}
-				}
-				responseBody = append(responseBody, byte(']'))
-			}
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				Body:       io.NopCloser(bytes.NewReader(responseBody)),
-			}, nil
-		}
-
-		// If neither resource nor collection found, return 404
-		return &http.Response{
-			StatusCode: http.StatusNotFound,
-			Body:       io.NopCloser(strings.NewReader("resource not found")),
-		}, nil
-
+		return h.handleGet(ctx, req, sectionName)
 	case http.MethodPost:
-		var id string                   // Definitive ID for Location header, logging
-		var createdResourceIDs []string // All IDs to be passed to storage.Create
-
-		idsFromExtractor, err := h.extractIDs(ctx, req, section, sectionName)
-		if err != nil { // An actual error occurred during extraction (e.g., bad JSON, IO error)
-			h.logger.Error("failed to extract IDs for POST", "path", req.URL.Path, "error", err)
-			return &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(strings.NewReader("invalid request: " + err.Error()))}, nil
-		} else if len(idsFromExtractor) == 0 { // No error from extractIDs, and no IDs were found from any source
-			generatedUUID := uuid.New().String()
-			id = generatedUUID
-			createdResourceIDs = []string{id} // Use generated UUID for storage
-			h.logger.Debug("POST: no IDs found by extractIDs, generated new UUID", "uuid", id)
-		} else { // One or more IDs were successfully extracted by extractIDs
-			id = idsFromExtractor[0]              // Use the first ID for Location header and logging
-			createdResourceIDs = idsFromExtractor // Use all extracted IDs for storage
-			if len(idsFromExtractor) > 1 {
-				h.logger.Info("multiple IDs found in POST request, using first for Location, all for creation",
-					"path", req.URL.Path, "all_ids", createdResourceIDs, "location_id", id)
-			} else {
-				h.logger.Debug("POST: using extracted ID(s)", "path", req.URL.Path, "ids", createdResourceIDs)
-			}
-		}
-
-		// Read the body for storage
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read request body: %w", err)
-		}
-
-		// Create resource
-		contentType := req.Header.Get("Content-Type")
-		data := &model.MockData{
-			Path:        req.URL.Path,
-			ContentType: contentType,
-			Body:        body,
-		}
-
-		if err := h.service.CreateResource(ctx, req.URL.Path, createdResourceIDs, data); err != nil {
-			if strings.Contains(err.Error(), "already exists") {
-				return &http.Response{
-					StatusCode: http.StatusConflict,
-					Body:       io.NopCloser(strings.NewReader(err.Error())),
-				}, nil
-			}
-			h.logger.Error("failed to create resource for POST", "path", req.URL.Path, "id", id, "error", err)
-			return &http.Response{StatusCode: http.StatusInternalServerError, Body: io.NopCloser(strings.NewReader("failed to create resource"))}, nil
-		}
-		h.logger.Info("resource created via POST", "path", req.URL.Path, "id", id)
-
-		location := req.URL.Path
-		// Ensure a single ID is used for the location header
-		location = fmt.Sprintf("%s/%s", strings.TrimSuffix(location, "/"), id)
-
-		// For Unimock, we'll return 201 with Location and empty body, consistent with typical REST APIs.
-		// The logic for handling CollectionJSON here was primarily for logging or specific response shaping
-		// if it were different from the standard POST response. Since POST creates a single resource,
-		// and the Location header points to that single resource, complex CollectionJSON logic isn't needed here.
-
-		return &http.Response{
-			StatusCode: http.StatusCreated,
-			Header:     http.Header{"Location": []string{location}},
-			Body:       io.NopCloser(strings.NewReader("")), // Empty body for 201
-		}, nil
-
+		return h.handlePost(ctx, req, section, sectionName)
 	case http.MethodPut:
-		bodyBytes, errIOReadAll := io.ReadAll(req.Body)
-		if errIOReadAll != nil {
-			h.logger.Error("failed to read request body for PUT", "path", req.URL.Path, "error", errIOReadAll.Error())
-			return &http.Response{StatusCode: http.StatusInternalServerError, Body: io.NopCloser(strings.NewReader("failed to read request body"))}, fmt.Errorf("reading body: %w", errIOReadAll)
-		}
-
-		contentType := req.Header.Get("Content-Type")
-		if contentType == "" {
-			h.logger.Error("Content-Type header is missing for PUT request", "path", req.URL.Path)
-			return &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(strings.NewReader("Content-Type header is missing"))}, nil
-		}
-
-		// Pass section and sectionName to extractIDs
-		ids, err := h.extractIDs(ctx, req, section, sectionName)
-		if err != nil || len(ids) == 0 {
-			h.logger.Error("ID not found in PUT request", "path", req.URL.Path, "error", err)
-			return &http.Response{
-				StatusCode: http.StatusNotFound,
-				Body:       io.NopCloser(strings.NewReader("resource not found")),
-			}, nil
-		}
-
-		putData := &model.MockData{
-			Path:        req.URL.Path, // Or construct specific path using ids[0]
-			ContentType: contentType,
-			Body:        bodyBytes,
-		}
-
-		// Try to update resource (upsert logic is in the service)
-		err = h.service.UpdateResource(ctx, req.URL.Path, ids[0], putData)
-
-		if err != nil {
-			if strings.Contains(err.Error(), "resource not found") { // Check if the service layer specifically returns this for a failed upsert's "find" part
-				return &http.Response{
-					StatusCode: http.StatusNotFound,
-					Body:       io.NopCloser(strings.NewReader("resource not found after upsert attempt")),
-				}, nil
-			}
-			// For other errors during update/create
-			h.logger.Error("failed to update/create resource for PUT", "path", req.URL.Path, "id", ids[0], "error", err)
-			return &http.Response{StatusCode: http.StatusInternalServerError, Body: io.NopCloser(strings.NewReader("failed to process PUT request"))}, fmt.Errorf("processing PUT: %w", err)
-		}
-
-		// After successful upsert, fetch the resource to return it
-		updatedResource, getErr := h.service.GetResource(ctx, req.URL.Path, ids[0])
-		if getErr != nil {
-			h.logger.Error("failed to get resource after PUT", "path", req.URL.Path, "id", ids[0], "error", getErr)
-			// If we successfully upserted but can't get it, this is an internal error.
-			// The resource should exist.
-			return &http.Response{StatusCode: http.StatusInternalServerError, Body: io.NopCloser(strings.NewReader("failed to retrieve resource after update"))}, fmt.Errorf("getting resource post-PUT: %w", getErr)
-		}
-
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{updatedResource.ContentType}},
-			Body:       io.NopCloser(bytes.NewReader(updatedResource.Body)),
-		}, nil
-
+		return h.handlePut(ctx, req, section, sectionName)
 	case http.MethodDelete:
-		// Pass section and sectionName to extractIDs
-		ids, err := h.extractIDs(ctx, req, section, sectionName)
-		if err != nil || len(ids) == 0 {
-			h.logger.Error("ID not found in DELETE request", "path", req.URL.Path, "error", err)
-			return &http.Response{
-				StatusCode: http.StatusNotFound,
-				Body:       io.NopCloser(strings.NewReader("resource not found")),
-			}, nil
-		}
-
-		// Try to delete resource
-		err = h.service.DeleteResource(ctx, req.URL.Path, ids[0])
-		if err != nil {
-			if err.Error() == "resource not found" {
-				return &http.Response{
-					StatusCode: http.StatusNotFound,
-					Body:       io.NopCloser(strings.NewReader("resource not found")),
-				}, nil
-			}
-			return nil, err
-		}
-
-		return &http.Response{
-			StatusCode: http.StatusNoContent,
-		}, nil
-
+		return h.handleDelete(ctx, req, section, sectionName)
 	default:
 		return &http.Response{
 			StatusCode: http.StatusMethodNotAllowed,
@@ -440,45 +378,367 @@ func (h *MockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if resp != nil && resp.Body != nil {
 		defer func() {
-			if closeErr := resp.Body.Close(); closeErr != nil {
-				h.logger.Warn("error closing response body in ServeHTTP defer", "error", closeErr)
-			}
+			_ = resp.Body.Close()
 		}()
 	}
 
-	// Copy headers
+	h.copyHeaders(w, resp)
+	h.writeResponse(w, resp)
+}
+
+
+// copyHeaders copies response headers to the writer
+func (*MockHandler) copyHeaders(w http.ResponseWriter, resp *http.Response) {
 	for k, v := range resp.Header {
 		w.Header()[k] = v
 	}
+}
 
+// writeResponse writes the response body and status code
+func (h *MockHandler) writeResponse(w http.ResponseWriter, resp *http.Response) {
 	if resp.Body != nil {
-		bodyBytesToRespond, readErr := io.ReadAll(resp.Body)
-		if readErr != nil {
-			h.logger.Error("failed to read response body from HandleRequest's response", "error", readErr)
-			// Set a server error status if possible, though headers might be sent
-			if rr, ok := w.(*httptest.ResponseRecorder); ok && !rr.Flushed { // Check if WriteHeader has been called
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-			return
-		}
-
-		// Explicitly set Content-Length if not already set by resp.Header
-		if w.Header().Get("Content-Length") == "" {
-			w.Header().Set("Content-Length", strconv.Itoa(len(bodyBytesToRespond)))
-		}
-		w.WriteHeader(resp.StatusCode) // Set status code AFTER Content-Length potentially
-
-		if len(bodyBytesToRespond) > 0 {
-			_, writeErr := w.Write(bodyBytesToRespond)
-			if writeErr != nil {
-				h.logger.Error("failed to write response body", "error", writeErr)
-			}
-		}
+		h.writeBodyResponse(w, resp)
 	} else {
-		// If resp.Body is nil (e.g., for 204 No Content or if HandleRequest returns no body for other reasons)
-		// still need to write the status code.
 		w.WriteHeader(resp.StatusCode)
 	}
+}
+
+// writeBodyResponse handles writing response with body
+func (h *MockHandler) writeBodyResponse(w http.ResponseWriter, resp *http.Response) {
+	bodyBytesToRespond, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		h.handleBodyReadError(w, readErr)
+		return
+	}
+
+	h.setContentLength(w, bodyBytesToRespond)
+	w.WriteHeader(resp.StatusCode)
+
+	if len(bodyBytesToRespond) > 0 {
+		h.writeBodyData(w, bodyBytesToRespond)
+	}
+}
+
+// handleBodyReadError handles errors when reading response body
+func (h *MockHandler) handleBodyReadError(w http.ResponseWriter, readErr error) {
+	h.logger.Error("failed to read response body from HandleRequest's response", errorLogKey, readErr)
+	if rr, ok := w.(*httptest.ResponseRecorder); ok && !rr.Flushed {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+// setContentLength sets the Content-Length header if not already set
+func (*MockHandler) setContentLength(w http.ResponseWriter, body []byte) {
+	if w.Header().Get("Content-Length") == "" {
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	}
+}
+
+// writeBodyData writes the actual body data
+func (h *MockHandler) writeBodyData(w http.ResponseWriter, body []byte) {
+	_, writeErr := w.Write(body)
+	if writeErr != nil {
+		h.logger.Error("failed to write response body", errorLogKey, writeErr)
+	}
+}
+
+// handleGet processes GET requests
+func (h *MockHandler) handleGet(ctx context.Context, req *http.Request, sectionName string) (*http.Response, error) {
+	pathSegments := getPathInfo(req.URL.Path)
+	lastSegment := pathSegments[len(pathSegments)-lastElementIndex]
+
+	if lastSegment != "" && lastSegment != sectionName {
+		resource, err := h.service.GetResource(ctx, req.URL.Path, lastSegment)
+		if err == nil && resource != nil {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{resource.ContentType}},
+				Body:       io.NopCloser(bytes.NewReader(resource.Body)),
+			}, nil
+		}
+	}
+
+	resources, err := h.service.GetResourcesByPath(ctx, req.URL.Path)
+	if err == nil && len(resources) > 0 {
+		return h.buildCollectionResponse(resources)
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusNotFound,
+		Body:       io.NopCloser(strings.NewReader("resource not found")),
+	}, nil
+}
+
+// buildCollectionResponse builds a JSON array response from resources
+func (*MockHandler) buildCollectionResponse(resources []*model.MockData) (*http.Response, error) {
+	items := extractJSONItems(resources)
+	responseBody := buildJSONArrayBody(items)
+
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(bytes.NewReader(responseBody)),
+	}, nil
+}
+
+// extractJSONItems filters JSON resources and returns their bodies
+func extractJSONItems(resources []*model.MockData) [][]byte {
+	var items [][]byte
+	for _, r := range resources {
+		if strings.Contains(strings.ToLower(r.ContentType), "json") {
+			items = append(items, r.Body)
+		}
+	}
+	return items
+}
+
+// buildJSONArrayBody constructs a JSON array from items
+func buildJSONArrayBody(items [][]byte) []byte {
+	if len(items) == 0 {
+		return []byte("[]")
+	}
+	
+	if len(items) == singleItem {
+		return buildSingleItemArray(items[0])
+	}
+	
+	return buildMultiItemArray(items)
+}
+
+// buildSingleItemArray creates JSON array with single item
+func buildSingleItemArray(item []byte) []byte {
+	responseBody := append([]byte("["), item...)
+	return append(responseBody, byte(']'))
+}
+
+// buildMultiItemArray creates JSON array with multiple items
+func buildMultiItemArray(items [][]byte) []byte {
+	responseBody := []byte("[")
+	for i, item := range items {
+		responseBody = append(responseBody, item...)
+		if i < len(items)-singleItem {
+			responseBody = append(responseBody, []byte(",")...)
+		}
+	}
+	return append(responseBody, byte(']'))
+}
+
+// handlePost processes POST requests
+func (h *MockHandler) handlePost(
+	ctx context.Context, 
+	req *http.Request, 
+	section *config.Section, 
+	sectionName string,
+) (*http.Response, error) {
+	id, createdResourceIDs, err := h.extractPostResourceIDs(ctx, req, section, sectionName)
+	if err != nil {
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(strings.NewReader("invalid request: " + err.Error())),
+		}, nil
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read request body: %w", err)
+	}
+
+	data := &model.MockData{
+		Path:        req.URL.Path,
+		ContentType: req.Header.Get(contentTypeHeader),
+		Body:        body,
+	}
+
+	if err := h.service.CreateResource(ctx, req.URL.Path, createdResourceIDs, data); err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			return &http.Response{
+				StatusCode: http.StatusConflict,
+				Body:       io.NopCloser(strings.NewReader(err.Error())),
+			}, nil
+		}
+		h.logger.Error("failed to create resource for POST", pathLogKey, req.URL.Path, idLogKey, id, errorLogKey, err)
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(strings.NewReader("failed to create resource")),
+		}, nil
+	}
+
+	h.logger.Info("resource created via POST", pathLogKey, req.URL.Path, idLogKey, id)
+	location := fmt.Sprintf("%s%s%s", strings.TrimSuffix(req.URL.Path, pathSeparator), pathSeparator, id)
+
+	return &http.Response{
+		StatusCode: http.StatusCreated,
+		Header:     http.Header{"Location": []string{location}},
+		Body:       io.NopCloser(strings.NewReader("")),
+	}, nil
+}
+
+// extractPostResourceIDs extracts or generates resource IDs for POST requests
+func (h *MockHandler) extractPostResourceIDs(
+	ctx context.Context, 
+	req *http.Request, 
+	section *config.Section, 
+	sectionName string,
+) (string, []string, error) {
+	idsFromExtractor, err := h.extractIDs(ctx, req, section, sectionName)
+	if err != nil {
+		h.logger.Error("failed to extract IDs for POST", pathLogKey, req.URL.Path, errorLogKey, err)
+		return "", nil, err
+	}
+
+	if len(idsFromExtractor) == 0 {
+		generatedUUID := uuid.New().String()
+		h.logger.Debug("POST: no IDs found by extractIDs, generated new UUID", "uuid", generatedUUID)
+		return generatedUUID, []string{generatedUUID}, nil
+	}
+
+	id := idsFromExtractor[0]
+	if len(idsFromExtractor) > singleItem {
+		h.logger.Info("multiple IDs found in POST request, using first for Location, all for creation",
+			pathLogKey, req.URL.Path, "all_ids", idsFromExtractor, "location_id", id)
+	} else {
+		h.logger.Debug("POST: using extracted ID(s)", pathLogKey, req.URL.Path, "ids", idsFromExtractor)
+	}
+
+	return id, idsFromExtractor, nil
+}
+
+// handlePut processes PUT requests
+func (h *MockHandler) handlePut(
+	ctx context.Context, 
+	req *http.Request, 
+	section *config.Section, 
+	sectionName string,
+) (*http.Response, error) {
+	bodyBytes, contentType, resp := h.validatePutRequest(req)
+	if resp != nil {
+		return resp, nil
+	}
+
+	ids, err := h.extractIDs(ctx, req, section, sectionName)
+	if err != nil || len(ids) == 0 {
+		h.logger.Error("ID not found in PUT request", pathLogKey, req.URL.Path, errorLogKey, err)
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(strings.NewReader(resourceNotFoundMsg)),
+		}, nil
+	}
+
+	return h.updateAndReturnResource(ctx, req, ids[0], bodyBytes, contentType)
+}
+
+// validatePutRequest validates PUT request body and content type
+func (h *MockHandler) validatePutRequest(req *http.Request) ([]byte, string, *http.Response) {
+	bodyBytes, err := io.ReadAll(req.Body)
+	if err != nil {
+		h.logger.Error("failed to read request body for PUT", pathLogKey, req.URL.Path, errorLogKey, err.Error())
+		return nil, "", &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(strings.NewReader("failed to read request body")),
+		}
+	}
+
+	contentType := req.Header.Get(contentTypeHeader)
+	if contentType == "" {
+		h.logger.Error("Content-Type header is missing for PUT request", pathLogKey, req.URL.Path)
+		return nil, "", &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(strings.NewReader("Content-Type header is missing")),
+		}
+	}
+
+	return bodyBytes, contentType, nil
+}
+
+// updateAndReturnResource updates the resource and returns the updated version
+func (h *MockHandler) updateAndReturnResource(
+	ctx context.Context, 
+	req *http.Request, 
+	id string, 
+	bodyBytes []byte, 
+	contentType string,
+) (*http.Response, error) {
+	putData := &model.MockData{
+		Path:        req.URL.Path,
+		ContentType: contentType,
+		Body:        bodyBytes,
+	}
+
+	err := h.service.UpdateResource(ctx, req.URL.Path, id, putData)
+	if err != nil {
+		return h.handleUpdateError(req, id, err)
+	}
+
+	return h.fetchAndReturnUpdatedResource(ctx, req, id)
+}
+
+// handleUpdateError handles errors during resource update
+func (h *MockHandler) handleUpdateError(req *http.Request, id string, err error) (*http.Response, error) {
+	if strings.Contains(err.Error(), "resource not found") {
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(strings.NewReader("resource not found after upsert attempt")),
+		}, nil
+	}
+	h.logger.Error("failed to update/create resource for PUT", pathLogKey, req.URL.Path, idLogKey, id, errorLogKey, err)
+	return &http.Response{
+		StatusCode: http.StatusInternalServerError,
+		Body:       io.NopCloser(strings.NewReader("failed to process PUT request")),
+	}, fmt.Errorf("processing PUT: %w", err)
+}
+
+// fetchAndReturnUpdatedResource fetches and returns the updated resource
+func (h *MockHandler) fetchAndReturnUpdatedResource(
+	ctx context.Context, 
+	req *http.Request, 
+	id string,
+) (*http.Response, error) {
+	updatedResource, getErr := h.service.GetResource(ctx, req.URL.Path, id)
+	if getErr != nil {
+		h.logger.Error("failed to get resource after PUT", pathLogKey, req.URL.Path, idLogKey, id, errorLogKey, getErr)
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(strings.NewReader("failed to retrieve resource after update")),
+		}, fmt.Errorf("getting resource post-PUT: %w", getErr)
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{contentTypeHeader: []string{updatedResource.ContentType}},
+		Body:       io.NopCloser(bytes.NewReader(updatedResource.Body)),
+	}, nil
+}
+
+// handleDelete processes DELETE requests
+func (h *MockHandler) handleDelete(
+	ctx context.Context, 
+	req *http.Request, 
+	section *config.Section, 
+	sectionName string,
+) (*http.Response, error) {
+	ids, err := h.extractIDs(ctx, req, section, sectionName)
+	if err != nil || len(ids) == 0 {
+		h.logger.Error("ID not found in DELETE request", pathLogKey, req.URL.Path, errorLogKey, err)
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(strings.NewReader(resourceNotFoundMsg)),
+		}, nil
+	}
+
+	err = h.service.DeleteResource(ctx, req.URL.Path, ids[0])
+	if err != nil {
+		if err.Error() == "resource not found" {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(strings.NewReader(resourceNotFoundMsg)),
+			}, nil
+		}
+		return nil, err
+	}
+
+	return &http.Response{
+		StatusCode: http.StatusNoContent,
+	}, nil
 }
 
 // GetConfig returns the mock configuration

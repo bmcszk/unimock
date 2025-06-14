@@ -1,12 +1,12 @@
 //go:build e2e
 
-package e2e
+package e2e_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/bmcszk/go-restclient"
+	restclient "github.com/bmcszk/go-restclient"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,7 +29,8 @@ func TestComplexLifecycle(t *testing.T) {
 	// }
 
 	// When: Executing all requests defined in the .http file
-	responses, execErr := client.ExecuteFile(context.Background(), requestFilePath) // Passing nil for apiVars as they are in the file
+	// Passing nil for apiVars as they are in the file
+	responses, execErr := client.ExecuteFile(context.Background(), requestFilePath)
 	// It's important to check execErr AFTER validation for some types of errors,
 	// but critical execution errors (like file not found for requests) should be checked here.
 	// However, go-restclient.ValidateResponses will also fail if responses array is empty or nil.
@@ -43,7 +44,8 @@ func TestComplexLifecycle(t *testing.T) {
 		// Optionally, print details of responses if any were partially processed
 		for _, resp := range responses {
 			if resp.Error != nil {
-				t.Logf("Request (%s %s) had an execution error: %v\n", resp.Request.Method, resp.Request.URL, resp.Error)
+				t.Logf("Request (%s %s) had an execution error: %v\n", 
+					resp.Request.Method, resp.Request.URL, resp.Error)
 			}
 		}
 		require.FailNow(t, "Execution of .http file failed", execErr.Error())
@@ -51,5 +53,6 @@ func TestComplexLifecycle(t *testing.T) {
 
 	require.NoErrorf(t, validationErr, "Validation of responses against '%s' failed", expectedResponseFilePath)
 
-	t.Logf("Successfully executed and validated %d requests from %s against %s", len(responses), requestFilePath, expectedResponseFilePath)
+	t.Logf("Successfully executed and validated %d requests from %s against %s", 
+		len(responses), requestFilePath, expectedResponseFilePath)
 }

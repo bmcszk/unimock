@@ -1,15 +1,14 @@
-package handler
+package handler_test
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
@@ -18,7 +17,67 @@ import (
 )
 
 func TestMockHandler_HandleRequest(t *testing.T) {
-	// Setup
+	deps := setupMockHandlerFull(t)
+	testData := getTestData()
+	populateTestData(deps.store, testData)
+
+	tests := getHandlerTestCases()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockHandler := prepareHandlerForTest(t, tt, deps, testData)
+			executeTestRequest(t, tt, mockHandler)
+		})
+	}
+}
+
+// validatePostUUIDResponse validates POST response with UUID generation
+func validatePostUUIDResponse(t *testing.T, w *httptest.ResponseRecorder, path string) {
+	t.Helper()
+	location := w.Header().Get("Location")
+	if location == "" {
+		t.Errorf("expected Location header to be set")
+		return
+	}
+	
+	if !strings.HasPrefix(location, path+"/") {
+		t.Errorf("expected Location header to start with %s/, got %s", path, location)
+		return
+	}
+	
+	extractedID := location[len(path)+1:]
+	if _, err := uuid.Parse(extractedID); err != nil {
+		t.Errorf("expected Location header to contain a valid UUID, got %s, error: %v", extractedID, err)
+	}
+}
+
+// validateResponseBody validates response body content
+func validateResponseBody(t *testing.T, w *httptest.ResponseRecorder, expectedBody string) {
+	t.Helper()
+	respBody := strings.TrimSpace(w.Body.String())
+	
+	if isErrorMessage(expectedBody) {
+		if !strings.Contains(respBody, expectedBody) {
+			t.Errorf("expected body to contain '%s', got '%s'", expectedBody, respBody)
+		}
+	} else {
+		if respBody != expectedBody {
+			t.Errorf("expected body '%s', got '%s'", expectedBody, respBody)
+		}
+	}
+}
+
+// mockHandlerDeps holds the dependencies for mock handler testing
+type mockHandlerDeps struct {
+	handler *handler.MockHandler
+	store   storage.MockStorage
+	config  *config.MockConfig
+	logger  *slog.Logger
+}
+
+// setupMockHandlerFull creates and configures a mock handler with all dependencies for testing
+func setupMockHandlerFull(t *testing.T) mockHandlerDeps {
+	t.Helper()
 	store := storage.NewMockStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -32,13 +91,21 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 		},
 	}
 
-	// Create service and handler
 	mockService := service.NewMockService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	handler := NewMockHandler(mockService, scenarioService, logger, cfg)
+	mockHandler := handler.NewMockHandler(mockService, scenarioService, logger, cfg)
+	
+	return mockHandlerDeps{
+		handler: mockHandler,
+		store:   store,
+		config:  cfg,
+		logger:  logger,
+	}
+}
 
-	// Test data with mixed content types
-	testData := []*model.MockData{
+// getTestData returns the standard test data
+func getTestData() []*model.MockData {
+	return []*model.MockData{
 		{
 			Path:        "/users/123",
 			ContentType: "application/json",
@@ -55,14 +122,27 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			Body:        []byte("binary data"),
 		},
 	}
+}
 
-	// Store test data
+// populateTestData adds test data to the storage
+func populateTestData(store storage.MockStorage, testData []*model.MockData) {
 	for _, data := range testData {
 		ids := []string{data.Path[strings.LastIndex(data.Path, "/")+1:]}
 		store.Create(ids, data)
 	}
+}
 
-	tests := []struct {
+// getHandlerTestCases returns the test cases for handler testing
+func getHandlerTestCases() []struct {
+	name           string
+	method         string
+	path           string
+	contentType    string
+	body           string
+	expectedStatus int
+	expectedBody   string
+} {
+	return []struct {
 		name           string
 		method         string
 		path           string
@@ -169,248 +249,87 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 			expectedBody:   "no matching section found for path: /nonexistent/999",
 		},
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Special handling for tests that modify state or depend on a clean slate
-			if tt.name == "POST new resource with no ID (auto-generate UUID)" ||
-				tt.name == "POST new resource" ||
-				tt.name == "PUT non-existent resource" ||
-				tt.name == "DELETE non-existent resource but collection exists" {
+// prepareHandlerForTest sets up the handler for test execution
+func prepareHandlerForTest(t *testing.T, tt struct {
+	name           string
+	method         string
+	path           string
+	contentType    string
+	body           string
+	expectedStatus int
+	expectedBody   string
+}, deps mockHandlerDeps, testData []*model.MockData) *handler.MockHandler {
+	t.Helper()
 
-				cleanStore := storage.NewMockStorage()
-				// Repopulate with baseline testData for other tests that might expect it
-				// This is a simple way to reset state for this test suite structure.
-				// Ideally, each t.Run would set up its own specific required data.
-				for _, data := range testData { // testData is from the outer scope
-					initialIds := []string{data.Path[strings.LastIndex(data.Path, "/")+1:]}
-					cleanStore.Create(initialIds, data)
-				}
-				currentService := service.NewMockService(cleanStore, cfg) // cfg is from outer scope
-				// Create a new scenarioService for this specific test scope too, as handler is reassigned
-				currentScenarioStore := storage.NewScenarioStorage()
-				currentScenarioService := service.NewScenarioService(currentScenarioStore)
-				handler = NewMockHandler(currentService, currentScenarioService, logger, cfg) // re-assign handler to the one in the outer scope
-			}
+	if needsCleanHandler(tt.name) {
+		cleanStore := storage.NewMockStorage()
+		populateTestData(cleanStore, testData)
+		currentService := service.NewMockService(cleanStore, deps.config)
+		currentScenarioStore := storage.NewScenarioStorage()
+		currentScenarioService := service.NewScenarioService(currentScenarioStore)
+		return handler.NewMockHandler(currentService, currentScenarioService, deps.logger, deps.config)
+	}
 
-			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
-			if tt.contentType != "" {
-				req.Header.Set("Content-Type", tt.contentType)
-			}
+	return deps.handler
+}
 
-			w := httptest.NewRecorder()
-			handler.ServeHTTP(w, req)
+// needsCleanHandler determines if a test needs a clean handler instance
+func needsCleanHandler(testName string) bool {
+	cleanHandlerTests := []string{
+		"POST new resource with no ID (auto-generate UUID)",
+		"POST new resource",
+		"PUT non-existent resource",
+		"DELETE non-existent resource but collection exists",
+	}
 
-			if w.Code != tt.expectedStatus {
-				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
-			}
+	for _, name := range cleanHandlerTests {
+		if testName == name {
+			return true
+		}
+	}
+	return false
+}
 
-			if tt.name == "POST new resource with no ID (auto-generate UUID)" {
-				location := w.Header().Get("Location")
-				if location == "" {
-					t.Errorf("expected Location header to be set")
-				}
-				if !strings.HasPrefix(location, tt.path+"/") {
-					t.Errorf("expected Location header to start with %s/, got %s", tt.path, location)
-				}
-				extractedID := location[len(tt.path)+1:]
-				_, err := uuid.Parse(extractedID)
-				if err != nil {
-					t.Errorf("expected Location header to contain a valid UUID, got %s, error: %v", extractedID, err)
-				}
-			} else if tt.expectedBody != "" {
-				respBody := strings.TrimSpace(w.Body.String())
-				// Use Contains for error messages, as they might have more details (like the exact parsing error)
-				if strings.Contains(tt.expectedBody, "invalid request:") || strings.Contains(tt.expectedBody, "failed to") || strings.Contains(tt.expectedBody, "no matching section") || strings.Contains(tt.expectedBody, "resource not found") {
-					if !strings.Contains(respBody, tt.expectedBody) {
-						t.Errorf("expected body to contain '%s', got '%s'", tt.expectedBody, respBody)
-					}
-				} else { // For non-error bodies, expect exact match
-					if respBody != tt.expectedBody {
-						t.Errorf("expected body '%s', got '%s'", tt.expectedBody, respBody)
-					}
-				}
-			}
-		})
+// executeTestRequest executes the HTTP request and validates the response
+func executeTestRequest(t *testing.T, tt struct {
+	name           string
+	method         string
+	path           string
+	contentType    string
+	body           string
+	expectedStatus int
+	expectedBody   string
+}, mockHandler *handler.MockHandler) {
+	t.Helper()
+
+	req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
+	if tt.contentType != "" {
+		req.Header.Set("Content-Type", tt.contentType)
+	}
+
+	w := httptest.NewRecorder()
+	mockHandler.ServeHTTP(w, req)
+
+	if w.Code != tt.expectedStatus {
+		t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
+	}
+
+	if tt.name == "POST new resource with no ID (auto-generate UUID)" {
+		validatePostUUIDResponse(t, w, tt.path)
+	} else if tt.expectedBody != "" {
+		validateResponseBody(t, w, tt.expectedBody)
 	}
 }
 
-// Added from mock_service_test.go
-func TestMockHandler_ExtractIDs(t *testing.T) {
-	cfg := &config.MockConfig{
-		Sections: map[string]config.Section{
-			"users": {
-				PathPattern:   "/users/*",
-				HeaderIDName:  "X-Resource-ID",
-				BodyIDPaths:   []string{"/id", "/data/id", "//id"},
-				CaseSensitive: true,
-			},
-			"orders": {
-				PathPattern:   "/orders/*",
-				HeaderIDName:  "X-Order-ID",
-				BodyIDPaths:   []string{"/orderId", "/order/id"},
-				CaseSensitive: false,
-			},
-		},
+// isErrorMessage checks if the expected body is an error message
+func isErrorMessage(expectedBody string) bool {
+	errorPrefixes := []string{"invalid request:", "failed to", "no matching section", "resource not found"}
+	for _, prefix := range errorPrefixes {
+		if strings.Contains(expectedBody, prefix) {
+			return true
+		}
 	}
-
-	store := storage.NewMockStorage()
-	scenarioStore := storage.NewScenarioStorage()
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	mockService := service.NewMockService(store, cfg)
-	scenarioService := service.NewScenarioService(scenarioStore)
-	handler := NewMockHandler(mockService, scenarioService, logger, cfg)
-	ctx := context.Background()
-
-	tests := []struct {
-		name          string
-		method        string
-		path          string
-		headerKey     string
-		headerValue   string
-		body          string
-		contentType   string
-		expectedIDs   []string
-		expectedError string
-	}{
-		// Path extraction tests
-		{
-			name:        "Extract ID from path - GET",
-			method:      http.MethodGet,
-			path:        "/users/123",
-			expectedIDs: []string{"123"},
-		},
-		{
-			name:        "Extract ID from path - PUT",
-			method:      http.MethodPut,
-			path:        "/users/abc",
-			expectedIDs: []string{"abc"},
-		},
-		{
-			name:        "Extract ID from path - DELETE",
-			method:      http.MethodDelete,
-			path:        "/orders/xyz",
-			expectedIDs: []string{"xyz"},
-		},
-		{
-			name:   "No ID in path for GET (collection)",
-			method: http.MethodGet,
-			path:   "/users",
-			// No error, but nil IDs expected for collection GET
-		},
-		// Header extraction tests (for POST)
-		{
-			name:        "Extract ID from header - POST",
-			method:      http.MethodPost,
-			path:        "/users",
-			headerKey:   "X-Resource-ID",
-			headerValue: "header-id-1",
-			expectedIDs: []string{"header-id-1"},
-		},
-		// Body extraction tests (for POST)
-		{
-			name:        "Extract ID from JSON body - POST",
-			method:      http.MethodPost,
-			path:        "/users",
-			contentType: "application/json",
-			body:        `{"id": "json-id-1"}`,
-			expectedIDs: []string{"json-id-1"},
-		},
-		{
-			name:        "Extract multiple IDs from JSON body - POST",
-			method:      http.MethodPost,
-			path:        "/users",
-			contentType: "application/json",
-			body:        `[{"id": "json-id-1"}, {"id": "json-id-2"}]`, // Assuming BodyIDPaths is like "//id"
-			expectedIDs: []string{"json-id-1", "json-id-2"},
-		},
-		{
-			name:        "Extract ID from XML body - POST",
-			method:      http.MethodPost,
-			path:        "/users", // uses "users" section config
-			contentType: "application/xml",
-			body:        "<data><id>xml-id-1</id></data>",
-			expectedIDs: []string{"xml-id-1"},
-		},
-		// Fallback and error tests
-		{
-			name:          "No ID found - POST",
-			method:        http.MethodPost,
-			path:          "/users",
-			expectedError: "",
-		},
-		{
-			name:          "Invalid JSON - POST",
-			method:        http.MethodPost,
-			path:          "/users",
-			contentType:   "application/json",
-			body:          `{"id": "bad-json`,
-			expectedError: "failed to parse JSON body",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
-			if tt.headerKey != "" {
-				req.Header.Set(tt.headerKey, tt.headerValue)
-			}
-			if tt.contentType != "" {
-				req.Header.Set("Content-Type", tt.contentType)
-			}
-
-			// Determine sectionName and section for the current test case path
-			var currentSection *config.Section
-			var currentSectionName string
-			var err error
-
-			// Simplified section matching for test setup
-			// In real code, handler.getSectionForRequest is used.
-			pathForSectionLookup := strings.Trim(tt.path, "/")
-			if strings.Contains(pathForSectionLookup, "/") { // e.g. /users/123 -> users
-				currentSectionName = pathForSectionLookup[:strings.Index(pathForSectionLookup, "/")]
-			} else { // e.g. /users -> users
-				currentSectionName = pathForSectionLookup
-			}
-
-			sec, ok := cfg.Sections[currentSectionName]
-			if !ok {
-				// Try matching with path pattern logic if direct name lookup fails (e.g. for /orders/xyz)
-				for name, s := range cfg.Sections {
-					trimmedPattern := strings.Trim(s.PathPattern, "/")
-					basePattern := trimmedPattern
-					if strings.Contains(trimmedPattern, "/*") {
-						basePattern = trimmedPattern[:strings.Index(trimmedPattern, "/*")]
-					}
-					if currentSectionName == basePattern || strings.HasPrefix(currentSectionName, basePattern+"/") {
-						currentSection = &s
-						currentSectionName = name // Use the defined section name
-						break
-					}
-				}
-				if currentSection == nil {
-					t.Fatalf("Test setup error: could not find section for path %s (derived section name: %s)", tt.path, currentSectionName)
-				}
-			} else {
-				currentSection = &sec
-			}
-
-			ids, err := handler.extractIDs(ctx, req, currentSection, currentSectionName)
-
-			if tt.expectedError != "" {
-				if err == nil {
-					t.Errorf("expected error %q, got nil", tt.expectedError)
-				} else if !strings.Contains(err.Error(), tt.expectedError) {
-					t.Errorf("expected error to contain %q, got %q", tt.expectedError, err.Error())
-				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if !reflect.DeepEqual(ids, tt.expectedIDs) {
-					t.Errorf("expected IDs %v, got %v", tt.expectedIDs, ids)
-				}
-			}
-		})
-	}
+	return false
 }

@@ -7,6 +7,11 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
+const (
+	// Error message for empty scenario ID
+	errScenarioIDEmpty = "scenario ID cannot be empty"
+)
+
 // ScenarioStorage manages scenarios
 type ScenarioStorage interface {
 	Create(id string, scenario *model.Scenario) error
@@ -32,7 +37,7 @@ func NewScenarioStorage() ScenarioStorage {
 
 func (s *scenarioStorage) Create(id string, scenario *model.Scenario) error {
 	if id == "" {
-		return errors.NewInvalidRequestError("scenario ID cannot be empty")
+		return errors.NewInvalidRequestError(errScenarioIDEmpty)
 	}
 	if scenario == nil {
 		return errors.NewInvalidRequestError("scenario cannot be nil")
@@ -54,7 +59,7 @@ func (s *scenarioStorage) Create(id string, scenario *model.Scenario) error {
 
 func (s *scenarioStorage) Get(id string) (*model.Scenario, error) {
 	if id == "" {
-		return nil, errors.NewInvalidRequestError("scenario ID cannot be empty")
+		return nil, errors.NewInvalidRequestError("errScenarioIDEmpty")
 	}
 
 	s.mu.RLock()
@@ -70,7 +75,7 @@ func (s *scenarioStorage) Get(id string) (*model.Scenario, error) {
 
 func (s *scenarioStorage) Update(id string, scenario *model.Scenario) error {
 	if id == "" {
-		return errors.NewInvalidRequestError("scenario ID cannot be empty")
+		return errors.NewInvalidRequestError(errScenarioIDEmpty)
 	}
 	if scenario == nil {
 		return errors.NewInvalidRequestError("scenario cannot be nil")
@@ -92,7 +97,7 @@ func (s *scenarioStorage) Update(id string, scenario *model.Scenario) error {
 
 func (s *scenarioStorage) Delete(id string) error {
 	if id == "" {
-		return errors.NewInvalidRequestError("scenario ID cannot be empty")
+		return errors.NewInvalidRequestError(errScenarioIDEmpty)
 	}
 
 	s.mu.Lock()

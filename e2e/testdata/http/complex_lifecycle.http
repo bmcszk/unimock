@@ -35,7 +35,6 @@ Accept: application/json
 ### Step 5: Apply Scenario Override
 POST {{baseUrl}}/_uni/scenarios
 Content-Type: application/json
-@capture createdScenarioUUID scenarioResponse.uuid
 
 {
   "uuid": "{{scenarioId}}",

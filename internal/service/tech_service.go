@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+const (
+	// incrementValue represents the value to add when incrementing counters
+	incrementValue = 1
+)
+
 // techService implements the TechService interface
 type techService struct {
 	startTime      time.Time
@@ -24,17 +29,17 @@ func NewTechService(startTime time.Time) TechService {
 }
 
 // GetHealthStatus returns the health status of the service
-func (s *techService) GetHealthStatus(ctx context.Context) map[string]interface{} {
+func (s *techService) GetHealthStatus(_ context.Context) map[string]any {
 	uptime := time.Since(s.startTime).String()
 
-	return map[string]interface{}{
+	return map[string]any{
 		"status": "ok",
 		"uptime": uptime,
 	}
 }
 
 // GetMetrics returns metrics about the service
-func (s *techService) GetMetrics(ctx context.Context) map[string]interface{} {
+func (s *techService) GetMetrics(_ context.Context) map[string]any {
 	s.statsMutex.RLock()
 	defer s.statsMutex.RUnlock()
 
@@ -44,15 +49,15 @@ func (s *techService) GetMetrics(ctx context.Context) map[string]interface{} {
 		apiEndpoints[path] = counter.Load()
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"request_count": s.requestCounter.Load(),
 		"api_endpoints": apiEndpoints,
 	}
 }
 
 // IncrementRequestCount increments the request counter
-func (s *techService) IncrementRequestCount(ctx context.Context, path string) {
-	s.requestCounter.Add(1)
+func (s *techService) IncrementRequestCount(_ context.Context, path string) {
+	s.requestCounter.Add(incrementValue)
 
 	// Track endpoint stats
 	s.statsMutex.RLock()
@@ -60,17 +65,17 @@ func (s *techService) IncrementRequestCount(ctx context.Context, path string) {
 	s.statsMutex.RUnlock()
 
 	if exists {
-		counter.Add(1)
+		counter.Add(incrementValue)
 	} else {
 		s.statsMutex.Lock()
 		// Re-check after acquiring write lock, in case another goroutine added it
 		counter, exists = s.endpointStats[path]
 		if exists {
 			s.statsMutex.Unlock()
-			counter.Add(1)
+			counter.Add(incrementValue)
 		} else {
 			var newCounter atomic.Int64
-			newCounter.Add(1)
+			newCounter.Add(incrementValue)
 			s.endpointStats[path] = &newCounter
 			s.statsMutex.Unlock()
 		}

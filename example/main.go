@@ -74,7 +74,8 @@ func main() {
 	}()
 
 	// Step 5: Wait for shutdown signal
-	quit := make(chan os.Signal, 1)
+	const signalChannelBuffer = 1
+	quit := make(chan os.Signal, signalChannelBuffer)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 

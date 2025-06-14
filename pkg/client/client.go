@@ -20,6 +20,19 @@ const (
 
 	// scenarioBasePath is the base path for the scenario API
 	scenarioBasePath = "/_uni/scenarios"
+
+	// HTTP client timeout
+	httpClientTimeout = 10 * time.Second
+
+	// HTTP status code boundaries
+	httpStatusOKMin = 200
+	httpStatusOKMax = 300
+
+	// Common error message templates
+	msgFailedCreateRequest = "failed to create request: %w"
+	msgFailedSendRequest   = "failed to send request: %w"
+	msgServerError         = "server returned error status %d: %s"
+	msgFailedParseResponse = "failed to parse response: %w"
 )
 
 // Client is an HTTP client for interacting with the Unimock API
@@ -45,14 +58,14 @@ func NewClient(baseURL string) (*Client, error) {
 	return &Client{
 		BaseURL: parsedURL,
 		HTTPClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: httpClientTimeout,
 		},
 	}, nil
 }
 
 // CreateScenario creates a new scenario
 func (c *Client) CreateScenario(ctx context.Context, scenario *model.Scenario) (*model.Scenario, error) {
-	url := c.buildURL(scenarioBasePath)
+	requestURL := c.buildURL(scenarioBasePath)
 
 	// Serialize the scenario to JSON
 	body, err := json.Marshal(scenario)
@@ -61,29 +74,29 @@ func (c *Client) CreateScenario(ctx context.Context, scenario *model.Scenario) (
 	}
 
 	// Create the request
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewBuffer(body))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf(msgFailedCreateRequest, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf(msgFailedSendRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if resp.StatusCode < httpStatusOKMin || resp.StatusCode >= httpStatusOKMax {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("server returned error status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
 	}
 
 	// Parse the response
 	var createdScenario model.Scenario
 	if err := json.NewDecoder(resp.Body).Decode(&createdScenario); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf(msgFailedParseResponse, err)
 	}
 
 	return &createdScenario, nil
@@ -91,18 +104,18 @@ func (c *Client) CreateScenario(ctx context.Context, scenario *model.Scenario) (
 
 // GetScenario gets a scenario by UUID
 func (c *Client) GetScenario(ctx context.Context, uuid string) (*model.Scenario, error) {
-	url := c.buildURL(path.Join(scenarioBasePath, uuid))
+	requestURL := c.buildURL(path.Join(scenarioBasePath, uuid))
 
 	// Create the request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf(msgFailedCreateRequest, err)
 	}
 
 	// Send the request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf(msgFailedSendRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -110,15 +123,15 @@ func (c *Client) GetScenario(ctx context.Context, uuid string) (*model.Scenario,
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("scenario not found: %s", uuid)
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if resp.StatusCode < httpStatusOKMin || resp.StatusCode >= httpStatusOKMax {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("server returned error status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
 	}
 
 	// Parse the response
 	var scenario model.Scenario
 	if err := json.NewDecoder(resp.Body).Decode(&scenario); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf(msgFailedParseResponse, err)
 	}
 
 	return &scenario, nil
@@ -126,31 +139,31 @@ func (c *Client) GetScenario(ctx context.Context, uuid string) (*model.Scenario,
 
 // ListScenarios gets all scenarios
 func (c *Client) ListScenarios(ctx context.Context) ([]*model.Scenario, error) {
-	url := c.buildURL(scenarioBasePath)
+	requestURL := c.buildURL(scenarioBasePath)
 
 	// Create the request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf(msgFailedCreateRequest, err)
 	}
 
 	// Send the request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf(msgFailedSendRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if resp.StatusCode < httpStatusOKMin || resp.StatusCode >= httpStatusOKMax {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("server returned error status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
 	}
 
 	// Parse the response
 	var scenarios []*model.Scenario
 	if err := json.NewDecoder(resp.Body).Decode(&scenarios); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf(msgFailedParseResponse, err)
 	}
 
 	return scenarios, nil
@@ -158,7 +171,7 @@ func (c *Client) ListScenarios(ctx context.Context) ([]*model.Scenario, error) {
 
 // UpdateScenario updates an existing scenario
 func (c *Client) UpdateScenario(ctx context.Context, uuid string, scenario *model.Scenario) (*model.Scenario, error) {
-	url := c.buildURL(path.Join(scenarioBasePath, uuid))
+	requestURL := c.buildURL(path.Join(scenarioBasePath, uuid))
 
 	// Serialize the scenario to JSON
 	body, err := json.Marshal(scenario)
@@ -167,16 +180,16 @@ func (c *Client) UpdateScenario(ctx context.Context, uuid string, scenario *mode
 	}
 
 	// Create the request
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, requestURL, bytes.NewBuffer(body))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf(msgFailedCreateRequest, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf(msgFailedSendRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -184,15 +197,15 @@ func (c *Client) UpdateScenario(ctx context.Context, uuid string, scenario *mode
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("scenario not found: %s", uuid)
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if resp.StatusCode < httpStatusOKMin || resp.StatusCode >= httpStatusOKMax {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("server returned error status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
 	}
 
 	// Parse the response
 	var updatedScenario model.Scenario
 	if err := json.NewDecoder(resp.Body).Decode(&updatedScenario); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf(msgFailedParseResponse, err)
 	}
 
 	return &updatedScenario, nil
@@ -200,18 +213,18 @@ func (c *Client) UpdateScenario(ctx context.Context, uuid string, scenario *mode
 
 // DeleteScenario deletes a scenario by UUID
 func (c *Client) DeleteScenario(ctx context.Context, uuid string) error {
-	url := c.buildURL(path.Join(scenarioBasePath, uuid))
+	requestURL := c.buildURL(path.Join(scenarioBasePath, uuid))
 
 	// Create the request
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, requestURL, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf(msgFailedCreateRequest, err)
 	}
 
 	// Send the request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return fmt.Errorf(msgFailedSendRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -219,17 +232,17 @@ func (c *Client) DeleteScenario(ctx context.Context, uuid string) error {
 	if resp.StatusCode == http.StatusNotFound {
 		return fmt.Errorf("scenario not found: %s", uuid)
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if resp.StatusCode < httpStatusOKMin || resp.StatusCode >= httpStatusOKMax {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("server returned error status %d: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
 	}
 
 	return nil
 }
 
 // Helper method to build a URL
-func (c *Client) buildURL(path string) string {
+func (c *Client) buildURL(urlPath string) string {
 	u := *c.BaseURL
-	u.Path = path
+	u.Path = urlPath
 	return u.String()
 }

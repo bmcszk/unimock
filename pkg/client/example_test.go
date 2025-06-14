@@ -1,4 +1,4 @@
-package client
+package client_test
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"log"
 	"time"
 
+	"github.com/bmcszk/unimock/pkg/client"
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
 func Example() {
 	// Create a new client
-	client, err := NewClient("http://localhost:8080")
+	clientInstance, err := client.NewClient("http://localhost:8080")
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
@@ -29,7 +30,7 @@ func Example() {
 	}
 
 	// Create the scenario
-	createdScenario, err := client.CreateScenario(ctx, scenario)
+	createdScenario, err := clientInstance.CreateScenario(ctx, scenario)
 	if err != nil {
 		log.Fatalf("Failed to create scenario: %v", err)
 	}
@@ -37,7 +38,7 @@ func Example() {
 	fmt.Printf("Created scenario with UUID: %s\n", createdScenario.UUID)
 
 	// Get all scenarios
-	scenarios, err := client.ListScenarios(ctx)
+	scenarios, err := clientInstance.ListScenarios(ctx)
 	if err != nil {
 		log.Fatalf("Failed to list scenarios: %v", err)
 	}
@@ -45,7 +46,7 @@ func Example() {
 	fmt.Printf("Found %d scenarios\n", len(scenarios))
 
 	// Get a specific scenario
-	retrievedScenario, err := client.GetScenario(ctx, createdScenario.UUID)
+	retrievedScenario, err := clientInstance.GetScenario(ctx, createdScenario.UUID)
 	if err != nil {
 		log.Fatalf("Failed to get scenario: %v", err)
 	}
@@ -61,7 +62,7 @@ func Example() {
 		Data:        `{"users": [{"id": "123", "name": "Updated User"}]}`,
 	}
 
-	_, err = client.UpdateScenario(ctx, createdScenario.UUID, updatedScenario)
+	_, err = clientInstance.UpdateScenario(ctx, createdScenario.UUID, updatedScenario)
 	if err != nil {
 		log.Fatalf("Failed to update scenario: %v", err)
 	}
@@ -69,7 +70,7 @@ func Example() {
 	fmt.Println("Updated scenario successfully")
 
 	// Delete the scenario
-	err = client.DeleteScenario(ctx, createdScenario.UUID)
+	err = clientInstance.DeleteScenario(ctx, createdScenario.UUID)
 	if err != nil {
 		log.Fatalf("Failed to delete scenario: %v", err)
 	}
@@ -83,7 +84,7 @@ func Example() {
 		cancel2() // Cancel after 100ms
 	}()
 
-	_, err = client.GetScenario(ctx2, "some-uuid")
+	_, err = clientInstance.GetScenario(ctx2, "some-uuid")
 	if err != nil {
 		fmt.Println("Request was canceled as expected")
 	}
