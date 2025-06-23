@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/service"
 )
 
@@ -16,7 +17,7 @@ func TestTechHandler_HealthCheck(t *testing.T) {
 	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	techService := service.NewTechService(time.Now())
-	handler := NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger)
 
 	// Create a request to pass to our handler
 	req, err := http.NewRequest("GET", "/_uni/health", nil)
@@ -28,7 +29,7 @@ func TestTechHandler_HealthCheck(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Our handler satisfies http.Handler, so we can call its ServeHTTP method
-	handler.ServeHTTP(rr, req)
+	techHandler.ServeHTTP(rr, req)
 
 	// Check the status code
 	if status := rr.Code; status != http.StatusOK {
@@ -36,7 +37,7 @@ func TestTechHandler_HealthCheck(t *testing.T) {
 	}
 
 	// Check the response body
-	var response map[string]interface{}
+	var response map[string]any
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Could not unmarshal response: %v", err)
@@ -56,7 +57,7 @@ func TestTechHandler_Metrics(t *testing.T) {
 	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	techService := service.NewTechService(time.Now())
-	handler := NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger)
 
 	// Create a request to pass to our handler
 	req, err := http.NewRequest("GET", "/_uni/metrics", nil)
@@ -68,7 +69,7 @@ func TestTechHandler_Metrics(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Our handler satisfies http.Handler, so we can call its ServeHTTP method
-	handler.ServeHTTP(rr, req)
+	techHandler.ServeHTTP(rr, req)
 
 	// Check the status code
 	if status := rr.Code; status != http.StatusOK {
@@ -76,7 +77,7 @@ func TestTechHandler_Metrics(t *testing.T) {
 	}
 
 	// Check the response body
-	var response map[string]interface{}
+	var response map[string]any
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Could not unmarshal response: %v", err)
@@ -96,7 +97,7 @@ func TestTechHandler_NotFound(t *testing.T) {
 	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	techService := service.NewTechService(time.Now())
-	handler := NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger)
 
 	// Create a request to pass to our handler with an invalid path
 	req, err := http.NewRequest("GET", "/_uni/invalid", nil)
@@ -108,7 +109,7 @@ func TestTechHandler_NotFound(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Our handler satisfies http.Handler, so we can call its ServeHTTP method
-	handler.ServeHTTP(rr, req)
+	techHandler.ServeHTTP(rr, req)
 
 	// Check the status code
 	if status := rr.Code; status != http.StatusNotFound {
@@ -120,7 +121,7 @@ func TestTechHandler_MethodNotAllowed(t *testing.T) {
 	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	techService := service.NewTechService(time.Now())
-	handler := NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger)
 
 	// Create a request to pass to our handler with an invalid method
 	req, err := http.NewRequest("POST", "/_uni/health", nil)
@@ -132,7 +133,7 @@ func TestTechHandler_MethodNotAllowed(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Our handler satisfies http.Handler, so we can call its ServeHTTP method
-	handler.ServeHTTP(rr, req)
+	techHandler.ServeHTTP(rr, req)
 
 	// Check the status code
 	if status := rr.Code; status != http.StatusMethodNotAllowed {

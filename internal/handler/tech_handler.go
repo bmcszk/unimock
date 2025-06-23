@@ -17,10 +17,10 @@ type TechHandler struct {
 }
 
 // NewTechHandler creates a new instance of TechHandler
-func NewTechHandler(service service.TechService, logger *slog.Logger) *TechHandler {
+func NewTechHandler(techSvc service.TechService, logger *slog.Logger) *TechHandler {
 	return &TechHandler{
 		prefix:  "/_uni/",
-		service: service,
+		service: techSvc,
 		logger:  logger,
 	}
 }
@@ -72,7 +72,7 @@ func (h *TechHandler) handleMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 // writeJSONResponse writes a JSON response
-func (h *TechHandler) writeJSONResponse(w http.ResponseWriter, data interface{}) {
+func (h *TechHandler) writeJSONResponse(w http.ResponseWriter, data any) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Marshal response to JSON

@@ -18,4 +18,6 @@ jobs:
         check-latest: true
 
     - name: Run e2e tests
-      run: make test-e2e
+      run: |
+        make install-gotestsum
+        make test-e2e

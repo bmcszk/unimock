@@ -12,6 +12,13 @@ import (
 	"github.com/bmcszk/unimock/pkg/config"
 )
 
+const (
+	// Signal channel buffer size
+	signalChannelBuffer = 1
+	// Shutdown timeout duration
+	shutdownTimeout = 10 * time.Second
+)
+
 func main() {
 	// Create a logger for main program logs
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -50,14 +57,14 @@ func main() {
 	}()
 
 	// Wait for interrupt signal
-	quit := make(chan os.Signal, 1)
+	quit := make(chan os.Signal, signalChannelBuffer)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	logger.Info("shutting down server")
 
 	// Create shutdown context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
 	// Attempt graceful shutdown
