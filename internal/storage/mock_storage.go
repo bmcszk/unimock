@@ -18,7 +18,7 @@ const (
 
 // MockStorage interface defines the operations for storing and retrieving data
 type MockStorage interface {
-	Create(ids []string, data *model.MockData) error
+	Create(data *model.MockData) error
 	Update(id string, data *model.MockData) error
 	Get(id string) (*model.MockData, error)
 	GetByPath(requestPath string) ([]*model.MockData, error)
@@ -60,8 +60,8 @@ func (*mockStorage) validateID(id string) error {
 	return nil
 }
 
-// Create stores new data with the given IDs
-func (s *mockStorage) Create(ids []string, data *model.MockData) error {
+// Create stores new data using IDs from MockData.IDs field
+func (s *mockStorage) Create(data *model.MockData) error {
 	if err := s.validateData(data); err != nil {
 		return err
 	}
@@ -69,8 +69,8 @@ func (s *mockStorage) Create(ids []string, data *model.MockData) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Determine effective IDs and validate
-	effectiveIDs, err := s.prepareIDs(ids, data)
+	// Validate IDs and check for conflicts
+	effectiveIDs, err := s.prepareIDs(data)
 	if err != nil {
 		return err
 	}
@@ -84,13 +84,10 @@ func (s *mockStorage) Create(ids []string, data *model.MockData) error {
 	return nil
 }
 
-// prepareIDs determines effective IDs from MockData or parameter and validates for conflicts
-func (s *mockStorage) prepareIDs(ids []string, data *model.MockData) ([]string, error) {
-	// Use IDs from MockData if available, otherwise fall back to the parameter
+// prepareIDs gets IDs from MockData and validates for conflicts
+func (s *mockStorage) prepareIDs(data *model.MockData) ([]string, error) {
+	// Use IDs from MockData
 	effectiveIDs := data.IDs
-	if len(effectiveIDs) == 0 {
-		effectiveIDs = ids
-	}
 
 	// Check for conflicts
 	for _, id := range effectiveIDs {

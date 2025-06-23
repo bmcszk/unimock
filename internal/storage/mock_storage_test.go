@@ -35,7 +35,9 @@ func TestMockStorage_CRUD(t *testing.T) { //nolint:revive
 	// Test Create
 	for _, data := range testData {
 		id := data.Path[strings.LastIndex(data.Path, "/")+1:]
-		err := testStorage.Create([]string{id}, data)
+		// Set IDs in MockData
+		data.IDs = []string{id}
+		err := testStorage.Create(data)
 		if err != nil {
 			t.Errorf("Failed to store data: %v", err)
 		}
@@ -119,8 +121,9 @@ func createConcurrentTestData(t *testing.T, testStorage storage.MockStorage, i i
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(fmt.Sprintf(`{"id": "%d"}`, i)),
+		IDs:         []string{id},
 	}
-	err := testStorage.Create([]string{id}, data)
+	err := testStorage.Create(data)
 	if err != nil {
 		t.Errorf("Failed to store data: %v", err)
 	}
@@ -183,12 +186,13 @@ func TestMockStorage_ErrorCases(t *testing.T) {
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123"}`),
+		IDs:         []string{"123"},
 	}
-	err = testStorage.Create([]string{"123"}, data)
+	err = testStorage.Create(data)
 	if err != nil {
 		t.Fatalf("Failed to create initial data: %v", err)
 	}
-	err = testStorage.Create([]string{"123"}, data)
+	err = testStorage.Create(data)
 	if err == nil {
 		t.Error("Expected error when creating duplicate ID")
 	}
@@ -214,7 +218,8 @@ func testCreateWithMultipleIDs(t *testing.T, storageInstance storage.MockStorage
 		Body:        []byte("data for multi-id 1"),
 	}
 	externalIDs1 := []string{"id1_main", "id1_alias1", "id1_alias2"}
-	err := storageInstance.Create(externalIDs1, multiIdData1)
+	multiIdData1.IDs = externalIDs1
+	err := storageInstance.Create(multiIdData1)
 	if err != nil {
 		t.Fatalf("CreateWithMultipleIDs: failed to create resource: %v", err)
 	}
@@ -242,7 +247,8 @@ func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance storage.M
 		Body:        []byte("data for multi-id 2"),
 	}
 	externalIDs2 := []string{"id2_main", "id2_alias1"}
-	err := storageInstance.Create(externalIDs2, multiIdData2)
+	multiIdData2.IDs = externalIDs2
+	err := storageInstance.Create(multiIdData2)
 	if err != nil {
 		t.Fatalf("DeleteByOneID: failed to create initial resource: %v", err)
 	}
@@ -269,7 +275,8 @@ func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storag
 		Body:        []byte("original data3"),
 	}
 	externalIDs3 := []string{"id3_main", "id3_alias1"}
-	err := storageInstance.Create(externalIDs3, multiIdData3)
+	multiIdData3.IDs = externalIDs3
+	err := storageInstance.Create(multiIdData3)
 	if err != nil {
 		t.Fatalf("UpdateByOneID: failed to create initial resource: %v", err)
 	}
@@ -308,7 +315,8 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 		Body:        []byte("conflict data 1"),
 	}
 	externalIDsConflict1 := []string{"common_id", "unique_c1"}
-	err := storageInstance.Create(externalIDsConflict1, conflictData1)
+	conflictData1.IDs = externalIDsConflict1
+	err := storageInstance.Create(conflictData1)
 	if err != nil {
 		t.Fatalf("ConflictOnCreate: failed to create initial resource for conflict test: %v", err)
 	}
@@ -319,7 +327,8 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 		Body:        []byte("conflict data 2"),
 	}
 	externalIDsConflict2 := []string{"common_id", "unique_c2"} // Attempt to reuse "common_id"
-	err = storageInstance.Create(externalIDsConflict2, conflictData2)
+	conflictData2.IDs = externalIDsConflict2
+	err = storageInstance.Create(conflictData2)
 	if err == nil {
 		t.Errorf("ConflictOnCreate: expected conflict error when creating with duplicate external ID, but got nil")
 	} else {

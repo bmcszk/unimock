@@ -63,7 +63,9 @@ func (s *mockService) CreateResource(_ context.Context, _ string, ids []string, 
 	if len(ids) == 0 {
 		return unimockerrors.NewInvalidRequestError("no IDs found in request")
 	}
-	err := s.storage.Create(ids, data)
+	// Ensure MockData has the IDs set
+	data.IDs = ids
+	err := s.storage.Create(data)
 	if err != nil {
 		if _, ok := err.(*unimockerrors.ConflictError); ok {
 			return errors.New("resource already exists")
@@ -98,7 +100,9 @@ func (s *mockService) handleUpdateError(err error, id string, data *model.MockDa
 
 // handleNotFoundUpdate handles update when resource is not found (upsert create)
 func (s *mockService) handleNotFoundUpdate(id string, data *model.MockData) error {
-	createErr := s.storage.Create([]string{id}, data)
+	// Ensure MockData has the ID set for upsert create
+	data.IDs = []string{id}
+	createErr := s.storage.Create(data)
 	if createErr != nil {
 		return s.handleCreateConflict(createErr, id, data)
 	}

@@ -128,7 +128,8 @@ func getTestData() []*model.MockData {
 func populateTestData(store storage.MockStorage, testData []*model.MockData) {
 	for _, data := range testData {
 		ids := []string{data.Path[strings.LastIndex(data.Path, "/")+1:]}
-		store.Create(ids, data)
+		data.IDs = ids
+		store.Create(data)
 	}
 }
 
