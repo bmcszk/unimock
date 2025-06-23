@@ -22,9 +22,9 @@ const (
 	getPrefix                    = "GET "
 )
 
-// TODO: This assumes Unimock is running at http://localhost:8080
-// and has been pre-configured with the required mock.
-// Future tasks should address proper Unimock setup/teardown and dynamic configuration for tests.
+// Note: Uses localhost:8080 as configured in the Makefile test setup.
+// Server lifecycle (start/stop/health check) is managed by 'make test-e2e'.
+// Port can be overridden via UNIMOCK_PORT environment variable on the server side.
 
 // executeAndValidateHTTPFile is a helper function to execute an HTTP test file
 // using go-restclient and validate its responses.
