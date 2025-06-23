@@ -24,7 +24,7 @@ Each task should follow the format:
 [TASK-014] - Skipped - 2025-05-27 - Implement E2E test for SCEN-SMB-004: Scenario overrides body, default status code used
 [TASK-015] - Skipped - 2025-05-27 - Implement E2E test for SCEN-SMB-005: Default behavior preserved when no relevant scenario is active
 [TASK-016] - Skipped - 2025-05-27 - Implement scenario matching logic in mock handler based on RequestPath.
-[TASK-030] - Blocked - 2025-05-29 - Implement E2E test for SCEN-E2E-COMPLEX-001: Multistage Resource Lifecycle with Scenario Override. Implementation complete (covered by TASK-029), but blocked by same .hresp tool issue as TASK-029.
+[TASK-030] - Done - 2025-06-23 - Implement E2E test for SCEN-E2E-COMPLEX-001: Multistage Resource Lifecycle with Scenario Override. The .hresp tool issue was resolved and tests are now passing.
 [TASK-031] - Done - 2025-05-29 - Fix application bug: Scenario headers defined via POST /_uni/scenarios are not returned when the scenario is matched.
 [TASK-032] - Done - 2025-06-14 - Implement and validate Advanced Resource Identification (REQ-RM-MULTI-ID): Multi-ID support for resources already implemented, added comprehensive test coverage.
 

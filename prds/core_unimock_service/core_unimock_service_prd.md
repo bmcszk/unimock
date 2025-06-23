@@ -34,9 +34,10 @@ Unimock is a versatile mock service designed to handle HTTP requests and deliver
 
 #### 4.2.1. GET Requests
 *   Must first try to get resource by ID (last part of path).
-*   If resource not found by ID, must try to get resources collection by the exact path (e.g., /users/999).
+*   Must check if the last path segment matches any ID associated with resources at that path (supporting multi-ID resources per REQ-RM-MULTI-ID).
+*   If resource not found by any associated ID, must try to get resources collection by the exact path (e.g., /users/999).
 *   Must NOT fall back to parent collection (e.g., /users) if neither resource nor collection at the requested path exists.
-*   Must return collection responses as a JSON array, including only resources with content type containing 'json'. (Note: This might conflict with "Response Formatting" section, review needed)
+*   Must return collection responses as a JSON array, including only resources with content type containing 'json'.
 *   Must return 404 Not Found if neither resource nor collection is found.
 *   Must return proper Content-Type headers.
 *   Must sort collection responses by path for consistent ordering.
@@ -44,7 +45,7 @@ Unimock is a versatile mock service designed to handle HTTP requests and deliver
 *   Must support case-sensitive path matching (unless overridden by configuration).
 *   Must handle trailing slashes in paths.
 *   Must handle mixed content types in collection responses:
-    *   Must preserve original content for all items (including JSON and binary data).
+    *   Must preserve original content for JSON items in collections.
     *   Must return collection responses as application/json.
     *   Must handle future XML content type support.
 
@@ -94,10 +95,12 @@ Unimock is a versatile mock service designed to handle HTTP requests and deliver
 *   Must handle malformed path segments.
 
 #### 4.3.2. POST Requests
-*   Must extract ID from:
-    *   JSON/XML body (simple path: `/id` - configurable).
-    *   HTTP headers (configurable names).
+*   Must extract ID from multiple sources with priority order:
+    *   HTTP headers (configurable names) - highest priority.
+    *   JSON/XML body (configurable paths via BodyIDPaths) - medium priority.
+    *   Last path segment - lowest priority.
 *   If no ID is found via configured methods, a new UUID is generated and used for resource creation.
+*   Must associate all extracted IDs with the same resource (multi-ID support per REQ-RM-MULTI-ID).
 *   Must handle duplicate IDs (e.g., if trying to POST with an existing ID).
 *   Must handle invalid ID formats (if validation is in place).
 *   Must handle case-sensitive ID matching (based on configuration).
@@ -129,12 +132,16 @@ Unimock is a versatile mock service designed to handle HTTP requests and deliver
 *   Must support configuration for:
     *   Path patterns for routing/sectioning mocks.
     *   Basic ID extraction paths (e.g., simple body path, header name).
+    *   Multiple body ID paths per section (BodyIDPaths array).
+    *   Header ID extraction (HeaderIDName).
     *   Section-specific settings.
     *   Case sensitivity settings for paths and IDs.
-    *   Default content types.
-    *   Error response formats.
-    *   Custom status codes for standard operations.
-    *   Response headers (default or per-mock).
+    *   Default content types per section.
+    *   Request/response size limits.
+    *   Timeout configurations.
+    *   Error response formats (future).
+    *   Custom status codes for standard operations (future).
+    *   Response headers (default or per-mock) (future).
 *   Configuration examples should be provided.
 
 ### 4.6. Error Handling
@@ -168,22 +175,26 @@ Unimock is a versatile mock service designed to handle HTTP requests and deliver
 
 ### 4.8. Response Formatting
 *   Must return collection responses as a JSON array.
-*   Must not marshal or format individual items in the array (just concatenate as raw bytes, e.g. [item1, item2]) for non-JSON items. JSON items should be valid JSON within the array.
-*   Must preserve original content for all items (including JSON, XML, binary, text, etc.).
-*   Must return all types of resources as a slice of bytes without marshalling or formatting if they are not JSON.
+*   Must include only resources with content type containing 'json' in collection responses.
+*   Must not marshal individual JSON items in the array (preserve original JSON structure).
+*   Must preserve original content for all JSON items.
+*   Must return collection responses with Content-Type: application/json.
+*   Note: Non-JSON resources are excluded from collections but accessible individually.
 
 ### 4.9. Security Considerations
 *   Must validate input data to prevent common vulnerabilities.
 *   Must handle malformed requests gracefully to avoid crashes or exploits.
 *   Must prevent resource leakage between tenants/contexts (if multi-tenancy is a feature).
 *   Must validate content types if specific parsing is assumed.
-*   Must sanitize response data if it includes user-provided content that could lead to XSS (less common for a mock service, but consider).
-*   Must handle request size limits.
+*   Must sanitize response data if it includes user-provided content that could lead to XSS.
+*   Must enforce request size limits (configurable, default recommended).
 *   Must prevent path traversal vulnerabilities.
+*   Must validate and sanitize path segments.
 *   Must handle injection attempts (e.g., in configuration or dynamic parameters).
 *   Must validate header values if they control critical logic.
 *   Must handle authentication/authorization headers if such features are added.
 *   Must prevent sensitive data exposure in errors or logs.
+*   Should support rate limiting mechanisms (future enhancement).
 
 ### 4.10. Performance Requirements
 *   Must handle concurrent requests effectively.
@@ -213,16 +224,22 @@ Unimock is a versatile mock service designed to handle HTTP requests and deliver
 
 ## 6. Out of Scope / Future Considerations
 
-*   Advanced multi-ID resource identification (covered in a separate PRD).
-*   Complex E2E scenario features (covered in a separate PRD).
 *   Graphical User Interface for configuration.
 *   Real-time synchronization of mock data across multiple instances (unless basic storage provides this).
 *   Support for protocols other than HTTP/S.
+*   Advanced caching mechanisms.
+*   Distributed storage backends.
+*   Real-time metrics and monitoring dashboards.
 
-## 7. Acceptance Criteria (Examples - to be detailed per requirement)
+## 7. Integration Status
+
+*   Advanced multi-ID resource identification (REQ-RM-MULTI-ID) - **Implemented**
+*   Complex E2E scenario features (REQ-E2E-COMPLEX-001) - **Implemented**
+
+## 8. Acceptance Criteria (Examples - to be detailed per requirement)
 
 *   Given a GET request to `/users/123`, when user 123 exists, then the service returns a 200 OK with user 123 data.
 *   Given a POST request to `/products` with valid product data, when the resource is created, then the service returns a 201 Created with a Location header.
 *   Given a configuration for ID extraction from header `X-Transaction-ID`, when a POST request includes this header, then the resource is created using the header value as its ID.
 ---
-*Self-Refinement: Added more structure based on example PRD, populated sections from docs/requirements.md. Some requirements (like collection response formatting) might need further review for consistency across sections.* 
+*Self-Refinement: Added more structure based on example PRD, populated sections from docs/requirements.md. Updated 2025-06-23: Resolved collection response formatting inconsistencies, clarified multi-ID support requirements, added ID extraction priority order, updated out-of-scope to reflect implemented features, enhanced security and configuration specifications.*
