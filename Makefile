@@ -100,8 +100,8 @@ lint:
 
 check:
 	@echo "Running checks..."
-	@echo "Building..."
-	$(GOBUILD) ./...
+	@echo "Vet..."
+	make vet
 	@echo "Linting..."
 	make lint
 	@echo "Running unit tests..."

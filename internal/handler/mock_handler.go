@@ -74,6 +74,107 @@ func (h *MockHandler) getSectionForRequest(reqPath string) (*config.Section, str
 	return section, sectionName, nil
 }
 
+// transformRequest applies request transformations to MockData before processing
+func (h *MockHandler) transformRequest(
+	data *model.MockData,
+	section *config.Section,
+	sectionName string,
+) (*model.MockData, error) {
+	// Skip if no transformations configured
+	if section.Transformations == nil || !section.Transformations.HasRequestTransforms() {
+		return data, nil
+	}
+
+	currentData := data
+	for i, transform := range section.Transformations.RequestTransforms {
+		h.logger.Debug("applying request transformation", "section", sectionName, "transform_index", i)
+		
+		// Execute transformation with panic recovery
+		transformedData, err := h.safeExecuteRequestTransform(transform, currentData, sectionName)
+		if err != nil {
+			h.logger.Error(
+				"request transformation failed",
+				"section", sectionName,
+				"transform_index", i,
+				errorLogKey, err,
+			)
+			return nil, fmt.Errorf("request transformation failed: %w", err)
+		}
+		
+		currentData = transformedData
+	}
+
+	return currentData, nil
+}
+
+// transformResponse applies response transformations to MockData after processing
+func (h *MockHandler) transformResponse(
+	data *model.MockData,
+	section *config.Section,
+	sectionName string,
+) (*model.MockData, error) {
+	// Skip if no transformations configured
+	if section.Transformations == nil || !section.Transformations.HasResponseTransforms() {
+		return data, nil
+	}
+
+	currentData := data
+	for i, transform := range section.Transformations.ResponseTransforms {
+		h.logger.Debug("applying response transformation", "section", sectionName, "transform_index", i)
+		
+		// Execute transformation with panic recovery
+		transformedData, err := h.safeExecuteResponseTransform(transform, currentData, sectionName)
+		if err != nil {
+			h.logger.Error(
+				"response transformation failed",
+				"section", sectionName,
+				"transform_index", i,
+				errorLogKey, err,
+			)
+			return nil, fmt.Errorf("response transformation failed: %w", err)
+		}
+		
+		currentData = transformedData
+	}
+
+	return currentData, nil
+}
+
+// safeExecuteRequestTransform executes a request transformation function with panic recovery
+func (h *MockHandler) safeExecuteRequestTransform(
+	transform config.RequestTransformFunc,
+	data *model.MockData,
+	sectionName string,
+) (transformedData *model.MockData, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			h.logger.Error("request transformation panicked", "section", sectionName, "panic", r)
+			err = fmt.Errorf("request transformation panicked: %v", r)
+			transformedData = nil
+		}
+	}()
+
+	return transform(data)
+}
+
+// safeExecuteResponseTransform executes a response transformation function with panic recovery
+func (h *MockHandler) safeExecuteResponseTransform(
+	transform config.ResponseTransformFunc,
+	data *model.MockData,
+	sectionName string,
+) (transformedData *model.MockData, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			h.logger.Error("response transformation panicked", "section", sectionName, "panic", r)
+			err = fmt.Errorf("response transformation panicked: %v", r)
+			transformedData = nil
+		}
+	}()
+
+	return transform(data)
+}
+
+
 // extractIDs extracts IDs from the request using configured paths
 func (h *MockHandler) extractIDs(
 	ctx context.Context, 
@@ -349,20 +450,161 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 		}, nil
 	}
 
+	// Process the request using the appropriate handler with transformation support
 	switch req.Method {
 	case http.MethodGet:
-		return h.handleGet(ctx, req, sectionName)
+		return h.handleGetWithTransformations(ctx, req, section, sectionName)
 	case http.MethodPost:
-		return h.handlePost(ctx, req, section, sectionName)
+		return h.handlePostWithTransformations(ctx, req, section, sectionName)
 	case http.MethodPut:
-		return h.handlePut(ctx, req, section, sectionName)
+		return h.handlePutWithTransformations(ctx, req, section, sectionName)
 	case http.MethodDelete:
-		return h.handleDelete(ctx, req, section, sectionName)
+		return h.handleDeleteWithTransformations(ctx, req, section, sectionName)
 	default:
 		return &http.Response{
 			StatusCode: http.StatusMethodNotAllowed,
 			Body:       io.NopCloser(strings.NewReader("method not allowed")),
 		}, nil
+	}
+}
+
+// handleGetWithTransformations handles GET requests with transformation support
+func (h *MockHandler) handleGetWithTransformations(
+	ctx context.Context,
+	req *http.Request,
+	section *config.Section,
+	sectionName string,
+) (*http.Response, error) {
+	// For GET requests, we need to first retrieve the resource, then apply response transformations
+	resp, err := h.handleGet(ctx, req, sectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert response to MockData for transformation
+	mockData, err := h.responsesToMockData(resp)
+	if err != nil {
+		h.logger.Error("failed to convert response to MockData", errorLogKey, err)
+		return h.internalServerError("failed to process response"), nil
+	}
+
+	// Apply response transformations
+	transformedData, err := h.transformResponse(mockData, section, sectionName)
+	if err != nil {
+		h.logger.Error("response transformation failed", errorLogKey, err)
+		return h.internalServerError("response transformation failed"), nil
+	}
+
+	// Convert back to HTTP response
+	return h.mockDataToResponse(transformedData, resp.StatusCode), nil
+}
+
+// handlePostWithTransformations handles POST requests with transformation support
+func (h *MockHandler) handlePostWithTransformations(
+	ctx context.Context,
+	req *http.Request,
+	section *config.Section,
+	sectionName string,
+) (*http.Response, error) {
+	// Extract IDs and prepare initial data
+	locationID, initialData, errResp := h.preparePostData(ctx, req, section, sectionName)
+	if errResp != nil {
+		return errResp, nil
+	}
+
+	// Apply transformations and create resource
+	transformedData, errResp := h.processPostTransformations(ctx, req, initialData, section, sectionName)
+	if errResp != nil {
+		return errResp, nil
+	}
+
+	// Build and return final response
+	return h.buildPostResponse(ctx, req, transformedData, section, sectionName, locationID)
+}
+
+// handlePutWithTransformations handles PUT requests with transformation support
+func (h *MockHandler) handlePutWithTransformations(
+	ctx context.Context,
+	req *http.Request,
+	section *config.Section,
+	sectionName string,
+) (*http.Response, error) {
+	// Prepare PUT data and validate
+	initialData, errResp := h.preparePutData(ctx, req, section, sectionName)
+	if errResp != nil {
+		return errResp, nil
+	}
+
+	// Process transformations and update
+	transformedData, errResp := h.processPutTransformations(ctx, req, initialData, section, sectionName)
+	if errResp != nil {
+		return errResp, nil
+	}
+
+	// Build and return response
+	return h.buildPutResponse(ctx, req, transformedData, section, sectionName)
+}
+
+// handleDeleteWithTransformations handles DELETE requests with transformation support
+func (h *MockHandler) handleDeleteWithTransformations(
+	ctx context.Context,
+	req *http.Request,
+	section *config.Section,
+	sectionName string,
+) (*http.Response, error) {
+	// For DELETE, we just use the original handler since there's typically no response body to transform
+	return h.handleDelete(ctx, req, section, sectionName)
+}
+
+// Helper methods for transformation integration
+
+// responsesToMockData converts an HTTP response to MockData
+func (*MockHandler) responsesToMockData(resp *http.Response) (*model.MockData, error) {
+	if resp == nil {
+		return nil, errors.New("response is nil")
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Close the original body and replace it
+	_ = resp.Body.Close() // Ignore error - this is just cleanup
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+
+	return &model.MockData{
+		ContentType: resp.Header.Get(contentTypeHeader),
+		Body:        body,
+		Location:    resp.Header.Get("Location"),
+	}, nil
+}
+
+// mockDataToResponse converts MockData back to an HTTP response
+func (*MockHandler) mockDataToResponse(data *model.MockData, statusCode int) *http.Response {
+	resp := &http.Response{
+		StatusCode: statusCode,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(bytes.NewReader(data.Body)),
+	}
+
+	if data.ContentType != "" {
+		resp.Header.Set(contentTypeHeader, data.ContentType)
+	}
+
+	if data.Location != "" {
+		resp.Header.Set("Location", data.Location)
+	}
+
+	return resp
+}
+
+// internalServerError creates a 500 Internal Server Error response
+func (*MockHandler) internalServerError(message string) *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusInternalServerError,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(message)),
 	}
 }
 
@@ -433,6 +675,12 @@ func (*MockHandler) setContentLength(w http.ResponseWriter, body []byte) {
 		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	}
 }
+
+
+
+
+
+
 
 // writeBodyData writes the actual body data
 func (h *MockHandler) writeBodyData(w http.ResponseWriter, body []byte) {
@@ -523,55 +771,6 @@ func buildMultiItemArray(items [][]byte) []byte {
 	return append(responseBody, byte(']'))
 }
 
-// handlePost processes POST requests
-func (h *MockHandler) handlePost(
-	ctx context.Context, 
-	req *http.Request, 
-	section *config.Section, 
-	sectionName string,
-) (*http.Response, error) {
-	id, createdResourceIDs, err := h.extractPostResourceIDs(ctx, req, section, sectionName)
-	if err != nil {
-		return &http.Response{
-			StatusCode: http.StatusBadRequest,
-			Body:       io.NopCloser(strings.NewReader("invalid request: " + err.Error())),
-		}, nil
-	}
-
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read request body: %w", err)
-	}
-
-	data := &model.MockData{
-		Path:        req.URL.Path,
-		ContentType: req.Header.Get(contentTypeHeader),
-		Body:        body,
-	}
-
-	if err := h.service.CreateResource(ctx, req.URL.Path, createdResourceIDs, data); err != nil {
-		if strings.Contains(err.Error(), "already exists") {
-			return &http.Response{
-				StatusCode: http.StatusConflict,
-				Body:       io.NopCloser(strings.NewReader(err.Error())),
-			}, nil
-		}
-		h.logger.Error("failed to create resource for POST", pathLogKey, req.URL.Path, idLogKey, id, errorLogKey, err)
-		return &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(strings.NewReader("failed to create resource")),
-		}, nil
-	}
-
-	h.logger.Info("resource created via POST", pathLogKey, req.URL.Path, idLogKey, id)
-	location := fmt.Sprintf("%s%s%s", strings.TrimSuffix(req.URL.Path, pathSeparator), pathSeparator, id)
-
-	return &http.Response{
-		StatusCode: http.StatusCreated,
-		Header:     http.Header{"Location": []string{location}},
-		Body:       io.NopCloser(strings.NewReader("")),
-	}, nil
-}
 
 // extractPostResourceIDs extracts or generates resource IDs for POST requests
 func (h *MockHandler) extractPostResourceIDs(
@@ -603,111 +802,10 @@ func (h *MockHandler) extractPostResourceIDs(
 	return id, idsFromExtractor, nil
 }
 
-// handlePut processes PUT requests
-func (h *MockHandler) handlePut(
-	ctx context.Context, 
-	req *http.Request, 
-	section *config.Section, 
-	sectionName string,
-) (*http.Response, error) {
-	bodyBytes, contentType, resp := h.validatePutRequest(req)
-	if resp != nil {
-		return resp, nil
-	}
 
-	ids, err := h.extractIDs(ctx, req, section, sectionName)
-	if err != nil || len(ids) == 0 {
-		h.logger.Error("ID not found in PUT request", pathLogKey, req.URL.Path, errorLogKey, err)
-		return &http.Response{
-			StatusCode: http.StatusNotFound,
-			Body:       io.NopCloser(strings.NewReader(resourceNotFoundMsg)),
-		}, nil
-	}
 
-	return h.updateAndReturnResource(ctx, req, ids[0], bodyBytes, contentType)
-}
 
-// validatePutRequest validates PUT request body and content type
-func (h *MockHandler) validatePutRequest(req *http.Request) ([]byte, string, *http.Response) {
-	bodyBytes, err := io.ReadAll(req.Body)
-	if err != nil {
-		h.logger.Error("failed to read request body for PUT", pathLogKey, req.URL.Path, errorLogKey, err.Error())
-		return nil, "", &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(strings.NewReader("failed to read request body")),
-		}
-	}
 
-	contentType := req.Header.Get(contentTypeHeader)
-	if contentType == "" {
-		h.logger.Error("Content-Type header is missing for PUT request", pathLogKey, req.URL.Path)
-		return nil, "", &http.Response{
-			StatusCode: http.StatusBadRequest,
-			Body:       io.NopCloser(strings.NewReader("Content-Type header is missing")),
-		}
-	}
-
-	return bodyBytes, contentType, nil
-}
-
-// updateAndReturnResource updates the resource and returns the updated version
-func (h *MockHandler) updateAndReturnResource(
-	ctx context.Context, 
-	req *http.Request, 
-	id string, 
-	bodyBytes []byte, 
-	contentType string,
-) (*http.Response, error) {
-	putData := &model.MockData{
-		Path:        req.URL.Path,
-		ContentType: contentType,
-		Body:        bodyBytes,
-	}
-
-	err := h.service.UpdateResource(ctx, req.URL.Path, id, putData)
-	if err != nil {
-		return h.handleUpdateError(req, id, err)
-	}
-
-	return h.fetchAndReturnUpdatedResource(ctx, req, id)
-}
-
-// handleUpdateError handles errors during resource update
-func (h *MockHandler) handleUpdateError(req *http.Request, id string, err error) (*http.Response, error) {
-	if strings.Contains(err.Error(), "resource not found") {
-		return &http.Response{
-			StatusCode: http.StatusNotFound,
-			Body:       io.NopCloser(strings.NewReader("resource not found after upsert attempt")),
-		}, nil
-	}
-	h.logger.Error("failed to update/create resource for PUT", pathLogKey, req.URL.Path, idLogKey, id, errorLogKey, err)
-	return &http.Response{
-		StatusCode: http.StatusInternalServerError,
-		Body:       io.NopCloser(strings.NewReader("failed to process PUT request")),
-	}, fmt.Errorf("processing PUT: %w", err)
-}
-
-// fetchAndReturnUpdatedResource fetches and returns the updated resource
-func (h *MockHandler) fetchAndReturnUpdatedResource(
-	ctx context.Context, 
-	req *http.Request, 
-	id string,
-) (*http.Response, error) {
-	updatedResource, getErr := h.service.GetResource(ctx, req.URL.Path, id)
-	if getErr != nil {
-		h.logger.Error("failed to get resource after PUT", pathLogKey, req.URL.Path, idLogKey, id, errorLogKey, getErr)
-		return &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       io.NopCloser(strings.NewReader("failed to retrieve resource after update")),
-		}, fmt.Errorf("getting resource post-PUT: %w", getErr)
-	}
-
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{contentTypeHeader: []string{updatedResource.ContentType}},
-		Body:       io.NopCloser(bytes.NewReader(updatedResource.Body)),
-	}, nil
-}
 
 // handleDelete processes DELETE requests
 func (h *MockHandler) handleDelete(
