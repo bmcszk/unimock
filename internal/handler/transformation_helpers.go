@@ -104,11 +104,17 @@ func (h *MockHandler) buildPostResponse(
 	resp := &http.Response{
 		StatusCode: http.StatusCreated,
 		Header:     make(http.Header),
-		Body:       io.NopCloser(bytes.NewReader(responseData.Body)),
 	}
 	
-	if responseData.ContentType != "" {
-		resp.Header.Set(contentTypeHeader, responseData.ContentType)
+	// Only set response body if there are response transformations configured
+	// Otherwise, POST responses should have empty bodies per REST conventions
+	if section.Transformations != nil && section.Transformations.HasResponseTransforms() {
+		resp.Body = io.NopCloser(bytes.NewReader(responseData.Body))
+		if responseData.ContentType != "" {
+			resp.Header.Set(contentTypeHeader, responseData.ContentType)
+		}
+	} else {
+		resp.Body = io.NopCloser(strings.NewReader(""))
 	}
 	
 	if responseData.Location != "" {

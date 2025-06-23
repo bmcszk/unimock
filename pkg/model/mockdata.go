@@ -5,6 +5,10 @@ type MockData struct {
 	// Path of the resource (e.g., "/users/123")
 	Path string `json:"path"`
 
+	// IDs contains all identifiers associated with this resource
+	// Multiple IDs allow a single resource to be accessible via different identifiers
+	IDs []string `json:"ids,omitempty"`
+
 	// Location header value for the resource
 	// Usually used in POST responses to indicate where a new resource can be found
 	Location string `json:"location,omitempty"`
