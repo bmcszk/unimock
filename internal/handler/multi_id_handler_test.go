@@ -190,9 +190,10 @@ func TestStorageMultiIDSupport(t *testing.T) {
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"test": "data"}`),
+		IDs:         ids,
 	}
 
-	err := store.Create(ids, data)
+	err := store.Create(data)
 	if err != nil {
 		t.Fatalf("failed to create resource with multiple IDs: %v", err)
 	}
@@ -222,7 +223,8 @@ func TestStorageIDConflictPrevention(t *testing.T) {
 		Body:        []byte(`{"test": "data1"}`),
 	}
 
-	err := store.Create(ids1, data1)
+	data1.IDs = ids1
+	err := store.Create(data1)
 	if err != nil {
 		t.Fatalf("failed to create first resource: %v", err)
 	}
@@ -235,7 +237,8 @@ func TestStorageIDConflictPrevention(t *testing.T) {
 		Body:        []byte(`{"test": "data2"}`),
 	}
 
-	err = store.Create(ids2, data2)
+	data2.IDs = ids2
+	err = store.Create(data2)
 	if err == nil {
 		t.Error("expected conflict error, but creation succeeded")
 	}

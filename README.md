@@ -145,6 +145,84 @@ curl -X PUT \
 curl -X DELETE http://localhost:8080/users/123
 ```
 
+## Request/Response Transformations (Library Mode Only)
+
+When using Unimock as a library, you can configure request and response transformations to modify data before storage or after retrieval. Transformations are applied using simple Go functions and are completely optional.
+
+### Transformation Functions
+
+Both request and response transformations use the same simple function signature:
+
+```go
+func(data *model.MockData) (*model.MockData, error)
+```
+
+- **Input**: MockData containing the request/response data
+- **Output**: Modified MockData or an error
+- **Error Handling**: Any error returns HTTP 500 Internal Server Error
+
+### Configuration Example
+
+```go
+import (
+    "github.com/bmcszk/unimock/pkg"
+    "github.com/bmcszk/unimock/pkg/config"
+    "github.com/bmcszk/unimock/pkg/model"
+)
+
+// Create transformation configuration
+transformConfig := config.NewTransformationConfig()
+
+// Add request transformation (applied before storing)
+transformConfig.AddRequestTransform(func(data *model.MockData) (*model.MockData, error) {
+    // Modify request data before storage
+    modifiedData := *data
+    modifiedData.Body = []byte(`{"id": "123", "name": "transformed", "request_processed": true}`)
+    return &modifiedData, nil
+})
+
+// Add response transformation (applied after retrieval)
+transformConfig.AddResponseTransform(func(data *model.MockData) (*model.MockData, error) {
+    // Modify response data before sending
+    modifiedData := *data
+    modifiedData.Body = []byte(`{"id": "123", "name": "transformed", "response_processed": true}`)
+    return &modifiedData, nil
+})
+
+// Apply to specific section
+mockConfig := &config.MockConfig{
+    Sections: map[string]config.Section{
+        "users": {
+            PathPattern:     "/users/*",
+            BodyIDPaths:     []string{"/id"},
+            CaseSensitive:   false,
+            Transformations: transformConfig, // Apply transformations
+        },
+    },
+}
+
+server, err := pkg.NewServer(
+    pkg.WithPort(8080),
+    pkg.WithMockConfig(mockConfig),
+)
+```
+
+### Key Features
+
+- **Optional**: Both request and response transformations are completely optional
+- **Library-Only**: Transformations cannot be configured via YAML files
+- **Error Safety**: All transformation errors result in HTTP 500 responses
+- **Panic Recovery**: Transformation panics are recovered and logged
+- **Simple API**: Single function signature for both request and response transformations
+
+### Use Cases
+
+1. **Data Validation**: Validate incoming request data
+2. **Data Enrichment**: Add computed fields or timestamps
+3. **Format Conversion**: Convert between different data formats
+4. **Security**: Add/remove sensitive information
+5. **Testing**: Simulate different response scenarios
+
 ## Documentation
 
 - [HTTP Methods](docs/http_methods.md) - How different HTTP methods are handled

@@ -18,7 +18,7 @@ const (
 
 // MockStorage interface defines the operations for storing and retrieving data
 type MockStorage interface {
-	Create(ids []string, data *model.MockData) error
+	Create(data *model.MockData) error
 	Update(id string, data *model.MockData) error
 	Get(id string) (*model.MockData, error)
 	GetByPath(requestPath string) ([]*model.MockData, error)
@@ -60,8 +60,8 @@ func (*mockStorage) validateID(id string) error {
 	return nil
 }
 
-// Create stores new data with the given IDs
-func (s *mockStorage) Create(ids []string, data *model.MockData) error {
+// Create stores new data using IDs from MockData.IDs field
+func (s *mockStorage) Create(data *model.MockData) error {
 	if err := s.validateData(data); err != nil {
 		return err
 	}
@@ -69,13 +69,38 @@ func (s *mockStorage) Create(ids []string, data *model.MockData) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Validate IDs and check for conflicts
+	effectiveIDs, err := s.prepareIDs(data)
+	if err != nil {
+		return err
+	}
+
+	// Generate storage ID and prepare data
+	storageID, finalIDs := s.prepareDataForStorage(effectiveIDs, data)
+
+	// Store and map the data
+	s.storeData(storageID, finalIDs, data)
+
+	return nil
+}
+
+// prepareIDs gets IDs from MockData and validates for conflicts
+func (s *mockStorage) prepareIDs(data *model.MockData) ([]string, error) {
+	// Use IDs from MockData
+	effectiveIDs := data.IDs
+
 	// Check for conflicts
-	for _, id := range ids {
+	for _, id := range effectiveIDs {
 		if _, exists := s.idMap[id]; exists {
-			return errors.NewConflictError(id)
+			return nil, errors.NewConflictError(id)
 		}
 	}
 
+	return effectiveIDs, nil
+}
+
+// prepareDataForStorage generates storage ID and sets up data location
+func (*mockStorage) prepareDataForStorage(effectiveIDs []string, data *model.MockData) (string, []string) {
 	// Generate a new storage ID
 	storageID := uuid.New().String()
 
@@ -83,31 +108,37 @@ func (s *mockStorage) Create(ids []string, data *model.MockData) error {
 	data.Path = strings.TrimRight(data.Path, pathSeparator)
 
 	// Set location based on path and first ID
-	if len(ids) > 0 {
-		data.Location = data.Path + pathSeparator + ids[0]
+	if len(effectiveIDs) > 0 {
+		data.Location = data.Path + pathSeparator + effectiveIDs[0]
 	} else {
 		// Generate UUID for path-based storage
 		generatedID := uuid.New().String()
 		data.Location = data.Path + pathSeparator + generatedID
-		ids = []string{generatedID}
+		effectiveIDs = []string{generatedID}
 	}
 
+	// Update the MockData with the effective IDs
+	data.IDs = effectiveIDs
+
+	return storageID, effectiveIDs
+}
+
+// storeData stores the data and updates all mappings
+func (s *mockStorage) storeData(storageID string, effectiveIDs []string, data *model.MockData) {
 	// Store the data
 	s.data[storageID] = data
 
 	// Map external IDs to storage ID
-	for _, id := range ids {
+	for _, id := range effectiveIDs {
 		s.idMap[id] = storageID
 	}
 
 	// Add to pathMap for both original path and path with ID
 	s.pathMap[data.Path] = append(s.pathMap[data.Path], storageID)
-	if len(ids) > 0 {
-		idPath := path.Join(data.Path, ids[0])
+	if len(effectiveIDs) > 0 {
+		idPath := path.Join(data.Path, effectiveIDs[0])
 		s.pathMap[idPath] = append(s.pathMap[idPath], storageID)
 	}
-
-	return nil
 }
 
 // Update updates existing data for the given ID

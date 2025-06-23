@@ -72,6 +72,11 @@ type Section struct {
 	// If true, paths must match exactly including case.
 	// If false, paths are matched case-insensitively.
 	CaseSensitive bool `yaml:"case_sensitive" json:"case_sensitive"`
+
+	// Transformations contains request/response transformation functions.
+	// This field is only available when using Unimock as a library and is excluded from YAML serialization.
+	// It allows programmatic modification of requests and responses for advanced testing scenarios.
+	Transformations *TransformationConfig `yaml:"-" json:"-"`
 }
 
 // NewMockConfig creates an empty MockConfig with an initialized Sections map
