@@ -15,7 +15,6 @@ import (
 type mockService struct {
 	storage storage.MockStorage
 	mockCfg *config.MockConfig
-	// logger  *slog.Logger // Logger is currently unused in the service
 }
 
 // NewMockService creates a new instance of MockService
@@ -23,7 +22,6 @@ func NewMockService(mockStorage storage.MockStorage, cfg *config.MockConfig) Moc
 	return &mockService{
 		storage: mockStorage,
 		mockCfg: cfg,
-		// logger: slog.New(slog.NewJSONHandler(os.Stdout, nil)), // Example initialization if used
 	}
 }
 
@@ -137,149 +135,3 @@ func (s *mockService) DeleteResource(_ context.Context, _ string, id string) err
 	return nil
 }
 
-// Helper functions (These were moved to handler or are no longer needed)
-/*
-func getPathInfo(path string) []string {
-	return strings.Split(strings.Trim(path, "/"), "/")
-}
-
-func isValidID(segment string, sectionName string) bool {
-	// Check if it's a valid JSON string and not the section name
-	_, err := json.Marshal(segment)
-	return err == nil && segment != sectionName
-}
-
-func (s *mockService) extractJSONIDs(body []byte, paths []string, seenIDs map[string]bool) ([]string, error) {
-	doc, err := jsonquery.Parse(bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON body: %w", err)
-	}
-
-	var ids []string
-	for _, path := range paths {
-		nodes, err := jsonquery.QueryAll(doc, path)
-		if err != nil {
-			continue
-		}
-		for _, node := range nodes {
-			if id := fmt.Sprintf("%v", node.Value()); id != "" && !seenIDs[id] {
-				ids = append(ids, id)
-				seenIDs[id] = true
-			}
-		}
-	}
-
-	return ids, nil
-}
-
-func (s *mockService) extractXMLIDs(body []byte, paths []string, seenIDs map[string]bool) ([]string, error) {
-	doc, err := xmlquery.Parse(bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse XML body: %w", err)
-	}
-
-	var ids []string
-	for _, path := range paths {
-		nodes, err := xmlquery.QueryAll(doc, path)
-		if err != nil {
-			continue
-		}
-		for _, node := range nodes {
-			if id := node.InnerText(); id != "" && !seenIDs[id] {
-				ids = append(ids, id)
-				seenIDs[id] = true
-			}
-		}
-	}
-
-	return ids, nil
-}
-*/
-
-// Response creation functions are no longer used in the service layer.
-// They were specific to an older handler implementation or example.
-/*
-func createResourceResponse(data *model.MockData) *http.Response {
-	headers := map[string][]string{
-		"Content-Type": {data.ContentType},
-	}
-
-	// Add location header if it exists
-	if data.Location != "" {
-		headers["Location"] = []string{data.Location}
-	}
-
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     headers,
-		Body:       io.NopCloser(bytes.NewReader(data.Body)),
-	}
-}
-
-func createCollectionResponse(data []*model.MockData) *http.Response {
-	// Sort the data by path to ensure consistent ordering
-	sort.Slice(data, func(i, j int) bool {
-		return data[i].Path < data[j].Path
-	})
-
-	// Create a JSON array with the bodies from each MockData
-	var rawBodies []interface{}
-
-	for _, item := range data {
-		// More flexible content type handling - treat any content type containing "json" as JSON
-		if strings.Contains(strings.ToLower(item.ContentType), "json") {
-			// For JSON content, parse it directly
-			var jsonData interface{}
-			if err := json.Unmarshal(item.Body, &jsonData); err == nil {
-				rawBodies = append(rawBodies, jsonData)
-			} else {
-				// If JSON parsing fails, use as string
-				rawBodies = append(rawBodies, string(item.Body))
-			}
-		}
-		// XML content types will be supported in future updates
-	}
-
-	// Marshal the array of bodies
-	body, err := json.Marshal(rawBodies)
-	if err != nil {
-		return &http.Response{
-			StatusCode: http.StatusInternalServerError,
-		}
-	}
-
-	// For collection responses, we use a default content type of application/json
-	headers := map[string][]string{
-		"Content-Type": {"application/json"},
-	}
-
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     headers,
-		Body:       io.NopCloser(bytes.NewReader(body)),
-	}
-}
-
-func createCreatedResponse(data *model.MockData) *http.Response {
-	headers := map[string][]string{
-		"Content-Type": {data.ContentType},
-	}
-
-	// Add location header if it exists
-	if data.Location != "" {
-		headers["Location"] = []string{data.Location}
-	}
-
-	return &http.Response{
-		StatusCode: http.StatusCreated,
-		Header:     headers,
-		Body:       io.NopCloser(bytes.NewReader(data.Body)),
-	}
-}
-
-func createNoContentResponse() *http.Response {
-	return &http.Response{
-		StatusCode: http.StatusNoContent,
-	}
-}
-*/
