@@ -10,6 +10,8 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 
 - **Universal Support**: Works with any HTTP-based service (REST, XML, etc.)
 - **Flexible ID Extraction**: Extracts IDs from headers, JSON/XML bodies, or paths
+- **Enhanced Wildcard Patterns**: Support for single (*) and recursive (**) wildcards in path patterns
+- **Strict Path Matching**: Optional strict mode for precise path and resource validation
 - **Thread-Safe Storage**: In-memory storage with mutex protection
 - **Full HTTP Support**: All HTTP methods (GET, POST, PUT, DELETE)
 - **Technical Endpoints**: Health check, metrics, and scenario management
@@ -50,6 +52,7 @@ mockConfig := &config.MockConfig{
     Sections: map[string]config.Section{
         "users": {
             PathPattern:  "/users/*",
+            StrictPath:   false, // Optional: enable strict path matching
             BodyIDPaths:  []string{"/id"},
             HeaderIDName: "X-User-ID",
         },
@@ -145,6 +148,70 @@ curl -X PUT \
 curl -X DELETE http://localhost:8080/users/123
 ```
 
+## Advanced Path Matching
+
+Unimock supports advanced path pattern matching with wildcards and strict validation modes.
+
+### Wildcard Patterns
+
+#### Single Wildcard (*)
+Matches exactly one path segment:
+
+```yaml
+sections:
+  users:
+    path_pattern: "/users/*"        # Matches: /users/123, /users/abc
+    # Does NOT match: /users/123/posts
+```
+
+#### Recursive Wildcard (**)
+Matches zero or more path segments:
+
+```yaml
+sections:
+  api_resources:
+    path_pattern: "/api/**"         # Matches: /api, /api/v1, /api/v1/users/123/posts
+```
+
+#### Mixed Patterns
+Combine both wildcard types:
+
+```yaml
+sections:
+  user_posts:
+    path_pattern: "/users/*/posts/**"  # Matches: /users/123/posts/456/comments
+```
+
+### Strict Path Matching
+
+Control validation behavior with the `strict_path` flag:
+
+```yaml
+sections:
+  regular_users:
+    path_pattern: "/users/*"
+    strict_path: false              # Default: flexible matching, allows upsert
+    
+  admin_users:
+    path_pattern: "/admin/users/*"
+    strict_path: true               # Strict: exact matching, no upsert
+```
+
+#### Behavior Differences
+
+| Operation | strict_path=false | strict_path=true |
+|-----------|------------------|------------------|
+| GET /users/123 (exists) | ✅ Returns resource | ✅ Returns resource |
+| GET /users/999 (missing) | ❌ Returns 404 | ❌ Returns 404 |
+| PUT /users/999 (missing) | ✅ Creates resource (upsert) | ❌ Returns 404 |
+| DELETE /users/999 (missing) | ❌ Returns 404 | ❌ Returns 404 |
+
+**Key Points:**
+- Individual resource requests always return 404 if the resource doesn't exist
+- `strict_path=true` disables upsert behavior for PUT operations
+- `strict_path=false` (default) maintains backward compatibility
+- Path pattern matching is more flexible with `strict_path=false`
+
 ## Request/Response Transformations (Library Mode Only)
 
 When using Unimock as a library, you can configure request and response transformations to modify data before storage or after retrieval. Transformations are applied using simple Go functions and are completely optional.
@@ -194,6 +261,7 @@ mockConfig := &config.MockConfig{
     Sections: map[string]config.Section{
         "users": {
             PathPattern:     "/users/*",
+            StrictPath:      false, // Optional: enable strict path matching
             BodyIDPaths:     []string{"/id"},
             CaseSensitive:   false,
             Transformations: transformConfig, // Apply transformations
