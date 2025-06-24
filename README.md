@@ -199,7 +199,7 @@ sections:
 
 #### Behavior Scenarios
 
-# Scenario 1: Flexible Path Matching
+# Scenario 1: Flexible Path Matching (strict_path=false)
 ```yaml
 given:
 - pattern "/users/**"
@@ -210,10 +210,10 @@ when:
 - GET/PUT/DELETE /users/1
 
 then:
-✅ Operations succeed (resource accessible via extracted ID)
+✅ Operations succeed (cross-path access allowed)
 ```
 
-# Scenario 2: Strict Path Matching
+# Scenario 2: Strict Path Matching (strict_path=true)
 ```yaml
 given:
 - pattern "/users/**"  
@@ -222,16 +222,21 @@ given:
 
 when:
 - GET/PUT/DELETE /users/1
-
 then:
-❌ 404 Not Found (strict path validation enforced)
+❌ 404 Not Found (different path structure)
+
+when:
+- GET/PUT/DELETE /users/subpath/1
+then:
+✅ Operations succeed (same path structure)
 ```
 
 **Key Points:**
-- `strict_path=true` enforces exact path pattern matching for resource access
-- `strict_path=false` (default) allows flexible resource access via extracted IDs
-- Resources created via one path may be accessible via different paths when `strict_path=false`
-- `strict_path=true` requires accessing resources via the exact path where they were created
+- `strict_path=true` enforces path structure compatibility for resource access
+- `strict_path=false` (default) allows flexible cross-path resource access via extracted IDs
+- With `strict_path=true`, resources are only accessible via paths that extend their creation path
+- Example: Resource created at `/users/subpath` accessible via `/users/subpath/123` but not `/users/123`
+- PUT operations still support upsert when `strict_path=false`, return 404 when `strict_path=true` and resource doesn't exist
 
 ## Request/Response Transformations (Library Mode Only)
 

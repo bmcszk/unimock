@@ -36,16 +36,17 @@ type Section struct {
 	// Use ** as a wildcard for multiple path segments recursively, e.g. "/api/**"
 	PathPattern string `yaml:"path_pattern" json:"path_pattern"`
 
-	// StrictPath determines whether GET/PUT/DELETE operations require exact path pattern matching.
+	// StrictPath determines whether GET/PUT/DELETE operations require path structure compatibility.
 	// When true:
-	//   - GET/PUT/DELETE must match the exact path pattern (stricter path validation)
+	//   - Resources are only accessible via paths that extend their creation path
+	//   - Example: Resource created at "/users/subpath" accessible via "/users/subpath/123" but not "/users/123"
 	//   - PUT returns 404 if resource doesn't exist (no upsert behavior)
-	//   - More restrictive path matching rules
+	//   - Enforces strict path structure validation for cross-path access prevention
 	// When false (default):
-	//   - More flexible path pattern matching (e.g., /users/* matches both /users/123 and /users)
+	//   - Resources accessible via any path matching the section pattern (flexible cross-path access)
+	//   - Example: Resource created at "/users/subpath" accessible via both "/users/subpath/123" and "/users/123"
 	//   - PUT performs upsert operations (creates if doesn't exist)
-	//   - Less restrictive path matching rules
-	// Note: Individual resource requests (e.g., GET /users/123) always return 404 if resource doesn't exist
+	//   - Backward compatible behavior with flexible path matching
 	StrictPath bool `yaml:"strict_path" json:"strict_path"`
 
 	// BodyIDPaths defines the XPath-like paths to extract IDs from request bodies.

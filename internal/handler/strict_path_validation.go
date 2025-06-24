@@ -58,13 +58,13 @@ func (*MockHandler) arePathsCompatible(requestPath, resourcePath, _ string) bool
 
 // validateStrictPathForOperation validates strict path access for PUT/DELETE operations
 func (h *MockHandler) validateStrictPathForOperation(ctx context.Context, reqPath, id, 
-	sectionPattern, operation string) *http.Response {
+	sectionPattern, operation, sectionName string, isStrictPath bool) *http.Response {
 	// Check resource existence first
 	var err error
 	if operation == "PUT" {
-		err = h.validateStrictPathForPUT(ctx, reqPath, id)
+		err = h.validateStrictPathForPUT(ctx, sectionName, isStrictPath, id)
 	} else {
-		err = h.validateStrictPathForDELETE(ctx, reqPath, id)
+		err = h.validateStrictPathForDELETE(ctx, sectionName, isStrictPath, id)
 	}
 	
 	if err != nil {
@@ -72,7 +72,7 @@ func (h *MockHandler) validateStrictPathForOperation(ctx context.Context, reqPat
 	}
 	
 	// Additional strict path access validation
-	existingResource, err := h.service.GetResource(ctx, reqPath, id)
+	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
 	if err == nil && existingResource != nil {
 		if err := h.validateStrictPathAccess(reqPath, existingResource.Path, sectionPattern); err != nil {
 			h.logger.Debug("strict path access validation failed for "+operation, 

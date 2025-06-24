@@ -8,16 +8,16 @@ import (
 
 // MockService handles the core mock functionality
 type MockService interface {
-	// GetResource retrieves a resource by path and ID
-	GetResource(ctx context.Context, path string, id string) (*model.MockData, error)
+	// GetResource retrieves a resource by section and ID
+	GetResource(ctx context.Context, sectionName string, isStrictPath bool, id string) (*model.MockData, error)
 	// GetResourcesByPath retrieves all resources at a given path
 	GetResourcesByPath(ctx context.Context, path string) ([]*model.MockData, error)
 	// CreateResource creates a new resource
-	CreateResource(ctx context.Context, path string, ids []string, data *model.MockData) error
+	CreateResource(ctx context.Context, sectionName string, isStrictPath bool, ids []string, data *model.MockData) error
 	// UpdateResource updates an existing resource
-	UpdateResource(ctx context.Context, path string, id string, data *model.MockData) error
+	UpdateResource(ctx context.Context, sectionName string, isStrictPath bool, id string, data *model.MockData) error
 	// DeleteResource removes a resource
-	DeleteResource(ctx context.Context, path string, id string) error
+	DeleteResource(ctx context.Context, sectionName string, isStrictPath bool, id string) error
 }
 
 // ScenarioService manages test scenarios

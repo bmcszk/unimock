@@ -103,7 +103,7 @@ func (h *MockHandler) preparePostData(
 // processPostRequest applies transformations and stores the resource
 func (h *MockHandler) processPostRequest(
 	ctx context.Context,
-	req *http.Request,
+	_ *http.Request,
 	mockData *model.MockData,
 	section *config.Section,
 	sectionName string,
@@ -116,7 +116,7 @@ func (h *MockHandler) processPostRequest(
 	}
 
 	// Store the resource
-	err = h.service.CreateResource(ctx, req.URL.Path, transformedData.IDs, transformedData)
+	err = h.service.CreateResource(ctx, sectionName, section.StrictPath, transformedData.IDs, transformedData)
 	if err != nil {
 		h.logger.Error("failed to create resource", "error", err)
 		if strings.Contains(err.Error(), "already exists") {
@@ -161,7 +161,7 @@ func (h *MockHandler) tryGetIndividualResource(
 		return nil
 	}
 
-	resource, err := h.service.GetResource(ctx, req.URL.Path, lastSegment)
+	resource, err := h.service.GetResource(ctx, sectionName, section.StrictPath, lastSegment)
 	if err != nil || resource == nil {
 		return h.errorResponse(http.StatusNotFound, "resource not found")
 	}
@@ -290,19 +290,21 @@ func (h *MockHandler) processPUTRequest(
 	// Validate strict path if enabled
 	if section.StrictPath {
 		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0], 
-			section.PathPattern, "PUT"); resp != nil {
+			section.PathPattern, "PUT", sectionName, section.StrictPath); resp != nil {
 			return resp, nil
 		}
 	}
 	
-	return h.executeResourceUpdate(ctx, req.URL.Path, ids[0], transformedData, section, sectionName)
+	return h.executeResourceUpdate(ctx, ids[0], transformedData, section, sectionName)
 }
 
 // validateStrictPathForPUT checks resource existence for strict path validation
-func (h *MockHandler) validateStrictPathForPUT(ctx context.Context, path, id string) error {
-	existingResource, err := h.service.GetResource(ctx, path, id)
+func (h *MockHandler) validateStrictPathForPUT(
+	ctx context.Context, sectionName string, isStrictPath bool, id string,
+) error {
+	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
 	if err != nil || existingResource == nil {
-		h.logger.Debug("resource not found for strict PUT", "path", path, "id", id)
+		h.logger.Debug("resource not found for strict PUT", "sectionName", sectionName, "id", id)
 		return errors.New("resource not found")
 	}
 	return nil
@@ -314,9 +316,9 @@ func (h *MockHandler) validateStrictPathForPUT(ctx context.Context, path, id str
 
 // executeResourceUpdate performs the actual resource update and response building
 func (h *MockHandler) executeResourceUpdate(
-	ctx context.Context, path, id string, data *model.MockData, section *config.Section, sectionName string,
+	ctx context.Context, id string, data *model.MockData, section *config.Section, sectionName string,
 ) (*http.Response, error) {
-	err := h.service.UpdateResource(ctx, path, id, data)
+	err := h.service.UpdateResource(ctx, sectionName, section.StrictPath, id, data)
 	if err != nil {
 		h.logger.Error("failed to update resource", "error", err)
 		return h.errorResponse(http.StatusInternalServerError, "failed to update resource"), nil
@@ -359,27 +361,31 @@ func (h *MockHandler) processDELETERequest(
 	// Validate strict path if enabled
 	if section.StrictPath {
 		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0], 
-			section.PathPattern, "DELETE"); resp != nil {
+			section.PathPattern, "DELETE", sectionName, section.StrictPath); resp != nil {
 			return resp, nil
 		}
 	}
 	
-	return h.executeResourceDeletion(ctx, req.URL.Path, ids[0])
+	return h.executeResourceDeletion(ctx, ids[0], section, sectionName)
 }
 
 // validateStrictPathForDELETE checks resource existence for strict path validation
-func (h *MockHandler) validateStrictPathForDELETE(ctx context.Context, path, id string) error {
-	existingResource, err := h.service.GetResource(ctx, path, id)
+func (h *MockHandler) validateStrictPathForDELETE(
+	ctx context.Context, sectionName string, isStrictPath bool, id string,
+) error {
+	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
 	if err != nil || existingResource == nil {
-		h.logger.Debug("resource not found for strict DELETE", "path", path, "id", id)
+		h.logger.Debug("resource not found for strict DELETE", "sectionName", sectionName, "id", id)
 		return errors.New("resource not found")
 	}
 	return nil
 }
 
 // executeResourceDeletion performs the actual resource deletion
-func (h *MockHandler) executeResourceDeletion(ctx context.Context, path, id string) (*http.Response, error) {
-	err := h.service.DeleteResource(ctx, path, id)
+func (h *MockHandler) executeResourceDeletion(
+	ctx context.Context, id string, section *config.Section, sectionName string,
+) (*http.Response, error) {
+	err := h.service.DeleteResource(ctx, sectionName, section.StrictPath, id)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return h.errorResponse(http.StatusNotFound, "resource not found"), nil
