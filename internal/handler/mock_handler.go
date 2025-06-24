@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-
 	"github.com/antchfx/jsonquery"
 	"github.com/antchfx/xmlquery"
 	"github.com/bmcszk/unimock/internal/service"
@@ -17,14 +16,12 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 	"github.com/google/uuid"
 )
-
 const (
 	// Common strings
 	errorLogKey = "error"
 	pathLogKey  = "path"
 	contentTypeHeader = "Content-Type"
 )
-
 // MockHandler provides clear, step-by-step HTTP method handlers
 type MockHandler struct {
 	service         service.MockService
@@ -32,7 +29,6 @@ type MockHandler struct {
 	logger          *slog.Logger
 	mockCfg         *config.MockConfig
 }
-
 // NewMockHandler creates a new handler
 func NewMockHandler(
 	mockService service.MockService,
@@ -47,7 +43,6 @@ func NewMockHandler(
 		mockCfg:         cfg,
 	}
 }
-
 // HandlePOST processes POST requests step by step
 func (h *MockHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting POST request processing", "path", req.URL.Path)
@@ -64,17 +59,14 @@ func (h *MockHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.
 	if errResp != nil {
 		return errResp, nil
 	}
-
 	// Step 3: Apply transformations and store resource
 	transformedData, errResp := h.processPostRequest(ctx, req, mockData, section, sectionName)
 	if errResp != nil {
 		return errResp, nil
 	}
-
 	// Step 4: Build and return response
 	return h.buildPOSTResponse(transformedData, section, sectionName)
 }
-
 // preparePostData extracts IDs and builds initial MockData for POST
 func (h *MockHandler) preparePostData(
 	ctx context.Context,
@@ -108,7 +100,6 @@ func (h *MockHandler) preparePostData(
 
 	return ids, mockData, nil
 }
-
 // processPostRequest applies transformations and stores the resource
 func (h *MockHandler) processPostRequest(
 	ctx context.Context,
@@ -165,31 +156,27 @@ func (h *MockHandler) tryGetIndividualResource(
 	section *config.Section,
 	sectionName string,
 ) *http.Response {
-	pathSegments := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
-	if len(pathSegments) == 0 {
-		return h.errorResponse(http.StatusBadRequest, "invalid path")
-	}
-
-	lastSegment := pathSegments[len(pathSegments)-1]
+	lastSegment := h.extractLastPathSegment(req.URL.Path)
 	if lastSegment == "" || lastSegment == sectionName {
 		return nil
 	}
 
 	resource, err := h.service.GetResource(ctx, req.URL.Path, lastSegment)
 	if err != nil || resource == nil {
-		// Individual resource not found - always return 404 for specific resource requests
-		// The difference between strict_path true/false is in the path matching, not resource existence
 		return h.errorResponse(http.StatusNotFound, "resource not found")
 	}
 
-	transformedData, err := h.applyResponseTransformations(resource, section, sectionName)
-	if err != nil {
-		h.logger.Error("response transformation failed for GET", "error", err)
-		return h.errorResponse(http.StatusInternalServerError, "response transformation failed")
+	// Apply strict path validation if enabled
+	if section.StrictPath {
+		if err := h.validateStrictPathAccess(req.URL.Path, resource.Path, section.PathPattern); err != nil {
+			h.logger.Debug("strict path validation failed for GET", 
+				"requestPath", req.URL.Path, "resourcePath", resource.Path, "error", err)
+			return h.errorResponse(http.StatusNotFound, "resource not found")
+		}
 	}
-	return h.buildSingleResourceResponse(transformedData)
-}
 
+	return h.buildTransformedResponse(resource, section, sectionName)
+}
 // getResourceCollection gets a collection of resources
 func (h *MockHandler) getResourceCollection(
 	ctx context.Context,
@@ -302,8 +289,9 @@ func (h *MockHandler) processPUTRequest(
 
 	// Validate strict path if enabled
 	if section.StrictPath {
-		if err := h.validateStrictPathForPUT(ctx, req.URL.Path, ids[0]); err != nil {
-			return h.errorResponse(http.StatusNotFound, "resource not found"), nil
+		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0], 
+			section.PathPattern, "PUT"); resp != nil {
+			return resp, nil
 		}
 	}
 	
@@ -319,6 +307,10 @@ func (h *MockHandler) validateStrictPathForPUT(ctx context.Context, path, id str
 	}
 	return nil
 }
+
+
+
+
 
 // executeResourceUpdate performs the actual resource update and response building
 func (h *MockHandler) executeResourceUpdate(
@@ -366,8 +358,9 @@ func (h *MockHandler) processDELETERequest(
 
 	// Validate strict path if enabled
 	if section.StrictPath {
-		if err := h.validateStrictPathForDELETE(ctx, req.URL.Path, ids[0]); err != nil {
-			return h.errorResponse(http.StatusNotFound, "resource not found"), nil
+		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0], 
+			section.PathPattern, "DELETE"); resp != nil {
+			return resp, nil
 		}
 	}
 	

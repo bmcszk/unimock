@@ -131,56 +131,35 @@ func TestPRCommentScenario2_StrictPathMatching(t *testing.T) {
 	getReq := httptest.NewRequest(http.MethodGet, "/users/1", nil)
 	getResp, err := handler.HandleGET(context.Background(), getReq)
 	require.NoError(t, err)
-	
-	// Debug: Let's see what we actually get
-	if getResp.StatusCode != http.StatusNotFound {
-		t.Logf("DEBUG: Expected 404 but got %d. This suggests the current implementation may not enforce strict path as described in PR comment", getResp.StatusCode)
-		
-		// Let's check if this is the expected behavior or a gap
-		// According to existing strict_path tests, strict_path only affects upsert behavior, not cross-path access
-		t.Logf("DEBUG: Current strict_path behavior may be 'prevent upsert' rather than 'prevent cross-path access'")
-	}
-	
-	// For now, let's document what the current behavior is rather than fail the test
-	// TODO: Clarify with user what the expected strict_path behavior should be
-	if getResp.StatusCode == http.StatusOK {
-		t.Logf("Current behavior: Resource is accessible across path patterns even with strict_path=true")
-	} else {
-		assert.Equal(t, http.StatusNotFound, getResp.StatusCode, 
-			"GET should return 404 with strict path matching - resource created at /users/subpath not accessible via /users/1")
-	}
-	t.Logf("GET response status: %d", getResp.StatusCode)
+	assert.Equal(t, http.StatusNotFound, getResp.StatusCode, 
+		"GET should return 404 with strict path matching - resource created at /users/subpath not accessible via /users/1")
+	t.Logf("GET response status: %d (expected 404)", getResp.StatusCode)
 
-	// Step 3: PUT /users/1 - document current behavior 
+	// Step 3: PUT /users/1 - should return 404 with strict path matching
 	putBody := `{"id": 1, "name": "updated user", "status": "active"}`
 	putReq := httptest.NewRequest(http.MethodPut, "/users/1", bytes.NewReader([]byte(putBody)))
 	putReq.Header.Set("Content-Type", "application/json")
 
 	putResp, err := handler.HandlePUT(context.Background(), putReq)
 	require.NoError(t, err)
-	t.Logf("PUT response status: %d", putResp.StatusCode)
-	
-	if putResp.StatusCode == http.StatusOK {
-		t.Logf("Current behavior: PUT updates existing resource even with strict_path=true when resource exists")
-	}
+	assert.Equal(t, http.StatusNotFound, putResp.StatusCode, 
+		"PUT should return 404 with strict path matching - no access to resource created at different path")
+	t.Logf("PUT response status: %d (expected 404)", putResp.StatusCode)
 
-	// Step 4: DELETE /users/1 - document current behavior
+	// Step 4: DELETE /users/1 - should return 404 with strict path matching
 	deleteReq := httptest.NewRequest(http.MethodDelete, "/users/1", nil)
 	deleteResp, err := handler.HandleDELETE(context.Background(), deleteReq)
 	require.NoError(t, err)
-	t.Logf("DELETE response status: %d", deleteResp.StatusCode)
-	
-	if deleteResp.StatusCode == http.StatusNoContent {
-		t.Logf("Current behavior: DELETE removes resource even with strict_path=true when resource exists")
-	}
+	assert.Equal(t, http.StatusNotFound, deleteResp.StatusCode, 
+		"DELETE should return 404 with strict path matching")
+	t.Logf("DELETE response status: %d (expected 404)", deleteResp.StatusCode)
 
-	// Step 5: Verify the resource is still accessible via the original creation path /users/subpath
-	// But since it was created via POST, we need to access it by the ID in the collection path
-	getOriginalReq := httptest.NewRequest(http.MethodGet, "/users/subpath", nil)
-	getOriginalResp, err := handler.HandleGET(context.Background(), getOriginalReq)
+	// Step 5: Verify the resource IS accessible via the correct path structure /users/subpath/1
+	getCorrectReq := httptest.NewRequest(http.MethodGet, "/users/subpath/1", nil)
+	getCorrectResp, err := handler.HandleGET(context.Background(), getCorrectReq)
 	require.NoError(t, err)
-	// This should return the collection or specific resource depending on how the handler interprets the path
-	t.Logf("GET /users/subpath response status: %d", getOriginalResp.StatusCode)
+	assert.Equal(t, http.StatusOK, getCorrectResp.StatusCode, 
+		"Resource should be accessible via correct path structure /users/subpath/1")
 }
 
 // TestUpsertBehaviorWithStrictPathFalse verifies upsert works when strict_path=false
