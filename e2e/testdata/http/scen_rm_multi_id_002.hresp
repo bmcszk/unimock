@@ -6,9 +6,6 @@ Location: /api/items/id_A
 
 # Response for Step 1 (PUT)
 HTTP/1.1 200 OK
-Content-Type: application/json
-
-{"value": "updated"}
 
 ###
 

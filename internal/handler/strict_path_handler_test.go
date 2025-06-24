@@ -311,6 +311,7 @@ func setupStrictPathHandler(t *testing.T, strictPath bool) strictPathHandlerDeps
 				StrictPath:    strictPath,
 				BodyIDPaths:   []string{"/id"},
 				CaseSensitive: true,
+				ReturnBody:    true, // For backward compatibility with existing tests
 			},
 		},
 	}

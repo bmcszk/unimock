@@ -1,4 +1,12 @@
 HTTP/1.1 201 Created
+Content-Type: application/json
+
+{
+  "name": "Test Product Static",
+  "product": {
+    "sku": "SKU-E2E-STATIC-001"
+  }
+}
 
 ###
 
