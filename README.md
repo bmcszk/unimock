@@ -13,7 +13,7 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 - **Enhanced Wildcard Patterns**: Support for single (*) and recursive (**) wildcards in path patterns
 - **Strict Path Matching**: Optional strict mode for precise path and resource validation
 - **Thread-Safe Storage**: In-memory storage with mutex protection
-- **Full HTTP Support**: All HTTP methods (GET, POST, PUT, DELETE)
+- **Full HTTP Support**: All HTTP methods (GET, HEAD, POST, PUT, DELETE)
 - **Technical Endpoints**: Health check, metrics, and scenario management
 - **Scenario-Based Mocking**: Create predefined scenarios for paths that bypass regular mock behavior
 
@@ -148,6 +148,14 @@ curl -X PUT \
 ```bash
 curl -X DELETE http://localhost:8080/users/123
 ```
+
+### Check if a resource exists (HEAD)
+
+```bash
+curl -I http://localhost:8080/users/123
+```
+
+HEAD requests return the same headers and status code as GET requests but without the response body, making them perfect for checking resource existence or metadata.
 
 ## Advanced Path Matching
 

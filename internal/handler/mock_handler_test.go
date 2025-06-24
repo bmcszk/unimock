@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -507,4 +508,189 @@ func createResource(t *testing.T, deps mockHandlerDeps, id, name string) {
 	createReq.Header.Set("Content-Type", "application/json")
 	createW := httptest.NewRecorder()
 	deps.handler.ServeHTTP(createW, createReq)
+}
+
+func TestMockHandler_HEAD_Operation(t *testing.T) {
+	deps := setupMockHandlerFull(t)
+	
+	// Create a test resource first
+	createTestResourceForHead(t, deps, "test123", "test resource")
+
+	tests := []headTestCase{
+		{
+			name:           "HEAD existing resource returns same headers as GET but no body",
+			method:         "HEAD",
+			path:           "/users/test123",
+			expectedStatus: http.StatusOK,
+			expectBody:     false,
+			expectHeaders:  map[string]string{"Content-Type": "application/json"},
+		},
+		{
+			name:           "GET existing resource returns headers and body",
+			method:         "GET", 
+			path:           "/users/test123",
+			expectedStatus: http.StatusOK,
+			expectBody:     true,
+			expectHeaders:  map[string]string{"Content-Type": "application/json"},
+		},
+		{
+			name:           "HEAD non-existent resource returns 404 with no body",
+			method:         "HEAD",
+			path:           "/users/nonexistent",
+			expectedStatus: http.StatusNotFound,
+			expectBody:     false,
+		},
+		{
+			name:           "HEAD collection returns same headers as GET but no body",
+			method:         "HEAD",
+			path:           "/users",
+			expectedStatus: http.StatusOK,
+			expectBody:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executeHeadTest(t, deps, tt)
+		})
+	}
+}
+
+type headTestCase struct {
+	name           string
+	method         string
+	path           string
+	expectedStatus int
+	expectBody     bool
+	expectHeaders  map[string]string
+}
+
+func createTestResourceForHead(t *testing.T, deps mockHandlerDeps, id, name string) {
+	t.Helper()
+	createBody := `{"id": "` + id + `", "name": "` + name + `"}`
+	createReq := httptest.NewRequest("POST", "/users", strings.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createW := httptest.NewRecorder()
+	deps.handler.ServeHTTP(createW, createReq)
+	
+	if createW.Code != http.StatusCreated {
+		t.Fatalf("failed to create test resource, status: %d", createW.Code)
+	}
+}
+
+func executeHeadTest(t *testing.T, deps mockHandlerDeps, tt headTestCase) {
+	t.Helper()
+	req := httptest.NewRequest(tt.method, tt.path, nil)
+	w := httptest.NewRecorder()
+	
+	deps.handler.ServeHTTP(w, req)
+	
+	if w.Code != tt.expectedStatus {
+		t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
+	}
+	
+	checkExpectedHeaders(t, w, tt.expectHeaders)
+	checkBodyPresence(t, w, tt.expectBody)
+}
+
+func checkExpectedHeaders(t *testing.T, w *httptest.ResponseRecorder, expectHeaders map[string]string) {
+	t.Helper()
+	for key, expectedValue := range expectHeaders {
+		if actualValue := w.Header().Get(key); actualValue != expectedValue {
+			t.Errorf("expected header %s: %s, got: %s", key, expectedValue, actualValue)
+		}
+	}
+}
+
+//nolint:revive // expectBody flag is appropriate for test validation
+func checkBodyPresence(t *testing.T, w *httptest.ResponseRecorder, expectBody bool) {
+	t.Helper()
+	body, err := io.ReadAll(w.Body)
+	if err != nil {
+		t.Fatalf("failed to read response body: %v", err)
+	}
+	
+	if expectBody {
+		if len(body) == 0 {
+			t.Error("expected response body but got empty body")
+		}
+	} else {
+		if len(body) != 0 {
+			t.Errorf("expected empty body but got: %s", string(body))
+		}
+	}
+}
+
+func TestMockHandler_HEAD_vs_GET_Consistency(t *testing.T) {
+	deps := setupMockHandlerFull(t)
+	
+	// Create a test resource
+	createTestResourceForHead(t, deps, "consistency123", "consistency test")
+
+	// Make GET and HEAD requests
+	getW := makeRequest(t, deps, "GET", "/users/consistency123")
+	headW := makeRequest(t, deps, "HEAD", "/users/consistency123")
+	
+	// Verify consistency
+	verifyStatusCodeConsistency(t, getW, headW)
+	verifyHeaderConsistency(t, getW, headW)
+	verifyBodyConsistency(t, getW, headW)
+}
+
+func makeRequest(t *testing.T, deps mockHandlerDeps, method, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, path, nil)
+	w := httptest.NewRecorder()
+	deps.handler.ServeHTTP(w, req)
+	return w
+}
+
+func verifyStatusCodeConsistency(t *testing.T, getW, headW *httptest.ResponseRecorder) {
+	t.Helper()
+	if getW.Code != headW.Code {
+		t.Errorf("status codes don't match: GET=%d, HEAD=%d", getW.Code, headW.Code)
+	}
+}
+
+func verifyHeaderConsistency(t *testing.T, getW, headW *httptest.ResponseRecorder) {
+	t.Helper()
+	getHeaders := getW.Header()
+	headHeaders := headW.Header()
+	
+	for key, getValues := range getHeaders {
+		if key == "Content-Length" {
+			continue // Skip Content-Length as it may differ
+		}
+		
+		headValues := headHeaders[key]
+		compareHeaderValues(t, key, getValues, headValues)
+	}
+}
+
+func compareHeaderValues(t *testing.T, key string, getValues, headValues []string) {
+	t.Helper()
+	if len(headValues) != len(getValues) {
+		t.Errorf("header %s value count mismatch: GET=%d, HEAD=%d", key, len(getValues), len(headValues))
+		return
+	}
+	
+	for i, getVal := range getValues {
+		if headValues[i] != getVal {
+			t.Errorf("header %s[%d] mismatch: GET=%s, HEAD=%s", key, i, getVal, headValues[i])
+		}
+	}
+}
+
+func verifyBodyConsistency(t *testing.T, getW, headW *httptest.ResponseRecorder) {
+	t.Helper()
+	getBody, _ := io.ReadAll(getW.Body)
+	headBody, _ := io.ReadAll(headW.Body)
+	
+	if len(getBody) == 0 {
+		t.Error("GET request should have body")
+	}
+	
+	if len(headBody) != 0 {
+		t.Errorf("HEAD request should have empty body, got: %s", string(headBody))
+	}
 }

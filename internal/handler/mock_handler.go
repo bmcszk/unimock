@@ -130,23 +130,48 @@ func (h *MockHandler) processPostRequest(
 
 // HandleGET processes GET requests step by step
 func (h *MockHandler) HandleGET(ctx context.Context, req *http.Request) (*http.Response, error) {
-	h.logger.Debug("starting GET request processing", "path", req.URL.Path)
+	return h.handleGetOrHead(ctx, req, false)
+}
+
+// HandleHEAD processes HEAD requests (same as GET but no body)
+func (h *MockHandler) HandleHEAD(ctx context.Context, req *http.Request) (*http.Response, error) {
+	return h.handleGetOrHead(ctx, req, true)
+}
+
+// handleGetOrHead processes GET and HEAD requests with optional body suppression
+//nolint:revive // suppressBody flag is appropriate for differentiating GET vs HEAD behavior
+func (h *MockHandler) handleGetOrHead(
+	ctx context.Context, req *http.Request, suppressBody bool,
+) (*http.Response, error) {
+	methodName := "GET"
+	if suppressBody {
+		methodName = "HEAD"
+	}
+	h.logger.Debug("starting "+methodName+" request processing", "path", req.URL.Path)
 
 	// Step 1: Find matching configuration section
 	section, sectionName, err := h.findSection(req.URL.Path)
 	if err != nil {
-		h.logger.Warn("no matching section for GET", "path", req.URL.Path, "error", err)
+		h.logger.Warn("no matching section for "+methodName, "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusNotFound, err.Error()), nil
 	}
 
 	// Step 2: Try to get individual resource first
 	individualResp := h.tryGetIndividualResource(ctx, req, section, sectionName)
 	if individualResp != nil {
+		if suppressBody {
+			return h.suppressResponseBody(individualResp), nil
+		}
 		return individualResp, nil
 	}
 
 	// Step 3: Get collection of resources
-	return h.getResourceCollection(ctx, req, section, sectionName)
+	resp := h.getResourceCollection(ctx, req, section, sectionName)
+	
+	if suppressBody {
+		return h.suppressResponseBody(resp), nil
+	}
+	return resp, nil
 }
 
 // tryGetIndividualResource attempts to get an individual resource
@@ -183,22 +208,22 @@ func (h *MockHandler) getResourceCollection(
 	req *http.Request,
 	section *config.Section,
 	sectionName string,
-) (*http.Response, error) {
+) *http.Response {
 	// For collection requests, use the base path from the pattern
 	// e.g., for pattern "/users/*" and request "/users/nonexistent", look for resources at "/users"
 	basePath := h.getCollectionBasePath(section.PathPattern, req.URL.Path)
 	
 	resources, err := h.service.GetResourcesByPath(ctx, basePath)
 	if err != nil || len(resources) == 0 {
-		return h.errorResponse(http.StatusNotFound, "resource not found"), nil
+		return h.errorResponse(http.StatusNotFound, "resource not found")
 	}
 
 	transformedResources, err := h.transformResourceCollection(resources, section, sectionName)
 	if err != nil {
-		return h.errorResponse(http.StatusInternalServerError, "response transformation failed"), nil
+		return h.errorResponse(http.StatusInternalServerError, "response transformation failed")
 	}
 
-	return h.buildCollectionResponse(transformedResources), nil
+	return h.buildCollectionResponse(transformedResources)
 }
 
 // getCollectionBasePath determines the base path for collection queries
@@ -531,10 +556,11 @@ func (h *MockHandler) extractIDs(
 
 // isPathBasedMethod checks if method uses path-based ID extraction
 func (*MockHandler) isPathBasedMethod(method string) bool {
-	return method == http.MethodGet || method == http.MethodPut || method == http.MethodDelete
+	return method == http.MethodGet || method == http.MethodHead ||
+		method == http.MethodPut || method == http.MethodDelete
 }
 
-// extractPathBasedIDs extracts IDs from path for GET/PUT/DELETE methods
+// extractPathBasedIDs extracts IDs from path for GET/HEAD/PUT/DELETE methods
 func (h *MockHandler) extractPathBasedIDs(
 	req *http.Request,
 	section *config.Section,
@@ -797,6 +823,8 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 	switch req.Method {
 	case http.MethodGet:
 		return h.HandleGET(ctx, req)
+	case http.MethodHead:
+		return h.HandleHEAD(ctx, req)
 	case http.MethodPost:
 		return h.HandlePOST(ctx, req)
 	case http.MethodPut:
@@ -868,6 +896,35 @@ func (h *MockHandler) writeBodyContent(w http.ResponseWriter, body []byte) {
 	if err != nil {
 		h.logger.Error("failed to write response body", "error", err)
 	}
+}
+
+// suppressResponseBody removes body from response while preserving headers and status
+func (*MockHandler) suppressResponseBody(resp *http.Response) *http.Response {
+	if resp == nil {
+		return resp
+	}
+	
+	// Create new response with same headers and status but empty body
+	newResp := &http.Response{
+		StatusCode: resp.StatusCode,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader("")),
+		Proto:      resp.Proto,
+		ProtoMajor: resp.ProtoMajor,
+		ProtoMinor: resp.ProtoMinor,
+	}
+	
+	// Copy all headers
+	for k, v := range resp.Header {
+		newResp.Header[k] = v
+	}
+	
+	// Close original body if it exists
+	if resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+	
+	return newResp
 }
 
 // GetConfig returns the mock configuration
