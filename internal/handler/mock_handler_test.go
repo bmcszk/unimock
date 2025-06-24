@@ -87,7 +87,7 @@ func setupMockHandlerFull(t *testing.T) mockHandlerDeps {
 				PathPattern:   "/users/*",
 				BodyIDPaths:   []string{"/id"},
 				CaseSensitive: true,
-				ReturnBody:    true, // Maintain backward compatibility for existing tests
+				ReturnBody:    true, // For backward compatibility with existing tests
 			},
 		},
 	}

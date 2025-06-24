@@ -26,6 +26,7 @@ products:
   body_id_paths:
     - "/product/sku"
   header_id_name: "X-Product-Token"
+  return_body: true  # E2E tests expect PUT operations to return body
 
 # Section for items (new)
 items:
@@ -33,6 +34,7 @@ items:
   header_id_name: "X-Item-ID"
   body_id_paths:
     - "/itemID"
+  return_body: true  # E2E tests expect PUT operations to return body
 
 # Section for resources (new)
 resources:
