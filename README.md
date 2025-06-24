@@ -53,6 +53,7 @@ mockConfig := &config.MockConfig{
         "users": {
             PathPattern:  "/users/*",
             StrictPath:   false, // Optional: enable strict path matching
+            ReturnBody:   true,  // Optional: return resource bodies in responses
             BodyIDPaths:  []string{"/id"},
             HeaderIDName: "X-User-ID",
         },
@@ -197,6 +198,21 @@ sections:
     strict_path: true               # Strict: exact path validation
 ```
 
+### Response Body Control
+
+Control whether POST/PUT/DELETE operations return resource bodies with the `return_body` flag:
+
+```yaml
+sections:
+  minimal_api:
+    path_pattern: "/api/minimal/**"
+    return_body: false              # Default: empty response bodies
+    
+  full_api:
+    path_pattern: "/api/full/**"
+    return_body: true               # Return resource bodies in responses
+```
+
 #### Behavior Scenarios
 
 # Scenario 1: Flexible Path Matching (strict_path=false)
@@ -288,6 +304,7 @@ mockConfig := &config.MockConfig{
         "users": {
             PathPattern:     "/users/*",
             StrictPath:      false, // Optional: enable strict path matching
+            ReturnBody:      true,  // Optional: return resource bodies in responses
             BodyIDPaths:     []string{"/id"},
             CaseSensitive:   false,
             Transformations: transformConfig, // Apply transformations
