@@ -9,7 +9,6 @@ users:
     - "/user/id"
     - "/user/@id"
   header_id_name: "X-User-ID"
-  return_body: true  # For E2E test compatibility where PUT operations expect body
 
 # Section for order-related endpoints
 orders:
@@ -27,7 +26,6 @@ products:
   body_id_paths:
     - "/product/sku"
   header_id_name: "X-Product-Token"
-  return_body: true  # For E2E test compatibility where PUT operations expect body
 
 # Section for items (new)
 items:
@@ -85,4 +83,3 @@ test_resources:
   path_pattern: "/test/resource/*"
   body_id_paths:
     - "/id"
-  return_body: true  # For E2E test compatibility where PUT operations expect body

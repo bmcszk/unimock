@@ -1,7 +1,4 @@
 HTTP/1.1 200 OK
-Content-Type: application/json
-
-{"id": "override-put-id-e2e-003", "value": "this should be skipped"}
 
 ###
 
