@@ -96,7 +96,8 @@ vet:
 	$(GOCMD) vet ./...
 
 lint:
-	golangci-lint run --build-tags=e2e
+	golangci-lint run ./...
+	golangci-lint run --build-tags=e2e ./e2e
 
 check:
 	@echo "Running checks..."

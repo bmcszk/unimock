@@ -1,11 +1,12 @@
 //go:build !e2e
 
-package storage
+package storage_test
 
 import (
 	"testing"
 
 	"github.com/bmcszk/unimock/internal/errors"
+	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,7 @@ import (
 func TestCompositeKeyConflictDetection(t *testing.T) {
 	tests := []struct {
 		name           string
-		setup          func(storage MockStorage)
+		setup          func(store storage.MockStorage)
 		sectionName    string
 		isStrictPath   bool
 		resourcePath   string
@@ -25,13 +26,13 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 	}{
 		{
 			name: "strict_path=true: different paths, same ID - no conflict",
-			setup: func(storage MockStorage) {
+			setup: func(store storage.MockStorage) {
 				data := &model.MockData{
 					Path: "/users/subpath",
 					IDs:  []string{"123"},
 					Body: []byte(`{"id": "123", "name": "test"}`),
 				}
-				storage.Create("users", true, data)
+				store.Create("users", true, data)
 			},
 			sectionName:    "users",
 			isStrictPath:   true,
@@ -42,13 +43,13 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 		},
 		{
 			name: "strict_path=true: same path, same ID - conflict",
-			setup: func(storage MockStorage) {
+			setup: func(store storage.MockStorage) {
 				data := &model.MockData{
 					Path: "/users/subpath",
 					IDs:  []string{"123"},
 					Body: []byte(`{"id": "123", "name": "test"}`),
 				}
-				storage.Create("users", true, data)
+				store.Create("users", true, data)
 			},
 			sectionName:    "users",
 			isStrictPath:   true,
@@ -59,13 +60,13 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 		},
 		{
 			name: "strict_path=false: different paths, same ID - conflict",
-			setup: func(storage MockStorage) {
+			setup: func(store storage.MockStorage) {
 				data := &model.MockData{
 					Path: "/users/subpath",
 					IDs:  []string{"123"},
 					Body: []byte(`{"id": "123", "name": "test"}`),
 				}
-				storage.Create("users", false, data)
+				store.Create("users", false, data)
 			},
 			sectionName:    "users",
 			isStrictPath:   false,
@@ -76,13 +77,13 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 		},
 		{
 			name: "strict_path=false: different sections, same ID - no conflict",
-			setup: func(storage MockStorage) {
+			setup: func(store storage.MockStorage) {
 				data := &model.MockData{
 					Path: "/users/subpath",
 					IDs:  []string{"123"},
 					Body: []byte(`{"id": "123", "name": "test"}`),
 				}
-				storage.Create("users", false, data)
+				store.Create("users", false, data)
 			},
 			sectionName:    "products",
 			isStrictPath:   false,
@@ -93,13 +94,13 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 		},
 		{
 			name: "mixed modes: strict creates resource, non-strict tries same section/ID",
-			setup: func(storage MockStorage) {
+			setup: func(store storage.MockStorage) {
 				data := &model.MockData{
 					Path: "/users/admin",
 					IDs:  []string{"456"},
 					Body: []byte(`{"id": "456", "name": "admin"}`),
 				}
-				storage.Create("users", true, data)
+				store.Create("users", true, data)
 			},
 			sectionName:    "users",
 			isStrictPath:   false,
@@ -112,10 +113,10 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := NewMockStorage()
+			store := storage.NewMockStorage()
 			
 			// Setup existing data
-			tt.setup(storage)
+			tt.setup(store)
 			
 			// Try to create a new resource that might conflict
 			newData := &model.MockData{
@@ -124,7 +125,7 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 				Body: []byte(`{"id": "` + tt.id + `", "name": "new resource"}`),
 			}
 			
-			err := storage.Create(tt.sectionName, tt.isStrictPath, newData)
+			err := store.Create(tt.sectionName, tt.isStrictPath, newData)
 			
 			if tt.expectConflict {
 				assert.Error(t, err, tt.description)
@@ -136,91 +137,61 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 	}
 }
 
-// TestCompositeKeyGeneration tests the composite key generation logic
-func TestCompositeKeyGeneration(t *testing.T) {
-	storage := &mockStorage{}
-	
-	tests := []struct {
-		name         string
-		sectionName  string
-		isStrictPath bool
-		resourcePath string
-		id           string
-		expectedKey  string
-	}{
-		{
-			name:         "strict mode uses path:id format",
-			sectionName:  "users",
-			isStrictPath: true,
-			resourcePath: "/users/subpath",
-			id:           "123",
-			expectedKey:  "/users/subpath:123",
-		},
-		{
-			name:         "non-strict mode uses section:id format",
-			sectionName:  "users",
-			isStrictPath: false,
-			resourcePath: "/users/subpath",
-			id:           "123",
-			expectedKey:  "users:123",
-		},
-		{
-			name:         "strict mode with root path",
-			sectionName:  "products",
-			isStrictPath: true,
-			resourcePath: "/products",
-			id:           "abc",
-			expectedKey:  "/products:abc",
-		},
-		{
-			name:         "non-strict mode with complex path",
-			sectionName:  "orders",
-			isStrictPath: false,
-			resourcePath: "/api/v1/orders/pending",
-			id:           "order-456",
-			expectedKey:  "orders:order-456",
-		},
-	}
 
-	for _, tt := range tests {
+// TestSectionAwareResourceAccess tests that resources are properly scoped by section/strict_path mode
+func TestSectionAwareResourceAccess(t *testing.T) {
+	store := storage.NewMockStorage()
+	
+	// Setup test data
+	strictData, nonStrictData := setupSectionAwareTestData(t, store)
+	
+	// Run test cases
+	testCases := getSectionAwareTestCases(strictData, nonStrictData)
+	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			key := storage.buildCompositeKey(tt.sectionName, tt.isStrictPath, tt.resourcePath, tt.id)
-			assert.Equal(t, tt.expectedKey, key)
+			validateSectionAwareAccess(t, store, tt)
 		})
 	}
 }
 
-// TestSectionAwareResourceAccess tests that resources are properly scoped by section/strict_path mode
-func TestSectionAwareResourceAccess(t *testing.T) {
-	storage := NewMockStorage()
+// setupSectionAwareTestData creates test resources in different scopes
+func setupSectionAwareTestData(t *testing.T, store storage.MockStorage) (strictData, nonStrictData *model.MockData) {
+	t.Helper()
 	
 	// Create resources in different scopes with different IDs
-	strictData := &model.MockData{
+	strictData = &model.MockData{
 		Path: "/users/admin",
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "strict admin"}`),
 	}
-	err := storage.Create("users", true, strictData)
+	err := store.Create("users", true, strictData)
 	require.NoError(t, err)
 	
-	nonStrictData := &model.MockData{
+	nonStrictData = &model.MockData{
 		Path: "/users/regular",
 		IDs:  []string{"456"}, // Different ID to avoid conflict
 		Body: []byte(`{"id": "456", "name": "non-strict user"}`),
 	}
-	err = storage.Create("users", false, nonStrictData)
+	err = store.Create("users", false, nonStrictData)
 	require.NoError(t, err)
 	
-	// Try to access resources
-	tests := []struct {
-		name             string
-		sectionName      string
-		isStrictPath     bool
-		id               string
-		expectedData     *model.MockData
-		shouldFind       bool
-		description      string
-	}{
+	return strictData, nonStrictData
+}
+
+// sectionAwareTestCase defines a test case for section-aware access
+type sectionAwareTestCase struct {
+	name         string
+	sectionName  string
+	isStrictPath bool
+	id           string
+	expectedData *model.MockData
+	shouldFind   bool
+	description  string
+}
+
+// getSectionAwareTestCases returns test cases for section-aware access
+func getSectionAwareTestCases(strictData, nonStrictData *model.MockData) []sectionAwareTestCase {
+	return []sectionAwareTestCase{
 		{
 			name:         "strict mode finds strict resource",
 			sectionName:  "users",
@@ -256,29 +227,30 @@ func TestSectionAwareResourceAccess(t *testing.T) {
 			description:  "Non-strict mode should not find resources from strict mode",
 		},
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := storage.Get(tt.sectionName, tt.isStrictPath, tt.id)
-			
-			if tt.shouldFind {
-				assert.NoError(t, err, tt.description)
-				assert.NotNil(t, result, tt.description)
-				if tt.expectedData != nil {
-					assert.Equal(t, tt.expectedData.Path, result.Path)
-					assert.Equal(t, tt.expectedData.IDs, result.IDs)
-				}
-			} else {
-				assert.Error(t, err, tt.description)
-				assert.Nil(t, result, tt.description)
-			}
-		})
+// validateSectionAwareAccess validates a single section-aware access test case
+func validateSectionAwareAccess(t *testing.T, store storage.MockStorage, tt sectionAwareTestCase) {
+	t.Helper()
+	
+	result, err := store.Get(tt.sectionName, tt.isStrictPath, tt.id)
+	
+	if tt.shouldFind {
+		assert.NoError(t, err, tt.description)
+		assert.NotNil(t, result, tt.description)
+		if tt.expectedData != nil {
+			assert.Equal(t, tt.expectedData.Path, result.Path)
+			assert.Equal(t, tt.expectedData.IDs, result.IDs)
+		}
+	} else {
+		assert.Error(t, err, tt.description)
+		assert.Nil(t, result, tt.description)
 	}
 }
 
 // TestResourceUpdateConflictDetection tests conflict detection during updates
 func TestResourceUpdateConflictDetection(t *testing.T) {
-	storage := NewMockStorage()
+	store := storage.NewMockStorage()
 	
 	// Create initial resource
 	initialData := &model.MockData{
@@ -286,7 +258,7 @@ func TestResourceUpdateConflictDetection(t *testing.T) {
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "original"}`),
 	}
-	err := storage.Create("users", true, initialData)
+	err := store.Create("users", true, initialData)
 	require.NoError(t, err)
 	
 	// Test updating existing resource
@@ -296,11 +268,11 @@ func TestResourceUpdateConflictDetection(t *testing.T) {
 		Body: []byte(`{"id": "123", "name": "updated"}`),
 	}
 	
-	err = storage.Update("users", true, "123", updatedData)
+	err = store.Update("users", true, "123", updatedData)
 	assert.NoError(t, err, "Should be able to update existing resource")
 	
 	// Verify update
-	result, err := storage.Get("users", true, "123")
+	result, err := store.Get("users", true, "123")
 	require.NoError(t, err)
 	assert.Contains(t, string(result.Body), "updated")
 	
@@ -311,14 +283,14 @@ func TestResourceUpdateConflictDetection(t *testing.T) {
 		Body: []byte(`{"id": "999", "name": "should not work"}`),
 	}
 	
-	err = storage.Update("users", true, "999", nonExistentData)
+	err = store.Update("users", true, "999", nonExistentData)
 	assert.Error(t, err, "Should not be able to update non-existent resource")
 	assert.IsType(t, &errors.NotFoundError{}, err)
 }
 
 // TestResourceDeletionWithScoping tests deletion works correctly with section scoping
 func TestResourceDeletionWithScoping(t *testing.T) {
-	storage := NewMockStorage()
+	store := storage.NewMockStorage()
 	
 	// Create resources in different scopes with different IDs
 	strictData := &model.MockData{
@@ -326,7 +298,7 @@ func TestResourceDeletionWithScoping(t *testing.T) {
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "strict admin"}`),
 	}
-	err := storage.Create("users", true, strictData)
+	err := store.Create("users", true, strictData)
 	require.NoError(t, err)
 	
 	nonStrictData := &model.MockData{
@@ -334,34 +306,34 @@ func TestResourceDeletionWithScoping(t *testing.T) {
 		IDs:  []string{"456"}, // Different ID to avoid conflict
 		Body: []byte(`{"id": "456", "name": "non-strict user"}`),
 	}
-	err = storage.Create("users", false, nonStrictData)
+	err = store.Create("users", false, nonStrictData)
 	require.NoError(t, err)
 	
 	// Delete strict resource
-	err = storage.Delete("users", true, "123")
+	err = store.Delete("users", true, "123")
 	assert.NoError(t, err, "Should be able to delete strict resource")
 	
 	// Verify strict resource is gone
-	_, err = storage.Get("users", true, "123")
+	_, err = store.Get("users", true, "123")
 	assert.Error(t, err, "Strict resource should be deleted")
 	
 	// Verify non-strict resource still exists
-	result, err := storage.Get("users", false, "456")
+	result, err := store.Get("users", false, "456")
 	assert.NoError(t, err, "Non-strict resource should still exist")
 	assert.Contains(t, string(result.Body), "non-strict user")
 	
 	// Delete non-strict resource
-	err = storage.Delete("users", false, "456")
+	err = store.Delete("users", false, "456")
 	assert.NoError(t, err, "Should be able to delete non-strict resource")
 	
 	// Verify both resources are gone
-	_, err = storage.Get("users", false, "456")
+	_, err = store.Get("users", false, "456")
 	assert.Error(t, err, "Non-strict resource should be deleted")
 }
 
 // TestNonStrictModeIDUniquenessPerSection tests that IDs must be unique per section in non-strict mode
 func TestNonStrictModeIDUniquenessPerSection(t *testing.T) {
-	storage := NewMockStorage()
+	store := storage.NewMockStorage()
 	
 	// Create first resource in non-strict mode
 	firstData := &model.MockData{
@@ -369,7 +341,7 @@ func TestNonStrictModeIDUniquenessPerSection(t *testing.T) {
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "first user"}`),
 	}
-	err := storage.Create("users", false, firstData)
+	err := store.Create("users", false, firstData)
 	require.NoError(t, err)
 	
 	// Try to create second resource with same ID in same section
@@ -378,7 +350,7 @@ func TestNonStrictModeIDUniquenessPerSection(t *testing.T) {
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "second user"}`),
 	}
-	err = storage.Create("users", false, secondData)
+	err = store.Create("users", false, secondData)
 	assert.Error(t, err, "Should not allow duplicate ID in same section for non-strict mode")
 	assert.IsType(t, &errors.ConflictError{}, err)
 }
