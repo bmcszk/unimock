@@ -77,12 +77,12 @@ func (r *Router) handleScenario(w http.ResponseWriter, req *http.Request, reques
 		pathLogKey, requestPath,
 		"uuid", scenario.UUID)
 
-	r.writeScenarioResponse(w, scenario)
+	r.writeScenarioResponse(w, req, scenario)
 	return true
 }
 
 // writeScenarioResponse writes the scenario response
-func (r *Router) writeScenarioResponse(w http.ResponseWriter, scenario *model.Scenario) {
+func (r *Router) writeScenarioResponse(w http.ResponseWriter, req *http.Request, scenario *model.Scenario) {
 	w.Header().Set("Content-Type", scenario.ContentType)
 	if scenario.Location != "" {
 		w.Header().Set("Location", scenario.Location)
@@ -96,8 +96,11 @@ func (r *Router) writeScenarioResponse(w http.ResponseWriter, scenario *model.Sc
 	
 	w.WriteHeader(scenario.StatusCode)
 	
-	if _, err := w.Write([]byte(scenario.Data)); err != nil {
-		r.logger.Error("failed to write scenario response in router", "error", err)
+	// For HEAD requests, don't write response body
+	if req.Method != http.MethodHead {
+		if _, err := w.Write([]byte(scenario.Data)); err != nil {
+			r.logger.Error("failed to write scenario response in router", "error", err)
+		}
 	}
 }
 
