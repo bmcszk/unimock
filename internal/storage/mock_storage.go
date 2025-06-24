@@ -14,24 +14,25 @@ import (
 const (
 	// pathSeparator represents the separator used in URL paths
 	pathSeparator = "/"
+	// keySeparator separates section/path from ID in composite keys
+	keySeparator = ":"
 )
 
 // MockStorage interface defines the operations for storing and retrieving data
 type MockStorage interface {
-	Create(data *model.MockData) error
-	Update(id string, data *model.MockData) error
-	Get(id string) (*model.MockData, error)
+	Create(sectionName string, isStrictPath bool, data *model.MockData) error
+	Update(sectionName string, isStrictPath bool, id string, data *model.MockData) error
+	Get(sectionName string, isStrictPath bool, id string) (*model.MockData, error)
 	GetByPath(requestPath string) ([]*model.MockData, error)
-	Delete(id string) error
+	Delete(sectionName string, isStrictPath bool, id string) error
 	ForEach(fn func(id string, data *model.MockData) error) error
 }
 
 // mockStorage implements the Storage interface
 type mockStorage struct {
 	mu      *sync.RWMutex
-	data    map[string]*model.MockData // storageID -> data
-	idMap   map[string]string          // externalID -> storageID
-	pathMap map[string][]string        // path -> []storageID
+	data    map[string]*model.MockData // compositeKey -> data
+	pathMap map[string][]string        // path -> []compositeKey
 }
 
 // NewMockStorage creates a new instance of storage
@@ -39,7 +40,6 @@ func NewMockStorage() MockStorage {
 	return &mockStorage{
 		mu:      &sync.RWMutex{},
 		data:    make(map[string]*model.MockData),
-		idMap:   make(map[string]string),
 		pathMap: make(map[string][]string),
 	}
 }
@@ -60,8 +60,28 @@ func (*mockStorage) validateID(id string) error {
 	return nil
 }
 
-// Create stores new data using IDs from MockData.IDs field
-func (s *mockStorage) Create(data *model.MockData) error {
+// buildCompositeKey creates a composite key for storage based on strict_path mode
+//nolint:revive // isStrictPath flag is core to the design requirements
+func (*mockStorage) buildCompositeKey(sectionName string, isStrictPath bool, resourcePath string, id string) string {
+	if isStrictPath {
+		// Strict mode: path:id (e.g., "/users/subpath:123")
+		return resourcePath + keySeparator + id
+	}
+	// Non-strict mode: section:id (e.g., "users:123")
+	return sectionName + keySeparator + id
+}
+
+// extractIDFromCompositeKey extracts the ID part from a composite key
+func (*mockStorage) extractIDFromCompositeKey(compositeKey string) string {
+	parts := strings.Split(compositeKey, keySeparator)
+	if len(parts) >= 2 {
+		return parts[len(parts)-1]
+	}
+	return compositeKey
+}
+
+// Create stores new data using IDs from MockData.IDs field with section-aware conflict detection
+func (s *mockStorage) Create(sectionName string, isStrictPath bool, data *model.MockData) error {
 	if err := s.validateData(data); err != nil {
 		return err
 	}
@@ -69,29 +89,32 @@ func (s *mockStorage) Create(data *model.MockData) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Validate IDs and check for conflicts
-	effectiveIDs, err := s.prepareIDs(data)
+	// Validate IDs and check for conflicts based on strict_path mode
+	effectiveIDs, err := s.prepareIDsWithConflictCheck(sectionName, isStrictPath, data)
 	if err != nil {
 		return err
 	}
 
-	// Generate storage ID and prepare data
-	storageID, finalIDs := s.prepareDataForStorage(effectiveIDs, data)
+	// Prepare data for storage
+	finalIDs := s.prepareDataForStorage(effectiveIDs, data)
 
-	// Store and map the data
-	s.storeData(storageID, finalIDs, data)
+	// Store the data with composite keys
+	s.storeDataWithCompositeKeys(sectionName, isStrictPath, finalIDs, data)
 
 	return nil
 }
 
-// prepareIDs gets IDs from MockData and validates for conflicts
-func (s *mockStorage) prepareIDs(data *model.MockData) ([]string, error) {
+// prepareIDsWithConflictCheck gets IDs from MockData and validates for conflicts based on strict_path mode
+func (s *mockStorage) prepareIDsWithConflictCheck(
+	sectionName string, isStrictPath bool, data *model.MockData,
+) ([]string, error) {
 	// Use IDs from MockData
 	effectiveIDs := data.IDs
 
-	// Check for conflicts
+	// Check for conflicts using composite keys
 	for _, id := range effectiveIDs {
-		if _, exists := s.idMap[id]; exists {
+		compositeKey := s.buildCompositeKey(sectionName, isStrictPath, data.Path, id)
+		if _, exists := s.data[compositeKey]; exists {
 			return nil, errors.NewConflictError(id)
 		}
 	}
@@ -99,11 +122,8 @@ func (s *mockStorage) prepareIDs(data *model.MockData) ([]string, error) {
 	return effectiveIDs, nil
 }
 
-// prepareDataForStorage generates storage ID and sets up data location
-func (*mockStorage) prepareDataForStorage(effectiveIDs []string, data *model.MockData) (string, []string) {
-	// Generate a new storage ID
-	storageID := uuid.New().String()
-
+// prepareDataForStorage sets up data location and handles ID generation
+func (*mockStorage) prepareDataForStorage(effectiveIDs []string, data *model.MockData) []string {
 	// Ensure path doesn't have trailing slash
 	data.Path = strings.TrimRight(data.Path, pathSeparator)
 
@@ -120,29 +140,34 @@ func (*mockStorage) prepareDataForStorage(effectiveIDs []string, data *model.Moc
 	// Update the MockData with the effective IDs
 	data.IDs = effectiveIDs
 
-	return storageID, effectiveIDs
+	return effectiveIDs
 }
 
-// storeData stores the data and updates all mappings
-func (s *mockStorage) storeData(storageID string, effectiveIDs []string, data *model.MockData) {
-	// Store the data
-	s.data[storageID] = data
-
-	// Map external IDs to storage ID
+// storeDataWithCompositeKeys stores the data using composite keys and updates path mappings
+func (s *mockStorage) storeDataWithCompositeKeys(
+	sectionName string, isStrictPath bool, effectiveIDs []string, data *model.MockData,
+) {
+	// Store data using the primary composite key (first ID)
+	primaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, data.Path, effectiveIDs[0])
+	s.data[primaryCompositeKey] = data
+	
+	// For multiple IDs, all should point to the same data entry
+	// We achieve this by having all composite keys reference the same data object
 	for _, id := range effectiveIDs {
-		s.idMap[id] = storageID
+		compositeKey := s.buildCompositeKey(sectionName, isStrictPath, data.Path, id)
+		s.data[compositeKey] = data
 	}
 
-	// Add to pathMap for both original path and path with ID
-	s.pathMap[data.Path] = append(s.pathMap[data.Path], storageID)
+	// Update pathMap for path-based lookups using primary key
+	s.pathMap[data.Path] = append(s.pathMap[data.Path], primaryCompositeKey)
 	if len(effectiveIDs) > 0 {
 		idPath := path.Join(data.Path, effectiveIDs[0])
-		s.pathMap[idPath] = append(s.pathMap[idPath], storageID)
+		s.pathMap[idPath] = append(s.pathMap[idPath], primaryCompositeKey)
 	}
 }
 
-// Update updates existing data for the given ID
-func (s *mockStorage) Update(id string, data *model.MockData) error {
+// Update updates existing data for the given ID using section-aware composite key lookup
+func (s *mockStorage) Update(sectionName string, isStrictPath bool, id string, data *model.MockData) error {
 	if err := s.validateData(data); err != nil {
 		return err
 	}
@@ -153,54 +178,91 @@ func (s *mockStorage) Update(id string, data *model.MockData) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Get existing storage ID
-	storageID, exists := s.idMap[id]
-	if !exists {
-		return errors.NewNotFoundError(id, "")
+	// Find the existing data
+	oldData, err := s.findExistingDataOnly(sectionName, isStrictPath, id)
+	if err != nil {
+		return err
 	}
 
-	// Get old data for path cleanup
-	oldData := s.data[storageID]
-	if oldData == nil { // Should not happen if storageID exists, but as a safeguard
-		return errors.NewNotFoundError(id, "data integrity issue: storageID exists but no data")
-	}
+	// Preserve original IDs from the old data
+	data.IDs = oldData.IDs
+	data.Location = data.Path + pathSeparator + data.IDs[0]
+	data.Path = strings.TrimRight(data.Path, pathSeparator)
 
-	// Determine old and new id-specific paths
-	oldIDPath := path.Join(oldData.Path, id)
-	newIDPath := path.Join(data.Path, id)
+	// Remove all old composite keys for this resource
+	s.removeAllCompositeKeysForResource(sectionName, isStrictPath, oldData)
+	
+	// Store updated data with all IDs
+	s.storeDataWithCompositeKeys(sectionName, isStrictPath, data.IDs, data)
 
-	// Update the data itself
-	s.data[storageID] = data
-
-	// Update pathMap if the base path or the full path (if id changed, though id is fixed here) has changed
-	// This handles the case where the resource is moved to a different collection path.
+	// Update pathMap if path has changed
 	if oldData.Path != data.Path {
-		s.removeFromOldPaths(storageID, oldData.Path, oldIDPath)
-		// Add to new base path in pathMap
-		s.pathMap[data.Path] = append(s.pathMap[data.Path], storageID)
-		// Add to new id-specific path in pathMap
-		s.pathMap[newIDPath] = append(s.pathMap[newIDPath], storageID)
+		oldPrimaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, oldData.Path, oldData.IDs[0])
+		newPrimaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, data.Path, data.IDs[0])
+		s.updatePathMappingsForUpdate(oldPrimaryCompositeKey, newPrimaryCompositeKey, oldData, data, data.IDs[0])
 	}
 
 	return nil
 }
 
-// removeFromOldPaths removes storage ID from old path mappings
-func (s *mockStorage) removeFromOldPaths(storageID, oldPath, oldIDPath string) {
-	s.removeFromPath(storageID, oldPath)
-	s.removeFromPath(storageID, oldIDPath)
+// findExistingResource finds an existing resource by ID within the section scope
+//nolint:revive // isStrictPath flag is core to the design requirements
+func (s *mockStorage) findExistingResource(
+	sectionName string, isStrictPath bool, id string,
+) (string, *model.MockData, error) {
+	for compositeKey, data := range s.data {
+		keyID := s.extractIDFromCompositeKey(compositeKey)
+		if keyID != id {
+			continue
+		}
+		
+		// First try exact scope match
+		if s.isCompositeKeyInScope(compositeKey, sectionName, isStrictPath, data.Path) {
+			return compositeKey, data, nil
+		}
+		
+		// Then try cross-strict_path lookup within the same section
+		if s.isCompositeKeyInScope(compositeKey, sectionName, !isStrictPath, data.Path) {
+			return compositeKey, data, nil
+		}
+	}
+	return "", nil, errors.NewNotFoundError(id, "")
 }
 
-// removeFromPath removes storage ID from a specific path mapping
-func (s *mockStorage) removeFromPath(storageID, resourcePath string) {
-	pathIDs, ok := s.pathMap[resourcePath]
+// findExistingDataOnly finds existing resource data without returning composite key
+func (s *mockStorage) findExistingDataOnly(
+	sectionName string, isStrictPath bool, id string,
+) (*model.MockData, error) {
+	_, data, err := s.findExistingResource(sectionName, isStrictPath, id)
+	return data, err
+}
+
+// updatePathMappingsForUpdate handles path map updates when resource path changes
+func (s *mockStorage) updatePathMappingsForUpdate(
+	oldCompositeKey, newCompositeKey string, oldData, newData *model.MockData, id string,
+) {
+	// Remove from old paths
+	oldIDPath := path.Join(oldData.Path, id)
+	s.removeCompositeKeyFromPath(oldCompositeKey, oldData.Path)
+	s.removeCompositeKeyFromPath(oldCompositeKey, oldIDPath)
+	
+	// Add to new paths
+	newIDPath := path.Join(newData.Path, id)
+	s.pathMap[newData.Path] = append(s.pathMap[newData.Path], newCompositeKey)
+	s.pathMap[newIDPath] = append(s.pathMap[newIDPath], newCompositeKey)
+}
+
+
+// removeCompositeKeyFromPath removes composite key from a specific path mapping
+func (s *mockStorage) removeCompositeKeyFromPath(compositeKey, resourcePath string) {
+	pathKeys, ok := s.pathMap[resourcePath]
 	if !ok {
 		return
 	}
 
-	for i, sid := range pathIDs {
-		if sid == storageID {
-			s.pathMap[resourcePath] = append(pathIDs[:i], pathIDs[i+1:]...)
+	for i, key := range pathKeys {
+		if key == compositeKey {
+			s.pathMap[resourcePath] = append(pathKeys[:i], pathKeys[i+1:]...)
 			break
 		}
 	}
@@ -210,8 +272,8 @@ func (s *mockStorage) removeFromPath(storageID, resourcePath string) {
 	}
 }
 
-// Get retrieves data by ID
-func (s *mockStorage) Get(id string) (*model.MockData, error) {
+// Get retrieves data by ID using section-aware composite key lookup
+func (s *mockStorage) Get(sectionName string, isStrictPath bool, id string) (*model.MockData, error) {
 	if err := s.validateID(id); err != nil {
 		return nil, err
 	}
@@ -219,21 +281,53 @@ func (s *mockStorage) Get(id string) (*model.MockData, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	storageID, exists := s.idMap[id]
-	if !exists {
-		return nil, errors.NewNotFoundError(id, "")
-	}
+	// For Get operations, we need to search across all possible paths in the section
+	// since we don't know the exact path when looking up by ID
+	return s.findResourceByID(sectionName, isStrictPath, id)
+}
 
-	data, exists := s.data[storageID]
-	if !exists {
-		return nil, errors.NewNotFoundError(id, "")
+// findResourceByID searches for a resource by ID within the given section and strict mode
+//nolint:revive // isStrictPath flag is core to the design requirements
+func (s *mockStorage) findResourceByID(sectionName string, isStrictPath bool, id string) (*model.MockData, error) {
+	// Search through all stored data to find matching composite key
+	for compositeKey, data := range s.data {
+		// Extract the ID from the composite key
+		keyID := s.extractIDFromCompositeKey(compositeKey)
+		if keyID != id {
+			continue
+		}
+		
+		// Only return resources that match both section and strict mode
+		if s.isCompositeKeyInScope(compositeKey, sectionName, isStrictPath, data.Path) {
+			return data, nil
+		}
 	}
+	
+	return nil, errors.NewNotFoundError(id, "")
+}
 
-	return data, nil
+// isCompositeKeyInScope checks if a composite key belongs to the specified scope
+//nolint:revive // isStrictPath flag is core to the design requirements
+func (*mockStorage) isCompositeKeyInScope(
+	compositeKey, sectionName string, isStrictPath bool, resourcePath string,
+) bool {
+	parts := strings.Split(compositeKey, keySeparator)
+	if len(parts) < 2 {
+		return false
+	}
+	
+	keyScope := strings.Join(parts[:len(parts)-1], keySeparator)
+	
+	if isStrictPath {
+		// For strict mode, scope should be the resource path
+		return keyScope == resourcePath
+	}
+	// For non-strict mode, scope should be the section name
+	return keyScope == sectionName
 }
 
 // GetByPath retrieves all data stored at the given path
-func (s *mockStorage) GetByPath(requestPath string) ([]*model.MockData, error) { //nolint:revive
+func (s *mockStorage) GetByPath(requestPath string) ([]*model.MockData, error) {
 	if requestPath == "" {
 		return nil, errors.NewInvalidRequestError("path cannot be empty")
 	}
@@ -241,38 +335,15 @@ func (s *mockStorage) GetByPath(requestPath string) ([]*model.MockData, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var result []*model.MockData
-	seen := make(map[string]bool) // Track seen storage IDs to prevent duplicates
-
 	// Normalize path by removing trailing slash
 	requestPath = strings.TrimSuffix(requestPath, pathSeparator)
-
-	// Only allow exact case-sensitive match
-	if storageIDs, ok := s.pathMap[requestPath]; ok {
-		for _, sid := range storageIDs {
-			if data, exists := s.data[sid]; exists && !seen[sid] {
-				seen[sid] = true
-				result = append(result, data)
-			}
-		}
-		if len(result) > 0 {
-			return result, nil
-		}
+	
+	result := s.getExactPathMatches(requestPath)
+	if len(result) > 0 {
+		return result, nil
 	}
-
-	// For collections, only allow case-sensitive prefix match
-	for storedPath, storageIDs := range s.pathMap {
-		storedPath = strings.TrimSuffix(storedPath, pathSeparator)
-		if strings.HasPrefix(storedPath, requestPath+pathSeparator) {
-			for _, sid := range storageIDs {
-				if data, exists := s.data[sid]; exists && !seen[sid] {
-					seen[sid] = true
-					result = append(result, data)
-				}
-			}
-		}
-	}
-
+	
+	result = s.getPrefixPathMatches(requestPath)
 	if len(result) > 0 {
 		return result, nil
 	}
@@ -280,8 +351,52 @@ func (s *mockStorage) GetByPath(requestPath string) ([]*model.MockData, error) {
 	return nil, errors.NewNotFoundError("resource not found", requestPath)
 }
 
-// Delete removes data by ID
-func (s *mockStorage) Delete(id string) error { //nolint:revive
+// getExactPathMatches finds resources with exact path matches
+func (s *mockStorage) getExactPathMatches(requestPath string) []*model.MockData {
+	var result []*model.MockData
+	seen := make(map[*model.MockData]bool)
+	
+	if compositeKeys, ok := s.pathMap[requestPath]; ok {
+		for _, key := range compositeKeys {
+			if data, exists := s.data[key]; exists && !seen[data] {
+				seen[data] = true
+				result = append(result, data)
+			}
+		}
+	}
+	return result
+}
+
+// getPrefixPathMatches finds resources with prefix path matches
+func (s *mockStorage) getPrefixPathMatches(requestPath string) []*model.MockData {
+	var result []*model.MockData
+	seen := make(map[*model.MockData]bool)
+	
+	for storedPath, compositeKeys := range s.pathMap {
+		storedPath = strings.TrimSuffix(storedPath, pathSeparator)
+		if !strings.HasPrefix(storedPath, requestPath+pathSeparator) {
+			continue
+		}
+		result = s.addKeysToResult(result, seen, compositeKeys)
+	}
+	return result
+}
+
+// addKeysToResult adds composite keys to result if they exist and haven't been seen
+func (s *mockStorage) addKeysToResult(
+	result []*model.MockData, seen map[*model.MockData]bool, compositeKeys []string,
+) []*model.MockData {
+	for _, key := range compositeKeys {
+		if data, exists := s.data[key]; exists && !seen[data] {
+			seen[data] = true
+			result = append(result, data)
+		}
+	}
+	return result
+}
+
+// Delete removes data by ID using section-aware composite key lookup
+func (s *mockStorage) Delete(sectionName string, isStrictPath bool, id string) error {
 	if err := s.validateID(id); err != nil {
 		return err
 	}
@@ -289,128 +404,37 @@ func (s *mockStorage) Delete(id string) error { //nolint:revive
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	storageID, exists := s.idMap[id]
-	if !exists {
-		// If the direct ID is not found, it might be a path trying to be deleted.
-		// However, this Delete function is ID-specific.
-		// Path-based deletion should be handled by a different mechanism or by iterating through GetByPath results.
-		return errors.NewNotFoundError(id, " (as an individual resource ID)")
+	// Find the existing resource
+	mockData, err := s.findExistingDataOnly(sectionName, isStrictPath, id)
+	if err != nil {
+		return err
 	}
 
-	// Get the data for path cleanup and to ensure it exists
-	mockData, dataExists := s.data[storageID]
-	if !dataExists {
-		// Data integrity issue: idMap has it, but data doesn't. Clean up idMap entry.
-		delete(s.idMap, id)
-		return errors.NewNotFoundError(id, " (data integrity issue: found in idMap but not in data store)")
-	}
+	// Remove all composite keys that point to this data
+	s.removeAllCompositeKeysForResource(sectionName, isStrictPath, mockData)
 
-	// 1. Remove all external ID mappings for this storageID
-	for extID, mappedStorageID := range s.idMap {
-		if mappedStorageID == storageID {
-			delete(s.idMap, extID)
-		}
-	}
-
-	// 2. Remove the resource data
-	delete(s.data, storageID)
-
-	// 3. Clean up pathMap
-	// Remove from the resource's base path
-	if pathIDs, ok := s.pathMap[mockData.Path]; ok {
-		newPathIDs := []string{}
-		for _, sid := range pathIDs {
-			if sid != storageID {
-				newPathIDs = append(newPathIDs, sid)
-			}
-		}
-		if len(newPathIDs) == 0 {
-			delete(s.pathMap, mockData.Path)
-		} else {
-			s.pathMap[mockData.Path] = newPathIDs
-		}
-	}
-
-	// Remove from all potential ID-specific paths.
-	// This requires knowing all external IDs previously associated with mockData.Path.
-	// Since we just deleted them from idMap, we don't have them directly.
-	// However, the original pathMap construction added entries for path.Join(data.Path, ids[0]).
-	// This part is tricky if multiple external IDs could form different id-specific paths.
-	// For now, assume the main id-specific path was formed with the 'id' passed to this Delete function.
-	// A more robust cleanup might involve iterating all paths in pathMap, but that's inefficient.
-	// The current pathMap structure might need rethinking if arbitrary external IDs
-	// can form parts of distinct stored paths.
-	// Let's stick to cleaning the path derived from the original id.
-	// The original code also cleaned up path.Join(oldData.Path, id) in Update.
-
-	// Re-evaluate path cleanup based on how paths are stored.
-	// The current `pathMap` stores storageIDs under their `data.Path` (collection)
-	// and potentially under `data.Path + "/" + externalId` (specific resource via one ID).
-	// We've cleaned `mockData.Path`. We also need to clean any `mockData.Path + "/" + someExternalId` entries.
-
-	// Iterate over a copy of pathMap keys to avoid issues with deleting from map during iteration
-	pathsToClean := []string{}
-	for p := range s.pathMap {
-		// Check if path p starts with mockData.Path + "/" and corresponds to one of the (now deleted) external IDs.
-		// This is still indirect. A better way would be if model.MockData stored all its external IDs.
-		// For now, we only explicitly know the 'id' used for deletion.
-		// Let's assume pathMap stores entries for mockData.Path (collection) and potentially
-		// mockData.Location (which is data.Path + "/" + ids[0] from Create).
-		// mockData.Location should be the id-specific path created with the primary external ID
-		if p == mockData.Location {
-			pathsToClean = append(pathsToClean, p)
-		}
-	}
-	// Also, if the 'id' used for deletion was not the one used to form mockData.Location,
-	// its specific path (mockData.Path + "/" + id) might also be in pathMap.
-	idSpecificPath := path.Join(mockData.Path, id)
-	if _, exists := s.pathMap[idSpecificPath]; exists {
-		pathsToClean = append(pathsToClean, idSpecificPath)
-	}
-
-	for _, p := range pathsToClean {
-		if pathIDs, ok := s.pathMap[p]; ok {
-			newPathIDs := []string{}
-			for _, sid := range pathIDs {
-				if sid != storageID {
-					newPathIDs = append(newPathIDs, sid)
-				}
-			}
-			if len(newPathIDs) == 0 {
-				delete(s.pathMap, p)
-			} else {
-				s.pathMap[p] = newPathIDs
-			}
-		}
-	}
-
-	// If the id used for deletion itself formed part of a path key in pathMap
-	// e.g. pathMap["/users/id123"] where "id123" is the 'id'
-	// This specific path should also be cleaned if it only contained this storageID
-	specificPathKey := path.Join(mockData.Path, id) // Assuming id is the last segment
-	if currentPathIDs, ok := s.pathMap[specificPathKey]; ok {
-		newSpecificPathIDs := []string{}
-		for _, sid := range currentPathIDs {
-			if sid != storageID {
-				newSpecificPathIDs = append(newSpecificPathIDs, sid)
-			}
-		}
-		if len(newSpecificPathIDs) == 0 {
-			delete(s.pathMap, specificPathKey)
-		} else {
-			s.pathMap[specificPathKey] = newSpecificPathIDs
-		}
-	}
+	// Clean up pathMap entries using primary composite key
+	primaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, mockData.Path, mockData.IDs[0])
+	idPath := path.Join(mockData.Path, mockData.IDs[0])
+	s.removeCompositeKeyFromPath(primaryCompositeKey, mockData.Path)
+	s.removeCompositeKeyFromPath(primaryCompositeKey, idPath)
+	s.removeCompositeKeyFromPath(primaryCompositeKey, mockData.Location)
 
 	return nil
 }
 
+// removeAllCompositeKeysForResource removes all composite keys that reference the same data
+func (s *mockStorage) removeAllCompositeKeysForResource(
+	sectionName string, isStrictPath bool, mockData *model.MockData,
+) {
+	for _, resourceID := range mockData.IDs {
+		compositeKey := s.buildCompositeKey(sectionName, isStrictPath, mockData.Path, resourceID)
+		delete(s.data, compositeKey)
+	}
+}
+
 // ForEach iterates over each stored item
-// The 'id' passed to the callback function 'fn' will be one of the external IDs associated with the data.
-// To be precise, it's the first external ID encountered when iterating idMap that maps to a given storageID.
-// This might not be deterministic if multiple external IDs map to the same storageID.
-// If a deterministic "primary" external ID is needed for ForEach, idMap iteration order dependency is an issue.
-// For now, it provides *an* external ID.
+// The 'id' passed to the callback function is the composite key (section:id or path:id)
 func (s *mockStorage) ForEach(fn func(id string, data *model.MockData) error) error {
 	if fn == nil {
 		return errors.NewInvalidRequestError("callback function cannot be nil")
@@ -419,8 +443,8 @@ func (s *mockStorage) ForEach(fn func(id string, data *model.MockData) error) er
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	for id, data := range s.data {
-		if err := fn(id, data); err != nil {
+	for compositeKey, data := range s.data {
+		if err := fn(compositeKey, data); err != nil {
 			return errors.NewStorageError("forEach", err)
 		}
 	}

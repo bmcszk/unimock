@@ -37,7 +37,7 @@ func TestMockStorage_CRUD(t *testing.T) { //nolint:revive
 		id := data.Path[strings.LastIndex(data.Path, "/")+1:]
 		// Set IDs in MockData
 		data.IDs = []string{id}
-		err := testStorage.Create(data)
+		err := testStorage.Create("test", false, data)
 		if err != nil {
 			t.Errorf("Failed to store data: %v", err)
 		}
@@ -46,7 +46,7 @@ func TestMockStorage_CRUD(t *testing.T) { //nolint:revive
 	// Test Get
 	for _, data := range testData {
 		id := data.Path[strings.LastIndex(data.Path, "/")+1:]
-		retrieved, err := testStorage.Get(id)
+		retrieved, err := testStorage.Get("test", false, id)
 		if err != nil {
 			t.Errorf("Failed to get data: %v", err)
 		}
@@ -95,19 +95,19 @@ func TestMockStorage_CRUD(t *testing.T) { //nolint:revive
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123", "updated": true}`),
 	}
-	err = testStorage.Update("123", updatedData)
+	err = testStorage.Update("test", false, "123", updatedData)
 	if err != nil {
 		t.Fatalf("Failed to update data: %v", err)
 	}
 
 	// Test Delete
-	err = testStorage.Delete("123")
+	err = testStorage.Delete("test", false, "123")
 	if err != nil {
 		t.Fatalf("Failed to delete data: %v", err)
 	}
 
 	// Verify deletion
-	_, err = testStorage.Get("123")
+	_, err = testStorage.Get("test", false, "123")
 	if err == nil {
 		t.Error("Expected error when getting deleted data")
 	}
@@ -123,7 +123,7 @@ func createConcurrentTestData(t *testing.T, testStorage storage.MockStorage, i i
 		Body:        []byte(fmt.Sprintf(`{"id": "%d"}`, i)),
 		IDs:         []string{id},
 	}
-	err := testStorage.Create(data)
+	err := testStorage.Create("test", false, data)
 	if err != nil {
 		t.Errorf("Failed to store data: %v", err)
 	}
@@ -135,7 +135,7 @@ func verifyConcurrentTestData(t *testing.T, testStorage storage.MockStorage) {
 	// Verify all data was stored
 	for i := 0; i < 10; i++ { //nolint:mnd
 		id := fmt.Sprintf("test%d", i)
-		_, err := testStorage.Get(id)
+		_, err := testStorage.Get("test", false, id)
 		if err != nil {
 			t.Errorf("Failed to get data for %s: %v", id, err)
 		}
@@ -164,19 +164,19 @@ func TestMockStorage_ErrorCases(t *testing.T) {
 	testStorage := storage.NewMockStorage()
 
 	// Test updating non-existent ID
-	err := testStorage.Update("nonexistent", &model.MockData{})
+	err := testStorage.Update("test", false, "nonexistent", &model.MockData{})
 	if err == nil {
 		t.Error("Expected error when updating non-existent ID")
 	}
 
 	// Test deleting non-existent ID
-	err = testStorage.Delete("nonexistent")
+	err = testStorage.Delete("test", false, "nonexistent")
 	if err == nil {
 		t.Error("Expected error when deleting non-existent ID")
 	}
 
 	// Test getting non-existent ID
-	_, err = testStorage.Get("nonexistent")
+	_, err = testStorage.Get("test", false, "nonexistent")
 	if err == nil {
 		t.Error("Expected error when getting non-existent ID")
 	}
@@ -188,11 +188,11 @@ func TestMockStorage_ErrorCases(t *testing.T) {
 		Body:        []byte(`{"id": "123"}`),
 		IDs:         []string{"123"},
 	}
-	err = testStorage.Create(data)
+	err = testStorage.Create("test", false, data)
 	if err != nil {
 		t.Fatalf("Failed to create initial data: %v", err)
 	}
-	err = testStorage.Create(data)
+	err = testStorage.Create("test", false, data)
 	if err == nil {
 		t.Error("Expected error when creating duplicate ID")
 	}
@@ -219,13 +219,13 @@ func testCreateWithMultipleIDs(t *testing.T, storageInstance storage.MockStorage
 	}
 	externalIDs1 := []string{"id1_main", "id1_alias1", "id1_alias2"}
 	multiIdData1.IDs = externalIDs1
-	err := storageInstance.Create(multiIdData1)
+	err := storageInstance.Create("multi", false, multiIdData1)
 	if err != nil {
 		t.Fatalf("CreateWithMultipleIDs: failed to create resource: %v", err)
 	}
 
 	for _, id := range externalIDs1 {
-		retrieved, errGet := storageInstance.Get(id)
+		retrieved, errGet := storageInstance.Get("multi", false, id)
 		if errGet != nil {
 			t.Errorf("CreateWithMultipleIDs: Get(%s) failed: %v", id, errGet)
 		}
@@ -248,18 +248,18 @@ func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance storage.M
 	}
 	externalIDs2 := []string{"id2_main", "id2_alias1"}
 	multiIdData2.IDs = externalIDs2
-	err := storageInstance.Create(multiIdData2)
+	err := storageInstance.Create("multi", false, multiIdData2)
 	if err != nil {
 		t.Fatalf("DeleteByOneID: failed to create initial resource: %v", err)
 	}
 
-	err = storageInstance.Delete(externalIDs2[0]) // Delete by "id2_main"
+	err = storageInstance.Delete("multi", false, externalIDs2[0]) // Delete by "id2_main"
 	if err != nil {
 		t.Fatalf("DeleteByOneID: Delete(%s) failed: %v", externalIDs2[0], err)
 	}
 
 	for _, id := range externalIDs2 {
-		_, errGet := storageInstance.Get(id)
+		_, errGet := storageInstance.Get("multi", false, id)
 		if errGet == nil {
 			t.Errorf("DeleteByOneID: Get(%s) should have failed after delete, but succeeded.", id)
 		}
@@ -276,7 +276,7 @@ func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storag
 	}
 	externalIDs3 := []string{"id3_main", "id3_alias1"}
 	multiIdData3.IDs = externalIDs3
-	err := storageInstance.Create(multiIdData3)
+	err := storageInstance.Create("multi", false, multiIdData3)
 	if err != nil {
 		t.Fatalf("UpdateByOneID: failed to create initial resource: %v", err)
 	}
@@ -287,13 +287,13 @@ func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storag
 		ContentType: "text/plain",
 		Body:        []byte(updatedData3Body),
 	}
-	err = storageInstance.Update(externalIDs3[1], updatePayload) // Update using "id3_alias1"
+	err = storageInstance.Update("multi", false, externalIDs3[1], updatePayload) // Update using "id3_alias1"
 	if err != nil {
 		t.Fatalf("UpdateByOneID: Update(%s) failed: %v", externalIDs3[1], err)
 	}
 
 	for _, id := range externalIDs3 {
-		retrieved, errGet := storageInstance.Get(id)
+		retrieved, errGet := storageInstance.Get("multi", false, id)
 		if errGet != nil {
 			t.Errorf("UpdateByOneID: Get(%s) failed after update: %v", id, errGet)
 		}
@@ -316,7 +316,7 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 	}
 	externalIDsConflict1 := []string{"common_id", "unique_c1"}
 	conflictData1.IDs = externalIDsConflict1
-	err := storageInstance.Create(conflictData1)
+	err := storageInstance.Create("conflict", false, conflictData1)
 	if err != nil {
 		t.Fatalf("ConflictOnCreate: failed to create initial resource for conflict test: %v", err)
 	}
@@ -328,7 +328,7 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 	}
 	externalIDsConflict2 := []string{"common_id", "unique_c2"} // Attempt to reuse "common_id"
 	conflictData2.IDs = externalIDsConflict2
-	err = storageInstance.Create(conflictData2)
+	err = storageInstance.Create("conflict", false, conflictData2)
 	if err == nil {
 		t.Errorf("ConflictOnCreate: expected conflict error when creating with duplicate external ID, but got nil")
 	} else {
@@ -337,7 +337,7 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 	}
 
 	// Verify that the original resource with "common_id" is still accessible and unchanged
-	retrievedConflict, errGet := storageInstance.Get("common_id")
+	retrievedConflict, errGet := storageInstance.Get("conflict", false, "common_id")
 	if errGet != nil {
 		t.Errorf("ConflictOnCreate: Get(\"common_id\") failed after conflict attempt: %v", errGet)
 	}
@@ -348,7 +348,7 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 		)
 	}
 	// Verify the second resource (that caused conflict) was not created with its unique ID either
-	_, errGet = storageInstance.Get("unique_c2")
+	_, errGet = storageInstance.Get("conflict", false, "unique_c2")
 	if errGet == nil {
 		t.Errorf("ConflictOnCreate: Get(\"unique_c2\") should have failed as creation was aborted, but succeeded.")
 	}

@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-
 	"github.com/antchfx/jsonquery"
 	"github.com/antchfx/xmlquery"
 	"github.com/bmcszk/unimock/internal/service"
@@ -17,14 +16,12 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 	"github.com/google/uuid"
 )
-
 const (
 	// Common strings
 	errorLogKey = "error"
 	pathLogKey  = "path"
 	contentTypeHeader = "Content-Type"
 )
-
 // MockHandler provides clear, step-by-step HTTP method handlers
 type MockHandler struct {
 	service         service.MockService
@@ -32,7 +29,6 @@ type MockHandler struct {
 	logger          *slog.Logger
 	mockCfg         *config.MockConfig
 }
-
 // NewMockHandler creates a new handler
 func NewMockHandler(
 	mockService service.MockService,
@@ -47,7 +43,6 @@ func NewMockHandler(
 		mockCfg:         cfg,
 	}
 }
-
 // HandlePOST processes POST requests step by step
 func (h *MockHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting POST request processing", "path", req.URL.Path)
@@ -64,17 +59,14 @@ func (h *MockHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.
 	if errResp != nil {
 		return errResp, nil
 	}
-
 	// Step 3: Apply transformations and store resource
 	transformedData, errResp := h.processPostRequest(ctx, req, mockData, section, sectionName)
 	if errResp != nil {
 		return errResp, nil
 	}
-
 	// Step 4: Build and return response
 	return h.buildPOSTResponse(transformedData, section, sectionName)
 }
-
 // preparePostData extracts IDs and builds initial MockData for POST
 func (h *MockHandler) preparePostData(
 	ctx context.Context,
@@ -108,11 +100,10 @@ func (h *MockHandler) preparePostData(
 
 	return ids, mockData, nil
 }
-
 // processPostRequest applies transformations and stores the resource
 func (h *MockHandler) processPostRequest(
 	ctx context.Context,
-	req *http.Request,
+	_ *http.Request,
 	mockData *model.MockData,
 	section *config.Section,
 	sectionName string,
@@ -125,7 +116,7 @@ func (h *MockHandler) processPostRequest(
 	}
 
 	// Store the resource
-	err = h.service.CreateResource(ctx, req.URL.Path, transformedData.IDs, transformedData)
+	err = h.service.CreateResource(ctx, sectionName, section.StrictPath, transformedData.IDs, transformedData)
 	if err != nil {
 		h.logger.Error("failed to create resource", "error", err)
 		if strings.Contains(err.Error(), "already exists") {
@@ -165,29 +156,27 @@ func (h *MockHandler) tryGetIndividualResource(
 	section *config.Section,
 	sectionName string,
 ) *http.Response {
-	pathSegments := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
-	if len(pathSegments) == 0 {
-		return h.errorResponse(http.StatusBadRequest, "invalid path")
-	}
-
-	lastSegment := pathSegments[len(pathSegments)-1]
+	lastSegment := h.extractLastPathSegment(req.URL.Path)
 	if lastSegment == "" || lastSegment == sectionName {
 		return nil
 	}
 
-	resource, err := h.service.GetResource(ctx, req.URL.Path, lastSegment)
+	resource, err := h.service.GetResource(ctx, sectionName, section.StrictPath, lastSegment)
 	if err != nil || resource == nil {
-		return nil
+		return h.errorResponse(http.StatusNotFound, "resource not found")
 	}
 
-	transformedData, err := h.applyResponseTransformations(resource, section, sectionName)
-	if err != nil {
-		h.logger.Error("response transformation failed for GET", "error", err)
-		return h.errorResponse(http.StatusInternalServerError, "response transformation failed")
+	// Apply strict path validation if enabled
+	if section.StrictPath {
+		if err := h.validateStrictPathAccess(req.URL.Path, resource.Path, section.PathPattern); err != nil {
+			h.logger.Debug("strict path validation failed for GET", 
+				"requestPath", req.URL.Path, "resourcePath", resource.Path, "error", err)
+			return h.errorResponse(http.StatusNotFound, "resource not found")
+		}
 	}
-	return h.buildSingleResourceResponse(transformedData)
+
+	return h.buildTransformedResponse(resource, section, sectionName)
 }
-
 // getResourceCollection gets a collection of resources
 func (h *MockHandler) getResourceCollection(
 	ctx context.Context,
@@ -195,7 +184,11 @@ func (h *MockHandler) getResourceCollection(
 	section *config.Section,
 	sectionName string,
 ) (*http.Response, error) {
-	resources, err := h.service.GetResourcesByPath(ctx, req.URL.Path)
+	// For collection requests, use the base path from the pattern
+	// e.g., for pattern "/users/*" and request "/users/nonexistent", look for resources at "/users"
+	basePath := h.getCollectionBasePath(section.PathPattern, req.URL.Path)
+	
+	resources, err := h.service.GetResourcesByPath(ctx, basePath)
 	if err != nil || len(resources) == 0 {
 		return h.errorResponse(http.StatusNotFound, "resource not found"), nil
 	}
@@ -206,6 +199,36 @@ func (h *MockHandler) getResourceCollection(
 	}
 
 	return h.buildCollectionResponse(transformedResources), nil
+}
+
+// getCollectionBasePath determines the base path for collection queries
+func (h *MockHandler) getCollectionBasePath(pattern, requestPath string) string {
+	if !strings.Contains(pattern, "*") {
+		return requestPath
+	}
+	
+	return h.extractBasePathFromWildcard(pattern, requestPath)
+}
+
+// extractBasePathFromWildcard extracts base path from wildcard patterns
+func (*MockHandler) extractBasePathFromWildcard(pattern, requestPath string) string {
+	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
+	requestParts := strings.Split(strings.Trim(requestPath, "/"), "/")
+	
+	baseParts := make([]string, 0, len(patternParts))
+	for i, part := range patternParts {
+		if part == "*" || part == "**" {
+			break
+		}
+		if i < len(requestParts) {
+			baseParts = append(baseParts, requestParts[i])
+		}
+	}
+	
+	if len(baseParts) == 0 {
+		return "/"
+	}
+	return "/" + strings.Join(baseParts, "/")
 }
 
 // transformResourceCollection applies transformations to a collection of resources
@@ -237,36 +260,71 @@ func (h *MockHandler) HandlePUT(ctx context.Context, req *http.Request) (*http.R
 		return h.errorResponse(http.StatusNotFound, err.Error()), nil
 	}
 
-	// Step 2: Extract ID from path
+	return h.processPUTRequest(ctx, req, section, sectionName)
+}
+
+// processPUTRequest handles the main PUT logic after section validation
+func (h *MockHandler) processPUTRequest(
+	ctx context.Context, req *http.Request, section *config.Section, sectionName string,
+) (*http.Response, error) {
+	// Extract ID from path
 	ids, err := h.extractIDs(ctx, req, section, sectionName)
 	if err != nil || len(ids) == 0 {
 		h.logger.Error("failed to extract ID for PUT", "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusBadRequest, "ID required for PUT"), nil
 	}
 
-	// Step 3: Build MockData from request
+	// Build and transform data
 	mockData, err := h.buildMockDataFromRequest(req, ids)
 	if err != nil {
 		h.logger.Error("failed to build MockData for PUT", "error", err)
 		return h.errorResponse(http.StatusBadRequest, "failed to process request data"), nil
 	}
 
-	// Step 4: Apply request transformations
 	transformedData, err := h.applyRequestTransformations(mockData, section, sectionName)
 	if err != nil {
 		h.logger.Error("request transformation failed for PUT", "error", err)
 		return h.errorResponse(http.StatusInternalServerError, "request transformation failed"), nil
 	}
 
-	// Step 5: Update the resource (with upsert)
-	err = h.service.UpdateResource(ctx, req.URL.Path, ids[0], transformedData)
+	// Validate strict path if enabled
+	if section.StrictPath {
+		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0], 
+			section.PathPattern, "PUT", sectionName, section.StrictPath); resp != nil {
+			return resp, nil
+		}
+	}
+	
+	return h.executeResourceUpdate(ctx, ids[0], transformedData, section, sectionName)
+}
+
+// validateStrictPathForPUT checks resource existence for strict path validation
+func (h *MockHandler) validateStrictPathForPUT(
+	ctx context.Context, sectionName string, isStrictPath bool, id string,
+) error {
+	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
+	if err != nil || existingResource == nil {
+		h.logger.Debug("resource not found for strict PUT", "sectionName", sectionName, "id", id)
+		return errors.New("resource not found")
+	}
+	return nil
+}
+
+
+
+
+
+// executeResourceUpdate performs the actual resource update and response building
+func (h *MockHandler) executeResourceUpdate(
+	ctx context.Context, id string, data *model.MockData, section *config.Section, sectionName string,
+) (*http.Response, error) {
+	err := h.service.UpdateResource(ctx, sectionName, section.StrictPath, id, data)
 	if err != nil {
 		h.logger.Error("failed to update resource", "error", err)
 		return h.errorResponse(http.StatusInternalServerError, "failed to update resource"), nil
 	}
 
-	// Step 6: Apply response transformations and build response
-	responseData, err := h.applyResponseTransformations(transformedData, section, sectionName)
+	responseData, err := h.applyResponseTransformations(data, section, sectionName)
 	if err != nil {
 		h.logger.Error("response transformation failed for PUT", "error", err)
 		return h.errorResponse(http.StatusInternalServerError, "response transformation failed"), nil
@@ -286,15 +344,48 @@ func (h *MockHandler) HandleDELETE(ctx context.Context, req *http.Request) (*htt
 		return h.errorResponse(http.StatusNotFound, err.Error()), nil
 	}
 
-	// Step 2: Extract ID from path
+	return h.processDELETERequest(ctx, req, section, sectionName)
+}
+
+// processDELETERequest handles the main DELETE logic after section validation
+func (h *MockHandler) processDELETERequest(
+	ctx context.Context, req *http.Request, section *config.Section, sectionName string,
+) (*http.Response, error) {
+	// Extract ID from path
 	ids, err := h.extractIDs(ctx, req, section, sectionName)
 	if err != nil || len(ids) == 0 {
 		h.logger.Error("failed to extract ID for DELETE", "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusNotFound, "resource not found"), nil
 	}
 
-	// Step 3: Delete the resource
-	err = h.service.DeleteResource(ctx, req.URL.Path, ids[0])
+	// Validate strict path if enabled
+	if section.StrictPath {
+		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0], 
+			section.PathPattern, "DELETE", sectionName, section.StrictPath); resp != nil {
+			return resp, nil
+		}
+	}
+	
+	return h.executeResourceDeletion(ctx, ids[0], section, sectionName)
+}
+
+// validateStrictPathForDELETE checks resource existence for strict path validation
+func (h *MockHandler) validateStrictPathForDELETE(
+	ctx context.Context, sectionName string, isStrictPath bool, id string,
+) error {
+	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
+	if err != nil || existingResource == nil {
+		h.logger.Debug("resource not found for strict DELETE", "sectionName", sectionName, "id", id)
+		return errors.New("resource not found")
+	}
+	return nil
+}
+
+// executeResourceDeletion performs the actual resource deletion
+func (h *MockHandler) executeResourceDeletion(
+	ctx context.Context, id string, section *config.Section, sectionName string,
+) (*http.Response, error) {
+	err := h.service.DeleteResource(ctx, sectionName, section.StrictPath, id)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return h.errorResponse(http.StatusNotFound, "resource not found"), nil
@@ -303,7 +394,6 @@ func (h *MockHandler) HandleDELETE(ctx context.Context, req *http.Request) (*htt
 		return h.errorResponse(http.StatusInternalServerError, "failed to delete resource"), nil
 	}
 
-	// Step 4: Return success response
 	return &http.Response{
 		StatusCode: http.StatusNoContent,
 		Header:     make(http.Header),
@@ -583,10 +673,25 @@ func (h *MockHandler) extractPathBasedIDs(
 
 // shouldExtractFromPath determines if ID should be extracted from path
 func (*MockHandler) shouldExtractFromPath(pathSegments, patternSegments []string) bool {
-	return len(pathSegments) > len(patternSegments) ||
-		(len(patternSegments) > 0 && len(pathSegments) > 0 &&
-			patternSegments[len(patternSegments)-1] == "*" &&
-			len(pathSegments) == len(patternSegments))
+	if len(patternSegments) == 0 || len(pathSegments) == 0 {
+		return false
+	}
+	
+	lastPattern := patternSegments[len(patternSegments)-1]
+	
+	// Handle recursive wildcard **
+	if lastPattern == "**" {
+		// For pattern /users/**, any path like /users/123 should extract 123
+		return len(pathSegments) > len(patternSegments)-1
+	}
+	
+	// Handle single wildcard *
+	if lastPattern == "*" {
+		return len(pathSegments) == len(patternSegments)
+	}
+	
+	// For exact patterns, only extract if path is longer
+	return len(pathSegments) > len(patternSegments)
 }
 
 // extractBodyBasedIDs extracts IDs from headers and body for POST requests

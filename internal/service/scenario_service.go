@@ -26,15 +26,12 @@ const (
 // The ScenarioService interface is defined in service.go
 type scenarioService struct {
 	storage storage.ScenarioStorage
-	// logger  *slog.Logger
 }
 
 // NewScenarioService creates a new instance of ScenarioService
 func NewScenarioService(scenarioStorage storage.ScenarioStorage) ScenarioService {
-	// logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	return &scenarioService{
 		storage: scenarioStorage,
-		// logger:  logger,
 	}
 }
 

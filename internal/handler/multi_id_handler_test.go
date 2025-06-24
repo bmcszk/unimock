@@ -193,14 +193,14 @@ func TestStorageMultiIDSupport(t *testing.T) {
 		IDs:         ids,
 	}
 
-	err := store.Create(data)
+	err := store.Create("test", false, data)
 	if err != nil {
 		t.Fatalf("failed to create resource with multiple IDs: %v", err)
 	}
 
 	// Verify all IDs can retrieve the same resource
 	for _, id := range ids {
-		retrieved, err := store.Get(id)
+		retrieved, err := store.Get("test", false, id)
 		if err != nil {
 			t.Errorf("failed to get resource by ID %s: %v", id, err)
 			continue
@@ -224,7 +224,7 @@ func TestStorageIDConflictPrevention(t *testing.T) {
 	}
 
 	data1.IDs = ids1
-	err := store.Create(data1)
+	err := store.Create("test", false, data1)
 	if err != nil {
 		t.Fatalf("failed to create first resource: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestStorageIDConflictPrevention(t *testing.T) {
 	}
 
 	data2.IDs = ids2
-	err = store.Create(data2)
+	err = store.Create("test", false, data2)
 	if err == nil {
 		t.Error("expected conflict error, but creation succeeded")
 	}
