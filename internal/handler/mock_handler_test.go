@@ -342,7 +342,8 @@ func TestMockHandler_ReturnBodyFlag_POST(t *testing.T) {
 }
 
 func TestMockHandler_ReturnBodyFlag_PUT(t *testing.T) {
-	t.Run("PUT always returns body (backward compatibility)", testPUTBackwardCompatibility)
+	t.Run("PUT with return_body false", testPUTReturnBodyFalse)
+	t.Run("PUT with return_body true", testPUTReturnBodyTrue)
 }
 
 func TestMockHandler_ReturnBodyFlag_DELETE(t *testing.T) {
@@ -399,12 +400,12 @@ func testPOSTReturnBodyTrue(t *testing.T) {
 	}
 }
 
-func testPUTBackwardCompatibility(t *testing.T) {
+func testPUTReturnBodyFalse(t *testing.T) {
 	deps := setupMockHandlerFull(t)
 	deps.config.Sections["test"] = config.Section{
 		PathPattern: "/api/test/*",
 		BodyIDPaths: []string{"/id"},
-		ReturnBody:  false, // Even with false, PUT should return body for backward compatibility
+		ReturnBody:  false,
 	}
 	
 	createResource(t, deps, "789", "initial")
@@ -419,11 +420,35 @@ func testPUTBackwardCompatibility(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
 	}
-	// PUT always returns body for backward compatibility
-	if w.Body.String() == "" {
-		t.Error("expected non-empty body for PUT (backward compatibility)")
+	if w.Body.String() != "" {
+		t.Errorf("expected empty body when return_body is false, got: %s", w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "updated") {
+}
+
+func testPUTReturnBodyTrue(t *testing.T) {
+	deps := setupMockHandlerFull(t)
+	deps.config.Sections["test"] = config.Section{
+		PathPattern: "/api/test/*",
+		BodyIDPaths: []string{"/id"},
+		ReturnBody:  true,
+	}
+	
+	createResource(t, deps, "790", "initial")
+	
+	updateBody := `{"id": "790", "name": "updated with body"}`
+	req := httptest.NewRequest("PUT", "/api/test/790", strings.NewReader(updateBody))
+	req.Header.Set("Content-Type", "application/json")
+	
+	w := httptest.NewRecorder()
+	deps.handler.ServeHTTP(w, req)
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+	}
+	if w.Body.String() == "" {
+		t.Error("expected non-empty body when return_body is true")
+	}
+	if !strings.Contains(w.Body.String(), "updated with body") {
 		t.Errorf("expected body to contain updated data, got: %s", w.Body.String())
 	}
 }

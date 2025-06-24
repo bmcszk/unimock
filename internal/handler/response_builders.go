@@ -46,18 +46,21 @@ func (h *MockHandler) buildPOSTResponse(
 	return resp, nil
 }
 
-// buildPUTResponse builds response for PUT operations 
-// PUT operations always return body for backward compatibility (original behavior)
-// The return_body flag can be used to override this if explicitly set to false
-func (*MockHandler) buildPUTResponse(data *model.MockData, _ *config.Section) *http.Response {
+// buildPUTResponse builds response for PUT operations based on configuration
+func (*MockHandler) buildPUTResponse(data *model.MockData, section *config.Section) *http.Response {
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     make(http.Header),
-		Body:       io.NopCloser(bytes.NewReader(data.Body)),
 	}
 	
-	if data.ContentType != "" {
-		resp.Header.Set("Content-Type", data.ContentType)
+	// Set response body based on configuration
+	if section.ReturnBody {
+		resp.Body = io.NopCloser(bytes.NewReader(data.Body))
+		if data.ContentType != "" {
+			resp.Header.Set("Content-Type", data.ContentType)
+		}
+	} else {
+		resp.Body = io.NopCloser(strings.NewReader(""))
 	}
 	
 	if data.Location != "" {
