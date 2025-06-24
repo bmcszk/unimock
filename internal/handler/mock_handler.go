@@ -330,7 +330,7 @@ func (h *MockHandler) executeResourceUpdate(
 		return h.errorResponse(http.StatusInternalServerError, "response transformation failed"), nil
 	}
 
-	return h.buildSingleResourceResponse(responseData), nil
+	return h.buildPUTResponse(responseData, section), nil
 }
 
 // HandleDELETE processes DELETE requests step by step
@@ -394,11 +394,7 @@ func (h *MockHandler) executeResourceDeletion(
 		return h.errorResponse(http.StatusInternalServerError, "failed to delete resource"), nil
 	}
 
-	return &http.Response{
-		StatusCode: http.StatusNoContent,
-		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader("")),
-	}, nil
+	return h.buildDELETEResponse(section), nil
 }
 
 // Helper methods for the simplified handlers
@@ -519,121 +515,6 @@ func (h *MockHandler) safeExecuteTransform(
 	return transform(data)
 }
 
-// buildPOSTResponse builds response for POST requests
-func (h *MockHandler) buildPOSTResponse(
-	data *model.MockData,
-	section *config.Section,
-	sectionName string,
-) (*http.Response, error) {
-	// Apply response transformations
-	responseData, err := h.applyResponseTransformations(data, section, sectionName)
-	if err != nil {
-		h.logger.Error("response transformation failed for POST", "error", err)
-		return h.errorResponse(http.StatusInternalServerError, "response transformation failed"), nil
-	}
-	
-	resp := &http.Response{
-		StatusCode: http.StatusCreated,
-		Header:     make(http.Header),
-	}
-	
-	// Set Location header
-	if responseData.Location != "" {
-		resp.Header.Set("Location", responseData.Location)
-	}
-	
-	// Only set response body if response transformations are configured
-	if section.Transformations != nil && section.Transformations.HasResponseTransforms() {
-		resp.Body = io.NopCloser(bytes.NewReader(responseData.Body))
-		if responseData.ContentType != "" {
-			resp.Header.Set("Content-Type", responseData.ContentType)
-		}
-	} else {
-		resp.Body = io.NopCloser(strings.NewReader(""))
-	}
-	
-	return resp, nil
-}
-
-// buildSingleResourceResponse builds response for individual resource
-func (*MockHandler) buildSingleResourceResponse(data *model.MockData) *http.Response {
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     make(http.Header),
-		Body:       io.NopCloser(bytes.NewReader(data.Body)),
-	}
-	
-	if data.ContentType != "" {
-		resp.Header.Set("Content-Type", data.ContentType)
-	}
-	
-	if data.Location != "" {
-		resp.Header.Set("Location", data.Location)
-	}
-	
-	return resp
-}
-
-// buildCollectionResponse builds response for collection of resources
-func (h *MockHandler) buildCollectionResponse(resources []*model.MockData) *http.Response {
-	jsonItems := h.extractJSONItems(resources)
-	responseBody := h.buildJSONArrayBody(jsonItems)
-	
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body:       io.NopCloser(bytes.NewReader(responseBody)),
-	}
-}
-
-// extractJSONItems filters JSON resources and returns their bodies
-func (*MockHandler) extractJSONItems(resources []*model.MockData) [][]byte {
-	var jsonItems [][]byte
-	for _, resource := range resources {
-		if strings.Contains(strings.ToLower(resource.ContentType), "json") {
-			jsonItems = append(jsonItems, resource.Body)
-		}
-	}
-	return jsonItems
-}
-
-// buildJSONArrayBody constructs a JSON array from items
-func (h *MockHandler) buildJSONArrayBody(jsonItems [][]byte) []byte {
-	if len(jsonItems) == 0 {
-		return []byte("[]")
-	}
-	if len(jsonItems) == 1 {
-		return h.buildSingleItemArray(jsonItems[0])
-	}
-	return h.buildMultiItemArray(jsonItems)
-}
-
-// buildSingleItemArray creates JSON array with single item
-func (*MockHandler) buildSingleItemArray(item []byte) []byte {
-	responseBody := append([]byte("["), item...)
-	return append(responseBody, ']')
-}
-
-// buildMultiItemArray creates JSON array with multiple items
-func (*MockHandler) buildMultiItemArray(jsonItems [][]byte) []byte {
-	responseBody := []byte("[")
-	for i, item := range jsonItems {
-		responseBody = append(responseBody, item...)
-		if i < len(jsonItems)-1 {
-			responseBody = append(responseBody, ',')
-		}
-	}
-	return append(responseBody, ']')
-}
-
-// errorResponse creates an error HTTP response
-func (*MockHandler) errorResponse(statusCode int, message string) *http.Response {
-	return &http.Response{
-		StatusCode: statusCode,
-		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader(message)),
-	}
-}
 
 // extractIDs extracts IDs from the request using configured paths
 func (h *MockHandler) extractIDs(

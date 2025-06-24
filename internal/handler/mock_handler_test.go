@@ -87,6 +87,7 @@ func setupMockHandlerFull(t *testing.T) mockHandlerDeps {
 				PathPattern:   "/users/*",
 				BodyIDPaths:   []string{"/id"},
 				CaseSensitive: true,
+				ReturnBody:    true, // Maintain backward compatibility for existing tests
 			},
 		},
 	}
@@ -333,4 +334,177 @@ func isErrorMessage(expectedBody string) bool {
 		}
 	}
 	return false
+}
+
+func TestMockHandler_ReturnBodyFlag_POST(t *testing.T) {
+	t.Run("POST with return_body false", testPOSTReturnBodyFalse)
+	t.Run("POST with return_body true", testPOSTReturnBodyTrue)
+}
+
+func TestMockHandler_ReturnBodyFlag_PUT(t *testing.T) {
+	t.Run("PUT with return_body false", testPUTReturnBodyFalse)
+	t.Run("PUT with return_body true", testPUTReturnBodyTrue)
+}
+
+func TestMockHandler_ReturnBodyFlag_DELETE(t *testing.T) {
+	t.Run("DELETE with return_body false", testDELETEReturnBodyFalse)
+	t.Run("DELETE with return_body true", testDELETEReturnBodyTrue)
+}
+
+func testPOSTReturnBodyFalse(t *testing.T) {
+	deps := setupMockHandlerFull(t)
+	deps.config.Sections["test"] = config.Section{
+		PathPattern: "/api/test/*",
+		BodyIDPaths: []string{"/id"},
+		ReturnBody:  false,
+	}
+	
+	requestBody := `{"id": "123", "name": "test"}`
+	req := httptest.NewRequest("POST", "/api/test", strings.NewReader(requestBody))
+	req.Header.Set("Content-Type", "application/json")
+	
+	w := httptest.NewRecorder()
+	deps.handler.ServeHTTP(w, req)
+	
+	if w.Code != http.StatusCreated {
+		t.Errorf("expected status %d, got %d", http.StatusCreated, w.Code)
+	}
+	if w.Body.String() != "" {
+		t.Errorf("expected empty body when return_body is false, got: %s", w.Body.String())
+	}
+}
+
+func testPOSTReturnBodyTrue(t *testing.T) {
+	deps := setupMockHandlerFull(t)
+	deps.config.Sections["test"] = config.Section{
+		PathPattern: "/api/test/*",
+		BodyIDPaths: []string{"/id"},
+		ReturnBody:  true,
+	}
+	
+	requestBody := `{"id": "456", "name": "test with body"}`
+	req := httptest.NewRequest("POST", "/api/test", strings.NewReader(requestBody))
+	req.Header.Set("Content-Type", "application/json")
+	
+	w := httptest.NewRecorder()
+	deps.handler.ServeHTTP(w, req)
+	
+	if w.Code != http.StatusCreated {
+		t.Errorf("expected status %d, got %d", http.StatusCreated, w.Code)
+	}
+	if w.Body.String() == "" {
+		t.Error("expected non-empty body when return_body is true")
+	}
+	if !strings.Contains(w.Body.String(), "test with body") {
+		t.Errorf("expected body to contain request data, got: %s", w.Body.String())
+	}
+}
+
+func testPUTReturnBodyFalse(t *testing.T) {
+	deps := setupMockHandlerFull(t)
+	deps.config.Sections["test"] = config.Section{
+		PathPattern: "/api/test/*",
+		BodyIDPaths: []string{"/id"},
+		ReturnBody:  false,
+	}
+	
+	createResource(t, deps, "789", "initial")
+	
+	updateBody := `{"id": "789", "name": "updated"}`
+	req := httptest.NewRequest("PUT", "/api/test/789", strings.NewReader(updateBody))
+	req.Header.Set("Content-Type", "application/json")
+	
+	w := httptest.NewRecorder()
+	deps.handler.ServeHTTP(w, req)
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+	}
+	if w.Body.String() != "" {
+		t.Errorf("expected empty body when return_body is false, got: %s", w.Body.String())
+	}
+}
+
+func testPUTReturnBodyTrue(t *testing.T) {
+	deps := setupMockHandlerFull(t)
+	deps.config.Sections["test"] = config.Section{
+		PathPattern: "/api/test/*",
+		BodyIDPaths: []string{"/id"},
+		ReturnBody:  true,
+	}
+	
+	createResource(t, deps, "999", "initial")
+	
+	updateBody := `{"id": "999", "name": "updated value"}`
+	req := httptest.NewRequest("PUT", "/api/test/999", strings.NewReader(updateBody))
+	req.Header.Set("Content-Type", "application/json")
+	
+	w := httptest.NewRecorder()
+	deps.handler.ServeHTTP(w, req)
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
+	}
+	if w.Body.String() == "" {
+		t.Error("expected non-empty body when return_body is true")
+	}
+	if !strings.Contains(w.Body.String(), "updated value") {
+		t.Errorf("expected body to contain updated data, got: %s", w.Body.String())
+	}
+}
+
+func testDELETEReturnBodyFalse(t *testing.T) {
+	deps := setupMockHandlerFull(t)
+	deps.config.Sections["test"] = config.Section{
+		PathPattern: "/api/test/*",
+		BodyIDPaths: []string{"/id"},
+		ReturnBody:  false,
+	}
+	
+	createResource(t, deps, "delete1", "to delete")
+	
+	req := httptest.NewRequest("DELETE", "/api/test/delete1", nil)
+	w := httptest.NewRecorder()
+	deps.handler.ServeHTTP(w, req)
+	
+	if w.Code != http.StatusNoContent {
+		t.Errorf("expected status %d, got %d", http.StatusNoContent, w.Code)
+	}
+	if w.Body.String() != "" {
+		t.Errorf("expected empty body when return_body is false, got: %s", w.Body.String())
+	}
+}
+
+func testDELETEReturnBodyTrue(t *testing.T) {
+	deps := setupMockHandlerFull(t)
+	deps.config.Sections["test"] = config.Section{
+		PathPattern: "/api/test/*",
+		BodyIDPaths: []string{"/id"},
+		ReturnBody:  true,
+	}
+	
+	createResource(t, deps, "delete2", "to delete")
+	
+	req := httptest.NewRequest("DELETE", "/api/test/delete2", nil)
+	w := httptest.NewRecorder()
+	deps.handler.ServeHTTP(w, req)
+	
+	if w.Code != http.StatusNoContent {
+		t.Errorf("expected status %d, got %d", http.StatusNoContent, w.Code)
+	}
+	if w.Body.String() != "{}" {
+		t.Errorf("expected body '{}' when return_body is true, got: '%s'", w.Body.String())
+	}
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("expected Content-Type 'application/json', got: '%s'", w.Header().Get("Content-Type"))
+	}
+}
+
+func createResource(t *testing.T, deps mockHandlerDeps, id, name string) {
+	t.Helper()
+	createBody := `{"id": "` + id + `", "name": "` + name + `"}`
+	createReq := httptest.NewRequest("POST", "/api/test", strings.NewReader(createBody))
+	createReq.Header.Set("Content-Type", "application/json")
+	createW := httptest.NewRecorder()
+	deps.handler.ServeHTTP(createW, createReq)
 }

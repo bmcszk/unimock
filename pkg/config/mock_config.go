@@ -87,6 +87,12 @@ type Section struct {
 	// If false, paths are matched case-insensitively.
 	CaseSensitive bool `yaml:"case_sensitive" json:"case_sensitive"`
 
+	// ReturnBody determines whether POST/PUT/DELETE operations should return the resource body.
+	// When true, successful POST/PUT/DELETE operations return the created/updated resource in the response body.
+	// When false (default), successful operations return an empty body with appropriate status codes.
+	// This flag provides simple control over response body behavior without requiring transformations.
+	ReturnBody bool `yaml:"return_body" json:"return_body"`
+
 	// Transformations contains request/response transformation functions.
 	// This field is only available when using Unimock as a library and is excluded from YAML serialization.
 	// It allows programmatic modification of requests and responses for advanced testing scenarios.
