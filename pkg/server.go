@@ -1,6 +1,8 @@
 package pkg
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -148,6 +150,12 @@ func NewServer(serverConfig *config.ServerConfig, mockConfig *config.MockConfig)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
+	// Load scenarios from file if specified
+	if err := loadScenariosFromFile(serverConfig, scenarioService, logger); err != nil {
+		logger.Error("failed to load scenarios from file", "error", err)
+		return nil, &ConfigError{Message: err.Error()}
+	}
+
 	// Create handlers with services
 	mockHandler := handler.NewMockHandler(mockService, scenarioService, logger, mockConfig)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
@@ -168,4 +176,49 @@ func NewServer(serverConfig *config.ServerConfig, mockConfig *config.MockConfig)
 	// Return the created server
 	logger.Info("server initialization complete, ready to start")
 	return srv, nil
+}
+
+// loadScenariosFromFile loads scenarios from the configured scenarios file
+func loadScenariosFromFile(
+	serverConfig *config.ServerConfig, 
+	scenarioService service.ScenarioService, 
+	logger *slog.Logger,
+) error {
+	if serverConfig.ScenariosFile == "" {
+		logger.Debug("no scenarios file configured, skipping file-based scenarios loading")
+		return nil
+	}
+
+	logger.Info("loading scenarios from file", "file", serverConfig.ScenariosFile)
+
+	// Load scenarios configuration from file
+	scenariosConfig, err := config.LoadScenariosFromYAML(serverConfig.ScenariosFile)
+	if err != nil {
+		return fmt.Errorf("failed to load scenarios from file %s: %w", serverConfig.ScenariosFile, err)
+	}
+
+	// Convert to model scenarios and load them
+	modelScenarios := scenariosConfig.ToModelScenarios()
+	ctx := context.Background()
+	loadedCount := 0
+
+	for _, scenario := range modelScenarios {
+		if err := scenarioService.CreateScenario(ctx, scenario); err != nil {
+			logger.Warn("failed to load scenario from file", 
+				"scenario_path", scenario.RequestPath,
+				"scenario_uuid", scenario.UUID,
+				"error", err)
+			// Continue loading other scenarios even if one fails
+			continue
+		}
+		loadedCount++
+	}
+
+	logger.Info("scenarios loaded from file", 
+		"file", serverConfig.ScenariosFile,
+		"total_scenarios", len(modelScenarios),
+		"loaded_scenarios", loadedCount,
+		"failed_scenarios", len(modelScenarios)-loadedCount)
+
+	return nil
 }

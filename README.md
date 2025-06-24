@@ -16,6 +16,7 @@ Unimock was created to solve a common problem in e2e testing: the need to mock t
 - **Full HTTP Support**: All HTTP methods (GET, HEAD, POST, PUT, DELETE)
 - **Technical Endpoints**: Health check, metrics, and scenario management
 - **Scenario-Based Mocking**: Create predefined scenarios for paths that bypass regular mock behavior
+- **File-Based Scenarios**: Load predefined scenarios from YAML files at startup
 
 ## Installation
 
@@ -34,6 +35,9 @@ Run the mock server directly:
 ```bash
 # Using environment variables for configuration
 UNIMOCK_PORT=8080 UNIMOCK_CONFIG=config.yaml go run main.go
+
+# With predefined scenarios file
+UNIMOCK_PORT=8080 UNIMOCK_CONFIG=config.yaml UNIMOCK_SCENARIOS_FILE=scenarios.yaml go run main.go
 ```
 
 ### 2. As a Library in Your Go Code
@@ -48,6 +52,9 @@ import (
 
 // Load or create configuration
 serverConfig := config.FromEnv()
+// Optional: Set scenarios file path
+serverConfig.ScenariosFile = "scenarios.yaml"
+
 mockConfig := &config.MockConfig{
     Sections: map[string]config.Section{
         "users": {
@@ -116,6 +123,7 @@ The server can be configured with environment variables:
 - `UNIMOCK_PORT` - The port to listen on (default: `8080`)
 - `UNIMOCK_CONFIG` - The path to the configuration file (default: `config.yaml`)
 - `UNIMOCK_LOG_LEVEL` - The log level (default: `info`)
+- `UNIMOCK_SCENARIOS_FILE` - The path to scenarios YAML file for predefined scenarios (optional)
 
 ## Basic Usage
 
@@ -341,6 +349,104 @@ server, err := pkg.NewServer(
 3. **Format Conversion**: Convert between different data formats
 4. **Security**: Add/remove sensitive information
 5. **Testing**: Simulate different response scenarios
+
+## Scenarios File Configuration
+
+Unimock supports loading predefined scenarios from a YAML file at server startup. This feature allows you to define static mock responses that will be available immediately when the server starts, working alongside the dynamic runtime API scenarios.
+
+### Configuration
+
+Set the scenarios file path using the environment variable:
+
+```bash
+export UNIMOCK_SCENARIOS_FILE=scenarios.yaml
+```
+
+Or when using Unimock as a library:
+
+```go
+serverConfig := config.FromEnv()
+serverConfig.ScenariosFile = "scenarios.yaml"
+```
+
+### YAML File Format
+
+Create a scenarios file with the following structure:
+
+```yaml
+scenarios:
+  - uuid: "get-user-123"                    # Optional: auto-generated if omitted
+    method: "GET"                           # Required: HTTP method
+    path: "/api/users/123"                  # Required: URL path
+    status_code: 200                        # Optional: default 200
+    content_type: "application/json"        # Optional: default "application/json"
+    data: |                                 # Optional: response body
+      {
+        "id": "123",
+        "name": "John Doe",
+        "email": "john@example.com"
+      }
+    headers:                                # Optional: additional headers
+      X-Custom-Header: "custom-value"
+      
+  - method: "POST"
+    path: "/api/users"
+    status_code: 201
+    location: "/api/users/456"              # Optional: Location header for redirects
+    content_type: "application/json"
+    data: |
+      {
+        "id": "456",
+        "message": "User created successfully"
+      }
+      
+  - method: "HEAD"
+    path: "/api/health"
+    status_code: 200
+    # HEAD requests typically don't include response bodies
+```
+
+### Key Features
+
+- **Optional Configuration**: If no scenarios file is specified, the server runs normally with only runtime API scenarios
+- **Validation**: The YAML file is validated at startup with clear error messages
+- **Runtime Integration**: File-based scenarios work alongside runtime API scenarios
+- **Flexible Structure**: Support for all HTTP methods, custom headers, and various content types
+- **Auto-Generated UUIDs**: Scenarios without UUIDs get auto-generated identifiers
+
+### Example Usage
+
+1. Create a scenarios file:
+
+```bash
+cat > scenarios.yaml << EOF
+scenarios:
+  - method: "GET"
+    path: "/api/status"
+    status_code: 200
+    data: '{"status": "healthy", "timestamp": "2024-01-01T00:00:00Z"}'
+    
+  - method: "GET"  
+    path: "/api/users/test-user"
+    status_code: 200
+    data: '{"id": "test-user", "name": "Test User", "role": "tester"}'
+EOF
+```
+
+2. Start the server:
+
+```bash
+UNIMOCK_SCENARIOS_FILE=scenarios.yaml make run
+```
+
+3. Test the predefined scenarios:
+
+```bash
+curl http://localhost:8080/api/status
+curl http://localhost:8080/api/users/test-user
+```
+
+The scenarios will be available immediately when the server starts, and you can still add more scenarios dynamically using the runtime API.
 
 ## Documentation
 

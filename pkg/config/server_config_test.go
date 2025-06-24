@@ -36,6 +36,9 @@ func testDefaultValues(t *testing.T) {
 	if cfg.ConfigPath != defaultConfigPath {
 		t.Errorf("Expected ConfigPath %s, got %s", defaultConfigPath, cfg.ConfigPath)
 	}
+	if cfg.ScenariosFile != "" {
+		t.Errorf("Expected ScenariosFile to be empty, got %s", cfg.ScenariosFile)
+	}
 }
 
 func testCustomValues(t *testing.T) {
@@ -50,12 +53,22 @@ func testCustomValues(t *testing.T) {
 		{
 			name: "Custom port",
 			env: map[string]string{"UNIMOCK_PORT": "9000"},
-			expected: config.ServerConfig{Port: "9000", LogLevel: "info", ConfigPath: "config.yaml"},
+			expected: config.ServerConfig{Port: "9000", LogLevel: "info", ConfigPath: "config.yaml", ScenariosFile: ""},
 		},
 		{
 			name: "Custom log level",
 			env: map[string]string{"UNIMOCK_LOG_LEVEL": "debug"},
-			expected: config.ServerConfig{Port: "8080", LogLevel: "debug", ConfigPath: "config.yaml"},
+			expected: config.ServerConfig{
+				Port: "8080", LogLevel: "debug", ConfigPath: "config.yaml", ScenariosFile: "",
+			},
+		},
+		{
+			name: "Custom scenarios file",
+			env: map[string]string{"UNIMOCK_SCENARIOS_FILE": "test-scenarios.yaml"},
+			expected: config.ServerConfig{
+				Port: "8080", LogLevel: "info", ConfigPath: "config.yaml", 
+				ScenariosFile: "test-scenarios.yaml",
+			},
 		},
 	}
 
@@ -86,11 +99,13 @@ func setupEnvTest(_ *testing.T) func() {
 	originalPort := os.Getenv("UNIMOCK_PORT")
 	originalLogLevel := os.Getenv(envLogLevel)
 	originalConfigPath := os.Getenv("UNIMOCK_CONFIG")
+	originalScenariosFile := os.Getenv("UNIMOCK_SCENARIOS_FILE")
 	
 	return func() {
 		_ = os.Setenv("UNIMOCK_PORT", originalPort)
 		_ = os.Setenv(envLogLevel, originalLogLevel)
 		_ = os.Setenv("UNIMOCK_CONFIG", originalConfigPath)
+		_ = os.Setenv("UNIMOCK_SCENARIOS_FILE", originalScenariosFile)
 	}
 }
 
@@ -98,6 +113,7 @@ func clearEnvVars() {
 	os.Unsetenv("UNIMOCK_PORT")
 	os.Unsetenv(envLogLevel)
 	os.Unsetenv("UNIMOCK_CONFIG")
+	os.Unsetenv("UNIMOCK_SCENARIOS_FILE")
 }
 
 func setEnvVars(envVars map[string]string) {
@@ -116,5 +132,8 @@ func validateConfig(t *testing.T, actual *config.ServerConfig, expected config.S
 	}
 	if actual.ConfigPath != expected.ConfigPath {
 		t.Errorf("Expected ConfigPath %s, got %s", expected.ConfigPath, actual.ConfigPath)
+	}
+	if actual.ScenariosFile != expected.ScenariosFile {
+		t.Errorf("Expected ScenariosFile %s, got %s", expected.ScenariosFile, actual.ScenariosFile)
 	}
 }
