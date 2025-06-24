@@ -188,29 +188,50 @@ Control validation behavior with the `strict_path` flag:
 
 ```yaml
 sections:
-  regular_users:
-    path_pattern: "/users/*"
-    strict_path: false              # Default: flexible matching, allows upsert
+  flexible_api:
+    path_pattern: "/users/**"
+    strict_path: false              # Default: flexible matching
     
-  admin_users:
-    path_pattern: "/admin/users/*"
-    strict_path: true               # Strict: exact matching, no upsert
+  strict_api:
+    path_pattern: "/admin/**"
+    strict_path: true               # Strict: exact path validation
 ```
 
-#### Behavior Differences
+#### Behavior Scenarios
 
-| Operation | strict_path=false | strict_path=true |
-|-----------|------------------|------------------|
-| GET /users/123 (exists) | ✅ Returns resource | ✅ Returns resource |
-| GET /users/999 (missing) | ❌ Returns 404 | ❌ Returns 404 |
-| PUT /users/999 (missing) | ✅ Creates resource (upsert) | ❌ Returns 404 |
-| DELETE /users/999 (missing) | ❌ Returns 404 | ❌ Returns 404 |
+# Scenario 1: Flexible Path Matching
+```yaml
+given:
+- pattern "/users/**"
+- POST /users/subpath body: { "id": 1 }
+- strict_path: false
+
+when:
+- GET/PUT/DELETE /users/1
+
+then:
+✅ Operations succeed (resource accessible via extracted ID)
+```
+
+# Scenario 2: Strict Path Matching
+```yaml
+given:
+- pattern "/users/**"  
+- POST /users/subpath body: { "id": 1 }
+- strict_path: true
+
+when:
+- GET/PUT/DELETE /users/1
+
+then:
+❌ 404 Not Found (strict path validation enforced)
+```
 
 **Key Points:**
-- Individual resource requests always return 404 if the resource doesn't exist
-- `strict_path=true` disables upsert behavior for PUT operations
-- `strict_path=false` (default) maintains backward compatibility
-- Path pattern matching is more flexible with `strict_path=false`
+- `strict_path=true` enforces exact path pattern matching for resource access
+- `strict_path=false` (default) allows flexible resource access via extracted IDs
+- Resources created via one path may be accessible via different paths when `strict_path=false`
+- `strict_path=true` requires accessing resources via the exact path where they were created
 
 ## Request/Response Transformations (Library Mode Only)
 
