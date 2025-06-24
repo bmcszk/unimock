@@ -41,14 +41,14 @@ Add a configuration flag to control whether POST/UPDATE/DELETE operations return
 2. Manual testing with sample configurations
 
 ## Acceptance Criteria
-- [ ] Configuration flag `return_body` exists with default `false`
-- [ ] POST operations respect flag setting
-- [ ] UPDATE operations respect flag setting
-- [ ] DELETE operations respect flag setting
-- [ ] All existing tests pass
-- [ ] New tests cover both flag states
-- [ ] `make check` passes successfully
-- [ ] Backward compatibility maintained
+- [x] Configuration flag `return_body` exists with default `false`
+- [x] POST operations respect flag setting
+- [x] UPDATE operations respect flag setting
+- [x] DELETE operations respect flag setting
+- [x] All existing tests pass
+- [x] New tests cover both flag states
+- [x] `make check` passes successfully
+- [x] Backward compatibility maintained
 
 ## Risk Assessment
 - **Low Risk**: Simple boolean flag addition
