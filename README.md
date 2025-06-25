@@ -10,7 +10,17 @@ A universal HTTP mock server for end-to-end testing. Mock any REST API, GraphQL 
 docker run -p 8080:8080 ghcr.io/bmcszk/unimock:latest
 ```
 
-### 2. Test the mock server
+### 2. Run with Helm
+
+```bash
+# Install from GitHub Container Registry
+helm install unimock oci://ghcr.io/bmcszk/charts/unimock
+
+# Or install from local chart
+helm install unimock ./helm/unimock
+```
+
+### 3. Test the mock server
 
 ```bash
 # Add test data
@@ -22,7 +32,7 @@ curl -X POST http://localhost:8080/api/users \
 curl http://localhost:8080/api/users/1
 ```
 
-### 3. Check health
+### 4. Check health
 
 ```bash
 curl http://localhost:8080/_uni/health
@@ -82,7 +92,8 @@ scenarios:
 | Method | Command | Use Case |
 |--------|---------|----------|
 | **Docker** | `docker run -p 8080:8080 ghcr.io/bmcszk/unimock` | Quick testing |
-| **Kubernetes** | `helm install unimock ./helm/unimock` | Production testing |
+| **Helm (Local)** | `helm install unimock ./helm/unimock` | Local Kubernetes testing |
+| **Helm (Registry)** | `helm install unimock oci://ghcr.io/bmcszk/charts/unimock` | Production deployment |
 | **Local Development** | `make tilt-run` | Development with auto-reload |
 | **Go Library** | `import "github.com/bmcszk/unimock/pkg"` | Embed in Go applications |
 
