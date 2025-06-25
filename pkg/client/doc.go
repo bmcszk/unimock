@@ -127,6 +127,17 @@ Delete a resource:
 		log.Fatalf("Failed to delete user: %v", err)
 	}
 
+Check server health:
+
+	resp, err := client.HealthCheck(ctx)
+	if err != nil {
+		log.Fatalf("Failed to check server health: %v", err)
+	}
+	
+	if resp.StatusCode == 200 {
+		fmt.Println("Server is healthy")
+	}
+
 All HTTP methods return a Response struct containing:
 
 	type Response struct {

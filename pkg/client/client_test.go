@@ -524,6 +524,32 @@ func TestContextCancellation(t *testing.T) {
 	}
 }
 
+func TestHealthCheck(t *testing.T) {
+	server := createHealthCheckTestServer()
+	defer server.Close()
+
+	apiClient, err := client.NewClient(server.URL)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Test successful health check
+	resp, err := apiClient.HealthCheck(ctx)
+	if err != nil {
+		t.Fatalf("HealthCheck failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	if string(resp.Body) != `{"status":"ok"}` {
+		t.Errorf("Expected health check response, got %s", string(resp.Body))
+	}
+}
+
 // Test server implementations
 
 func createUniversalHTTPTestServer() *httptest.Server {
@@ -571,6 +597,18 @@ func createSlowTestServer() *httptest.Server {
 		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
+	}))
+}
+
+func createHealthCheckTestServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_uni/health" && r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status":"ok"}`))
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 }
 

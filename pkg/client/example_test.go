@@ -147,6 +147,27 @@ func ExampleClient_universal_http_methods() {
 	fmt.Printf("DELETE Status: %d\n", resp.StatusCode)
 }
 
+func ExampleClient_HealthCheck() {
+	// Create client
+	c, err := client.NewClient("http://localhost:8080")
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Check server health
+	resp, err := c.HealthCheck(ctx)
+	if err != nil {
+		log.Fatalf("Health check failed: %v", err)
+	}
+	
+	fmt.Printf("Health check status: %d\n", resp.StatusCode)
+	if resp.StatusCode == 200 {
+		fmt.Println("Server is healthy")
+	}
+}
+
 // ExampleClient_mixed_usage demonstrates using both scenario management and HTTP requests
 func ExampleClient_mixed_usage() {
 	// Create a client

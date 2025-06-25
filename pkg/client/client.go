@@ -207,6 +207,11 @@ func (c *Client) doJSONRequest(
 	return c.doRequest(ctx, method, urlPath, headers, jsonBody)
 }
 
+// HealthCheck performs a health check on the Unimock server
+func (c *Client) HealthCheck(ctx context.Context) (*Response, error) {
+	return c.Get(ctx, "/_uni/health", nil)
+}
+
 // buildRequestURL builds the complete URL for a request
 func (c *Client) buildRequestURL(requestPath string) string {
 	// If path is an absolute URL, parse it and use it directly
