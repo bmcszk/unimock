@@ -17,7 +17,7 @@ Transformations let you:
 ```yaml
 sections:
   - path: "/api/users/*"
-    id_path: "$.id"
+    id_path: "/id"
     return_body: true
     transformations:
       - type: "add_timestamp"
@@ -45,7 +45,7 @@ curl -X POST http://localhost:8080/api/users \
 ```yaml
 sections:
   - path: "/api/orders/*"
-    id_path: "$.order_id"
+    id_path: "/order_id"
     transformations:
       - type: "auto_id"
         field: "order_id"
@@ -115,7 +115,7 @@ sections:
   - path: "/api/users/*"
     transformations:
       - type: "conditional"
-        condition: "$.age >= 18"
+        condition: "/age >= 18"
         then:
           - type: "add_field"
             field: "can_vote"
@@ -134,10 +134,10 @@ sections:
     transformations:
       - type: "compute"
         field: "total_with_tax"
-        expression: "$.total * 1.1"  # Add 10% tax
+        expression: "/total * 1.1"  # Add 10% tax
       - type: "compute"
         field: "full_name"
-        expression: "$.first_name + ' ' + $.last_name"
+        expression: "/first_name + ' ' + /last_name"
 ```
 
 ### Array Transformations
@@ -304,7 +304,7 @@ sections:
   - path: "/api/users/*"
     transformations:
       - type: "conditional_error"
-        condition: "$.id == 'invalid'"
+        condition: "/id == 'invalid'"
         error:
           status: 400
           message: "Invalid user ID"
@@ -350,7 +350,7 @@ sections:
       # 2. Add computed field
       - type: "compute"
         field: "display_name"
-        expression: "$.first_name + ' ' + $.last_name"
+        expression: "/first_name + ' ' + /last_name"
       
       # 3. Filter sensitive data
       - type: "filter_fields"
