@@ -84,13 +84,48 @@ scenarios:
 | **Docker** | `docker run -p 8080:8080 ghcr.io/bmcszk/unimock` | Quick testing |
 | **Kubernetes** | `helm install unimock ./helm/unimock` | Production testing |
 | **Local Development** | `make tilt-run` | Development with auto-reload |
-| **Go Binary** | `go run .` | Go developers |
+| **Go Library** | `import "github.com/bmcszk/unimock/pkg"` | Embed in Go applications |
 
 **[📖 Deployment Guide](docs/deployment.md)**
 
-## Programming Client Libraries
+## Using Unimock
 
-Use Unimock from your code:
+### As a Go Library
+
+Embed Unimock directly in your Go application:
+
+```go
+import (
+    "github.com/bmcszk/unimock/pkg"
+    "github.com/bmcszk/unimock/pkg/config"
+)
+
+// Create configuration
+mockConfig := &config.MockConfig{
+    Sections: map[string]config.Section{
+        "users": {
+            PathPattern: "/api/users/*",
+            BodyIDPaths: []string{"/id"},
+            ReturnBody:  true,
+        },
+    },
+}
+
+// Start embedded server
+server, err := pkg.NewServer(
+    pkg.WithPort(8080),
+    pkg.WithMockConfig(mockConfig),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+go server.ListenAndServe()
+```
+
+### With Client Libraries
+
+Use Unimock from your tests:
 
 ```go
 // Go
@@ -98,7 +133,7 @@ client := unimock.NewClient("http://localhost:8080")
 user := client.Post("/api/users", userData)
 ```
 
-**[📖 Client Libraries](docs/client.md)**
+**[📖 Full Client Guide](docs/client.md)**
 
 ## Advanced Features
 
