@@ -12,31 +12,43 @@ go get github.com/bmcszk/unimock/pkg
 
 ```go
 import (
+    "log"
+    "net/http"
+    
     "github.com/bmcszk/unimock/pkg"
     "github.com/bmcszk/unimock/pkg/config"
 )
 
-// Create configuration
-mockConfig := &config.MockConfig{
-    Sections: map[string]config.Section{
-        "users": {
-            PathPattern: "/api/users/*",
-            BodyIDPaths: []string{"/id"},  // XPath-like syntax, not JSONPath
-            ReturnBody:  true,
+func main() {
+    // Create server configuration
+    serverConfig := &config.ServerConfig{
+        Port:     "8080",
+        LogLevel: "info",
+    }
+
+    // Create mock configuration
+    mockConfig := &config.MockConfig{
+        Sections: map[string]config.Section{
+            "users": {
+                PathPattern: "/api/users/*",
+                BodyIDPaths: []string{"/id"},  // XPath-like syntax for JSON/XML
+                ReturnBody:  true,
+            },
         },
-    },
-}
+    }
 
-// Start embedded server
-server, err := pkg.NewServer(
-    pkg.WithPort(8080),
-    pkg.WithMockConfig(mockConfig),
-)
-if err != nil {
-    log.Fatal(err)
-}
+    // Create server
+    server, err := pkg.NewServer(serverConfig, mockConfig)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-go server.ListenAndServe()
+    // Start server
+    log.Printf("Starting server on port %s", serverConfig.Port)
+    if err := server.ListenAndServe(); err != nil {
+        log.Fatal(err)
+    }
+}
 ```
 
 ## Advanced Configuration
@@ -45,45 +57,43 @@ go server.ListenAndServe()
 import (
     "github.com/bmcszk/unimock/pkg"
     "github.com/bmcszk/unimock/pkg/config"
-    "github.com/bmcszk/unimock/internal/model"
 )
 
-// Create comprehensive configuration
-mockConfig := &config.MockConfig{
-    Sections: map[string]config.Section{
-        "users": {
-            PathPattern:    "/api/users/*",
-            BodyIDPaths:    []string{"/id", "/user/id"},
-            HeaderIDName:   "X-User-ID", 
-            ReturnBody:     true,
-            Transformations: transformConfig, // Library-only transformations
-        },
-        "orders": {
-            PathPattern:  "/api/orders/*",
-            BodyIDPaths:  []string{"/order_id"},
-            HeaderIDName: "X-Order-ID",
-        },
-    },
-}
+func main() {
+    // Load server config from environment variables
+    // UNIMOCK_PORT, UNIMOCK_LOG_LEVEL, UNIMOCK_CONFIG, UNIMOCK_SCENARIOS_FILE
+    serverConfig := config.FromEnv()
 
-// Create server with scenarios
-scenarios := []*model.Scenario{
-    {
-        UUID:        "user-not-found",
-        Method:      "GET",
-        Path:        "/api/users/999",
-        StatusCode:  404,
-        ContentType: "application/json",
-        Data:        `{"error": "User not found"}`,
-    },
-}
+    // Create comprehensive mock configuration
+    mockConfig := &config.MockConfig{
+        Sections: map[string]config.Section{
+            "users": {
+                PathPattern:     "/api/users/*",
+                BodyIDPaths:     []string{"/id", "/user/id"},
+                HeaderIDName:    "X-User-ID", 
+                ReturnBody:      true,
+                Transformations: createUserTransformations(), // Library-only
+            },
+            "orders": {
+                PathPattern:  "/api/orders/*",
+                BodyIDPaths:  []string{"/order_id"},
+                HeaderIDName: "X-Order-ID",
+                ReturnBody:   false,
+            },
+        },
+    }
 
-server, err := pkg.NewServer(
-    pkg.WithPort(8080),
-    pkg.WithMockConfig(mockConfig),
-    pkg.WithScenarios(scenarios),
-    pkg.WithLogLevel("debug"),
-)
+    // Create server with configuration
+    server, err := pkg.NewServer(serverConfig, mockConfig)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    log.Printf("Server starting on port %s", serverConfig.Port)
+    if err := server.ListenAndServe(); err != nil {
+        log.Fatal(err)
+    }
+}
 ```
 
 ## Data Transformations
@@ -94,58 +104,66 @@ Transform request and response data programmatically using Go functions. Transfo
 
 ```go
 import (
+    "encoding/json"
+    "time"
+    
     "github.com/bmcszk/unimock/pkg/config"
-    "github.com/bmcszk/unimock/internal/model"
+    "github.com/bmcszk/unimock/pkg/model"
 )
 
-// Create transformation config
-transformConfig := config.NewTransformationConfig()
+// Create transformation configuration
+func createUserTransformations() *config.TransformationConfig {
+    transformConfig := config.NewTransformationConfig()
 
-// Add request transformation (applied before storage)
-transformConfig.AddRequestTransform(
-    func(data *model.MockData) (*model.MockData, error) {
-        // Modify request data before storing
-        modifiedData := *data
-        
-        // Example: Add timestamp to request body
-        var reqBody map[string]interface{}
-        if err := json.Unmarshal(data.Body, &reqBody); err == nil {
-            reqBody["created_at"] = time.Now().Format(time.RFC3339)
-            if newBody, err := json.Marshal(reqBody); err == nil {
-                modifiedData.Body = newBody
+    // Add request transformation (applied before storage)
+    transformConfig.AddRequestTransform(
+        func(data *model.MockData) (*model.MockData, error) {
+            // Modify request data before storing
+            modifiedData := *data
+            
+            // Example: Add timestamp to request body
+            var reqBody map[string]interface{}
+            if err := json.Unmarshal(data.Body, &reqBody); err == nil {
+                reqBody["created_at"] = time.Now().Format(time.RFC3339)
+                if newBody, err := json.Marshal(reqBody); err == nil {
+                    modifiedData.Body = newBody
+                }
             }
-        }
-        
-        return &modifiedData, nil
-    })
+            
+            return &modifiedData, nil
+        })
 
-// Add response transformation (applied after retrieval)
-transformConfig.AddResponseTransform(
-    func(data *model.MockData) (*model.MockData, error) {
-        // Modify response data before returning
-        modifiedData := *data
-        
-        // Example: Add computed field
-        var respBody map[string]interface{}
-        if err := json.Unmarshal(data.Body, &respBody); err == nil {
-            respBody["server_time"] = time.Now().Unix()
-            if newBody, err := json.Marshal(respBody); err == nil {
-                modifiedData.Body = newBody
+    // Add response transformation (applied after retrieval)
+    transformConfig.AddResponseTransform(
+        func(data *model.MockData) (*model.MockData, error) {
+            // Modify response data before returning
+            modifiedData := *data
+            
+            // Example: Add computed field
+            var respBody map[string]interface{}
+            if err := json.Unmarshal(data.Body, &respBody); err == nil {
+                respBody["server_time"] = time.Now().Unix()
+                if newBody, err := json.Marshal(respBody); err == nil {
+                    modifiedData.Body = newBody
+                }
             }
-        }
-        
-        return &modifiedData, nil
-    })
+            
+            return &modifiedData, nil
+        })
+
+    return transformConfig
+}
 ```
 
-### Using Transformations
+### Using Transformations in Sections
 
 ```go
-// Use in section configuration
+// Create section with transformations
 section := config.Section{
     PathPattern:     "/api/users/*",
     BodyIDPaths:     []string{"/id"},
-    Transformations: transformConfig,
+    ReturnBody:      true,
+    Transformations: createUserTransformations(),
 }
 
 mockConfig := &config.MockConfig{
@@ -160,81 +178,97 @@ mockConfig := &config.MockConfig{
 #### Add Metadata to Responses
 
 ```go
-transformConfig.AddResponseTransform(
-    func(data *model.MockData) (*model.MockData, error) {
-        modifiedData := *data
-        
-        var body map[string]interface{}
-        if err := json.Unmarshal(data.Body, &body); err == nil {
-            // Wrap response with metadata
-            wrapped := map[string]interface{}{
-                "data": body,
-                "meta": map[string]interface{}{
-                    "timestamp": time.Now().Format(time.RFC3339),
-                    "version":   "1.0",
-                    "source":    "unimock",
-                },
+func addMetadataTransform() *config.TransformationConfig {
+    transformConfig := config.NewTransformationConfig()
+    
+    transformConfig.AddResponseTransform(
+        func(data *model.MockData) (*model.MockData, error) {
+            modifiedData := *data
+            
+            var body map[string]interface{}
+            if err := json.Unmarshal(data.Body, &body); err == nil {
+                // Wrap response with metadata
+                wrapped := map[string]interface{}{
+                    "data": body,
+                    "meta": map[string]interface{}{
+                        "timestamp": time.Now().Format(time.RFC3339),
+                        "version":   "1.0",
+                        "source":    "unimock",
+                    },
+                }
+                
+                if newBody, err := json.Marshal(wrapped); err == nil {
+                    modifiedData.Body = newBody
+                }
             }
             
-            if newBody, err := json.Marshal(wrapped); err == nil {
-                modifiedData.Body = newBody
-            }
-        }
-        
-        return &modifiedData, nil
-    })
+            return &modifiedData, nil
+        })
+    
+    return transformConfig
+}
 ```
 
 #### Filter Sensitive Data
 
 ```go
-transformConfig.AddResponseTransform(
-    func(data *model.MockData) (*model.MockData, error) {
-        modifiedData := *data
-        
-        var body map[string]interface{}
-        if err := json.Unmarshal(data.Body, &body); err == nil {
-            // Remove sensitive fields
-            delete(body, "password")
-            delete(body, "ssn")
-            delete(body, "credit_card")
+func filterSensitiveDataTransform() *config.TransformationConfig {
+    transformConfig := config.NewTransformationConfig()
+    
+    transformConfig.AddResponseTransform(
+        func(data *model.MockData) (*model.MockData, error) {
+            modifiedData := *data
             
-            if newBody, err := json.Marshal(body); err == nil {
-                modifiedData.Body = newBody
+            var body map[string]interface{}
+            if err := json.Unmarshal(data.Body, &body); err == nil {
+                // Remove sensitive fields
+                delete(body, "password")
+                delete(body, "ssn")
+                delete(body, "credit_card")
+                
+                if newBody, err := json.Marshal(body); err == nil {
+                    modifiedData.Body = newBody
+                }
             }
-        }
-        
-        return &modifiedData, nil
-    })
+            
+            return &modifiedData, nil
+        })
+    
+    return transformConfig
+}
 ```
 
-#### Transform Data Format
+## Configuration Loading
+
+### From YAML Files
 
 ```go
-transformConfig.AddRequestTransform(
-    func(data *model.MockData) (*model.MockData, error) {
-        modifiedData := *data
-        
-        // Convert snake_case to camelCase in request
-        var body map[string]interface{}
-        if err := json.Unmarshal(data.Body, &body); err == nil {
-            converted := convertToCamelCase(body)
-            if newBody, err := json.Marshal(converted); err == nil {
-                modifiedData.Body = newBody
-            }
-        }
-        
-        return &modifiedData, nil
-    })
+import (
+    "github.com/bmcszk/unimock/pkg/config"
+)
 
-func convertToCamelCase(data map[string]interface{}) map[string]interface{} {
-    result := make(map[string]interface{})
-    for key, value := range data {
-        camelKey := toCamelCase(key)
-        result[camelKey] = value
-    }
-    return result
+func loadFromYAML() (*config.MockConfig, error) {
+    // Load mock configuration from YAML file
+    return config.LoadFromYAML("config.yaml")
 }
+
+func loadScenariosFromYAML() (*config.ScenariosConfig, error) {
+    // Load scenarios configuration from YAML file  
+    return config.LoadScenariosFromYAML("scenarios.yaml")
+}
+```
+
+### From Environment Variables
+
+```go
+// Load server configuration from environment variables
+serverConfig := config.FromEnv()
+
+// Environment variables:
+// UNIMOCK_PORT - Server port (default: "8080")
+// UNIMOCK_LOG_LEVEL - Log level (default: "info")
+// UNIMOCK_CONFIG - Config file path (default: "config.yaml")
+// UNIMOCK_SCENARIOS_FILE - Scenarios file path (optional)
 ```
 
 ## Testing Integration
@@ -242,8 +276,27 @@ func convertToCamelCase(data map[string]interface{}) map[string]interface{} {
 ### Unit Testing with Embedded Server
 
 ```go
+import (
+    "context"
+    "fmt"
+    "net/http"
+    "testing"
+    "time"
+    
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+    
+    "github.com/bmcszk/unimock/pkg"
+    "github.com/bmcszk/unimock/pkg/config"
+)
+
 func TestWithEmbeddedUnimock(t *testing.T) {
     // Create test configuration
+    serverConfig := &config.ServerConfig{
+        Port:     "0", // Use random available port
+        LogLevel: "error", // Reduce noise in tests
+    }
+    
     mockConfig := &config.MockConfig{
         Sections: map[string]config.Section{
             "users": {
@@ -255,194 +308,132 @@ func TestWithEmbeddedUnimock(t *testing.T) {
     }
     
     // Start embedded server
-    server, err := pkg.NewServer(
-        pkg.WithPort(0), // Use random available port
-        pkg.WithMockConfig(mockConfig),
-    )
+    server, err := pkg.NewServer(serverConfig, mockConfig)
     require.NoError(t, err)
     
     // Start server in background
-    go server.ListenAndServe()
-    defer server.Shutdown(context.Background())
+    go func() {
+        if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            t.Errorf("Server error: %v", err)
+        }
+    }()
     
-    // Get the actual port
-    port := server.GetPort()
-    baseURL := fmt.Sprintf("http://localhost:%d", port)
+    // Cleanup
+    defer func() {
+        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer cancel()
+        server.Shutdown(ctx)
+    }()
     
-    // Use with HTTP client or Go client
-    client, err := client.NewClient(baseURL)
+    // Wait for server to start
+    time.Sleep(100 * time.Millisecond)
+    
+    // Get server address from actual listener
+    baseURL := fmt.Sprintf("http://%s", server.Addr)
+    
+    // Test operations using standard HTTP client
+    client := &http.Client{Timeout: 5 * time.Second}
+    
+    // Create user
+    resp, err := client.Post(baseURL+"/api/users", "application/json", 
+        strings.NewReader(`{"id": "test123", "name": "Test User"}`))
     require.NoError(t, err)
-    
-    // Test operations
-    user := map[string]interface{}{
-        "id":   "test123",
-        "name": "Test User",
-    }
-    
-    resp, err := client.PostJSON(context.Background(), "/api/users", nil, user)
-    require.NoError(t, err)
+    defer resp.Body.Close()
     assert.Equal(t, 201, resp.StatusCode)
     
-    resp, err = client.Get(context.Background(), "/api/users/test123", nil)
+    // Get user
+    resp, err = client.Get(baseURL + "/api/users/test123")
     require.NoError(t, err)
+    defer resp.Body.Close()
     assert.Equal(t, 200, resp.StatusCode)
 }
 ```
 
-### Integration Testing with Scenarios
+### Integration Testing with File-based Configuration
 
 ```go
-func TestWithScenarios(t *testing.T) {
-    scenarios := []*model.Scenario{
-        {
-            UUID:        "user-not-found",
-            Method:      "GET",
-            Path:        "/api/users/999",
-            StatusCode:  404,
-            ContentType: "application/json",
-            Data:        `{"error": "User not found"}`,
-        },
-        {
-            UUID:        "server-error",
-            Method:      "POST",
-            Path:        "/api/users",
-            StatusCode:  500,
-            ContentType: "application/json",
-            Data:        `{"error": "Internal server error"}`,
-        },
+func TestWithConfigFiles(t *testing.T) {
+    // Create temporary config file
+    configFile := createTempConfig(t, `
+sections:
+  users:
+    path_pattern: "/api/users/*"
+    body_id_paths:
+      - "/id"
+    return_body: true
+`)
+    defer os.Remove(configFile)
+    
+    // Create server config pointing to file
+    serverConfig := &config.ServerConfig{
+        Port:       "0",
+        LogLevel:   "error",
+        ConfigPath: configFile,
     }
     
-    server, err := pkg.NewServer(
-        pkg.WithPort(0),
-        pkg.WithMockConfig(mockConfig),
-        pkg.WithScenarios(scenarios),
-    )
+    // Load mock config from file
+    mockConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
     require.NoError(t, err)
     
-    go server.ListenAndServe()
-    defer server.Shutdown(context.Background())
-    
-    // Test scenario responses
-    baseURL := fmt.Sprintf("http://localhost:%d", server.GetPort())
-    
-    // Test 404 scenario
-    resp, err := http.Get(baseURL + "/api/users/999")
-    require.NoError(t, err)
-    assert.Equal(t, 404, resp.StatusCode)
-    
-    // Test 500 scenario
-    resp, err = http.Post(baseURL+"/api/users", "application/json", strings.NewReader(`{"name": "test"}`))
-    require.NoError(t, err)
-    assert.Equal(t, 500, resp.StatusCode)
-}
-```
-
-### Test Helper Functions
-
-```go
-// Helper to create test server with common configuration
-func createTestServer(t *testing.T, config *config.MockConfig) (*pkg.Server, string) {
-    server, err := pkg.NewServer(
-        pkg.WithPort(0),
-        pkg.WithMockConfig(config),
-        pkg.WithLogLevel("error"), // Reduce noise in tests
-    )
+    // Create and test server
+    server, err := pkg.NewServer(serverConfig, mockConfig)
     require.NoError(t, err)
     
-    go server.ListenAndServe()
-    t.Cleanup(func() {
-        server.Shutdown(context.Background())
-    })
-    
-    baseURL := fmt.Sprintf("http://localhost:%d", server.GetPort())
-    return server, baseURL
+    // ... test operations
 }
 
-// Helper to wait for server readiness
-func waitForServer(t *testing.T, baseURL string, timeout time.Duration) {
-    client := &http.Client{Timeout: 1 * time.Second}
-    deadline := time.Now().Add(timeout)
+func createTempConfig(t *testing.T, content string) string {
+    file, err := os.CreateTemp("", "unimock-test-*.yaml")
+    require.NoError(t, err)
     
-    for time.Now().Before(deadline) {
-        resp, err := client.Get(baseURL + "/_uni/health")
-        if err == nil && resp.StatusCode == 200 {
-            resp.Body.Close()
-            return
-        }
-        if resp != nil {
-            resp.Body.Close()
-        }
-        time.Sleep(10 * time.Millisecond)
-    }
+    _, err = file.WriteString(content)
+    require.NoError(t, err)
     
-    t.Fatal("Server not ready within timeout")
+    err = file.Close()
+    require.NoError(t, err)
+    
+    return file.Name()
 }
 ```
 
 ## Server Configuration Options
 
-### Available Options
+### Available Configuration
 
 ```go
-server, err := pkg.NewServer(
-    pkg.WithPort(8080),                    // Server port (0 for random)
-    pkg.WithMockConfig(mockConfig),        // Mock configuration
-    pkg.WithScenarios(scenarios),          // Predefined scenarios
-    pkg.WithLogLevel("debug"),             // Log level
-    pkg.WithCORS(true),                    // Enable CORS
-    pkg.WithHealthCheck("/health"),        // Custom health endpoint
-    pkg.WithShutdownTimeout(30*time.Second), // Graceful shutdown timeout
-)
+// Server configuration
+serverConfig := &config.ServerConfig{
+    Port:          "8080",           // Server port
+    LogLevel:      "info",           // Log level: debug, info, warn, error
+    ConfigPath:    "config.yaml",    // Path to mock config file
+    ScenariosFile: "scenarios.yaml", // Path to scenarios file (optional)
+}
+
+// Mock configuration  
+mockConfig := &config.MockConfig{
+    Sections: map[string]config.Section{
+        "section_name": {
+            PathPattern:     "/api/path/*",           // URL pattern
+            BodyIDPaths:     []string{"/id"},         // JSON/XML ID paths
+            HeaderIDName:    "X-Resource-ID",        // Header ID name
+            ReturnBody:      true,                   // Return request body on GET
+            StrictPath:      false,                  // Strict path matching
+            Transformations: transformationConfig,    // Library-only transformations
+        },
+    },
+}
 ```
 
-### Configuration Loading
-
-Load configuration from files:
+### Default Values
 
 ```go
-// Load from YAML file
-mockConfig, err := config.LoadFromFile("config.yaml")
-if err != nil {
-    log.Fatal(err)
-}
+// Create with defaults
+serverConfig := config.NewDefaultServerConfig()
+// Defaults: Port="8080", LogLevel="info", ConfigPath="config.yaml"
 
-// Load scenarios from YAML file  
-scenarios, err := config.LoadScenariosFromFile("scenarios.yaml")
-if err != nil {
-    log.Fatal(err)
-}
-
-server, err := pkg.NewServer(
-    pkg.WithMockConfig(mockConfig),
-    pkg.WithScenarios(scenarios),
-)
-```
-
-### Dynamic Configuration
-
-Update configuration at runtime:
-
-```go
-// Get server instance
-server, err := pkg.NewServer(pkg.WithPort(8080))
-
-// Add new section dynamically
-newSection := config.Section{
-    PathPattern: "/api/products/*",
-    BodyIDPaths: []string{"/id"},
-}
-server.AddSection("products", newSection)
-
-// Add scenario dynamically
-scenario := &model.Scenario{
-    UUID:        "product-error",
-    Method:      "GET", 
-    Path:        "/api/products/error",
-    StatusCode:  500,
-    ContentType: "application/json",
-    Data:        `{"error": "Product service unavailable"}`,
-}
-server.AddScenario(scenario)
+// Load from environment variables
+serverConfig := config.FromEnv()
+// Reads: UNIMOCK_PORT, UNIMOCK_LOG_LEVEL, UNIMOCK_CONFIG, UNIMOCK_SCENARIOS_FILE
 ```
 
 ## Production Usage
@@ -450,19 +441,26 @@ server.AddScenario(scenario)
 ### Graceful Shutdown
 
 ```go
+import (
+    "context"
+    "log"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+)
+
 func main() {
-    server, err := pkg.NewServer(
-        pkg.WithPort(8080),
-        pkg.WithMockConfig(mockConfig),
-    )
+    server, err := pkg.NewServer(serverConfig, mockConfig)
     if err != nil {
         log.Fatal(err)
     }
     
-    // Start server
+    // Start server in background
     go func() {
+        log.Printf("Starting server on %s", server.Addr)
         if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-            log.Fatal(err)
+            log.Fatal("Server error:", err)
         }
     }()
     
@@ -485,27 +483,37 @@ func main() {
 }
 ```
 
-### Health Monitoring
+### Error Handling
 
 ```go
-// Custom health check
-server.SetHealthCheck(func() error {
-    // Custom health logic
-    if someCondition {
-        return errors.New("service unhealthy")
+// Handle configuration errors
+server, err := pkg.NewServer(serverConfig, mockConfig)
+if err != nil {
+    if configErr, ok := err.(*pkg.ConfigError); ok {
+        log.Printf("Configuration error: %s", configErr.Message)
+        // Handle configuration-specific errors
+    } else {
+        log.Printf("Server creation failed: %v", err)
     }
-    return nil
-})
+    return
+}
 
-// Monitor server health
-go func() {
-    for {
-        if err := server.Health(); err != nil {
-            log.Printf("Health check failed: %v", err)
+// Handle transformation errors (transformations return 500 on error)
+transformConfig.AddRequestTransform(
+    func(data *model.MockData) (*model.MockData, error) {
+        // Safe transformation with error handling
+        modifiedData := *data
+        
+        var body map[string]interface{}
+        if err := json.Unmarshal(data.Body, &body); err != nil {
+            // Return error - will result in HTTP 500
+            return nil, fmt.Errorf("invalid JSON in request: %w", err)
         }
-        time.Sleep(30 * time.Second)
-    }
-}()
+        
+        // Transform logic here...
+        
+        return &modifiedData, nil
+    })
 ```
 
 ## Best Practices
@@ -514,7 +522,7 @@ go func() {
 
 ```go
 // Load from file instead of hardcoding
-mockConfig, err := config.LoadFromFile("config.yaml")
+mockConfig, err := config.LoadFromYAML("config.yaml")
 if err != nil {
     log.Fatal(err)
 }
@@ -531,7 +539,7 @@ transformConfig.AddRequestTransform(
         
         var body map[string]interface{}
         if err := json.Unmarshal(data.Body, &body); err != nil {
-            // Log error but don't fail
+            // Log error but don't fail for malformed JSON
             log.Printf("Transform error: %v", err)
             return &modifiedData, nil
         }
@@ -542,31 +550,17 @@ transformConfig.AddRequestTransform(
     })
 ```
 
-### 3. Use Dependency Injection
+### 3. Use Environment Variables for Deployment
 
 ```go
-type TestSuite struct {
-    server *pkg.Server
-    client *client.Client
-}
+// Production-ready configuration
+serverConfig := config.FromEnv()
 
-func (ts *TestSuite) SetupSuite() {
-    server, err := pkg.NewServer(pkg.WithPort(0))
-    require.NoError(ts.T(), err)
-    
-    go server.ListenAndServe()
-    
-    baseURL := fmt.Sprintf("http://localhost:%d", server.GetPort())
-    client, err := client.NewClient(baseURL)
-    require.NoError(ts.T(), err)
-    
-    ts.server = server
-    ts.client = client
-}
-
-func (ts *TestSuite) TearDownSuite() {
-    ts.server.Shutdown(context.Background())
-}
+// Allows deployment-time configuration via:
+// UNIMOCK_PORT=8080
+// UNIMOCK_LOG_LEVEL=info
+// UNIMOCK_CONFIG=/etc/unimock/config.yaml
+// UNIMOCK_SCENARIOS_FILE=/etc/unimock/scenarios.yaml
 ```
 
 ### 4. Test Isolation
@@ -575,7 +569,7 @@ func (ts *TestSuite) TearDownSuite() {
 func TestUserOperations(t *testing.T) {
     // Each test gets fresh server
     server, baseURL := createTestServer(t, mockConfig)
-    client, _ := client.NewClient(baseURL)
+    defer shutdownServer(server)
     
     t.Run("CreateUser", func(t *testing.T) {
         // Test user creation
@@ -584,9 +578,18 @@ func TestUserOperations(t *testing.T) {
     t.Run("GetUser", func(t *testing.T) {
         // Test user retrieval
     })
+}
+
+func createTestServer(t *testing.T, mockConfig *config.MockConfig) (*http.Server, string) {
+    serverConfig := &config.ServerConfig{Port: "0", LogLevel: "error"}
+    server, err := pkg.NewServer(serverConfig, mockConfig)
+    require.NoError(t, err)
     
-    // Server automatically cleaned up via t.Cleanup
+    go server.ListenAndServe()
+    time.Sleep(50 * time.Millisecond) // Wait for startup
+    
+    return server, fmt.Sprintf("http://%s", server.Addr)
 }
 ```
 
-The Go library provides full programmatic control over Unimock's behavior, making it ideal for integration testing, development environments, and embedded usage scenarios.
+The Go library provides programmatic control over Unimock's behavior, making it ideal for integration testing, development environments, and embedded usage scenarios.

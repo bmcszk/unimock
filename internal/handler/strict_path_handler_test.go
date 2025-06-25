@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/service"
@@ -318,7 +319,8 @@ func setupStrictPathHandler(t *testing.T, strictPath bool) strictPathHandlerDeps
 
 	mockService := service.NewMockService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, logger, cfg)
+	techService := service.NewTechService(time.Now())
+	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
 	
 	return strictPathHandlerDeps{
 		handler: mockHandler,
@@ -346,7 +348,8 @@ func setupWildcardHandler(t *testing.T, pathPattern string) strictPathHandlerDep
 
 	mockService := service.NewMockService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, logger, cfg)
+	techService := service.NewTechService(time.Now())
+	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
 	
 	return strictPathHandlerDeps{
 		handler: mockHandler,

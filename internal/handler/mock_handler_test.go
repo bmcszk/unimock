@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/service"
@@ -95,7 +96,8 @@ func setupMockHandlerFull(t *testing.T) mockHandlerDeps {
 
 	mockService := service.NewMockService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, logger, cfg)
+	techService := service.NewTechService(time.Now())
+	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
 	
 	return mockHandlerDeps{
 		handler: mockHandler,
@@ -272,7 +274,8 @@ func prepareHandlerForTest(t *testing.T, tt struct {
 		currentService := service.NewMockService(cleanStore, deps.config)
 		currentScenarioStore := storage.NewScenarioStorage()
 		currentScenarioService := service.NewScenarioService(currentScenarioStore)
-		return handler.NewMockHandler(currentService, currentScenarioService, deps.logger, deps.config)
+		techService := service.NewTechService(time.Now())
+		return handler.NewMockHandler(currentService, currentScenarioService, techService, deps.logger, deps.config)
 	}
 
 	return deps.handler

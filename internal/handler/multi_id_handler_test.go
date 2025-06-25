@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/service"
@@ -34,7 +35,8 @@ func setupMultiIDTestHandler() *handler.MockHandler {
 
 	mockService := service.NewMockService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	return handler.NewMockHandler(mockService, scenarioService, logger, cfg)
+	techService := service.NewTechService(time.Now())
+	return handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
 }
 
 func TestMultiIDPostExtraction(t *testing.T) {

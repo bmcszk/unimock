@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/service"
@@ -40,7 +41,8 @@ func createHandlerWithTransforms(transformConfig *config.TransformationConfig) *
 
 	mockService := service.NewMockService(store, mockConfig)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	return handler.NewMockHandler(mockService, scenarioService, logger, mockConfig)
+	techService := service.NewTechService(time.Now())
+	return handler.NewMockHandler(mockService, scenarioService, techService, logger, mockConfig)
 }
 
 func TestTransformationSimple_ResponseHeaders(t *testing.T) {
@@ -114,7 +116,8 @@ func TestTransformationSimple_ResponseHeaders(t *testing.T) {
 	}
 
 	scenarioService := service.NewScenarioService(scenarioStore)
-	mockHandler := handler.NewMockHandler(handlerMockService, scenarioService, logger, mockConfig)
+	techService := service.NewTechService(time.Now())
+	mockHandler := handler.NewMockHandler(handlerMockService, scenarioService, techService, logger, mockConfig)
 
 	// Test request
 	req := httptest.NewRequest(http.MethodGet, "/users/123", nil)
