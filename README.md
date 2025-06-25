@@ -26,7 +26,7 @@ go get github.com/bmcszk/unimock
 
 ## Usage Options
 
-Unimock can be used in two ways:
+Unimock can be used in three ways:
 
 ### 1. As a Standalone Application
 
@@ -80,6 +80,73 @@ if err := srv.ListenAndServe(); err != nil {
 ```
 
 See the [example directory](./example) for a complete working example of using Unimock as a library.
+
+### 3. As a Docker Container
+
+Unimock is available as a Docker image from GitHub Container Registry:
+
+#### Quick Start with Docker
+
+```bash
+# Run with default configuration
+docker run -p 8080:8080 ghcr.io/bmcszk/unimock:latest
+
+# Run with custom configuration
+docker run -p 8080:8080 \
+  -v $(pwd)/config.yaml:/etc/unimock/config.yaml \
+  ghcr.io/bmcszk/unimock:latest
+
+# Run with scenarios file
+docker run -p 8080:8080 \
+  -v $(pwd)/config.yaml:/etc/unimock/config.yaml \
+  -v $(pwd)/scenarios.yaml:/etc/unimock/scenarios.yaml \
+  -e UNIMOCK_SCENARIOS_FILE=/etc/unimock/scenarios.yaml \
+  ghcr.io/bmcszk/unimock:latest
+```
+
+#### Available Tags
+
+- `latest` - Latest stable release from master branch
+- `v1.x.x` - Specific version tags (e.g., `v1.2.0`)
+- `master` - Latest build from master branch
+- `sha-xxxxxxx` - Specific commit builds
+
+#### Docker Compose Example
+
+```yaml
+version: '3.8'
+services:
+  unimock:
+    image: ghcr.io/bmcszk/unimock:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yaml:/etc/unimock/config.yaml
+      - ./scenarios.yaml:/etc/unimock/scenarios.yaml
+    environment:
+      - UNIMOCK_PORT=8080
+      - UNIMOCK_CONFIG=/etc/unimock/config.yaml
+      - UNIMOCK_SCENARIOS_FILE=/etc/unimock/scenarios.yaml
+      - UNIMOCK_LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8080/_uni/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+```
+
+#### Building Custom Image
+
+```bash
+# Clone and build locally
+git clone https://github.com/bmcszk/unimock.git
+cd unimock
+docker build -t unimock:local .
+
+# Run your custom build
+docker run -p 8080:8080 unimock:local
+```
 
 ## Quick Start
 
