@@ -85,7 +85,7 @@ scenarios:
     data: '{"error": "User not found"}'
 ```
 
-**[📖 Scenarios Documentation](docs/scenarios.md)**
+**[📖 Scenarios Guide](docs/scenarios.md)**
 
 ## Installation Methods
 
@@ -99,58 +99,14 @@ scenarios:
 
 **[📖 Deployment Guide](docs/deployment.md)**
 
-## Using Unimock
-
-### As a Go Library
-
-Embed Unimock directly in your Go application:
-
-```go
-import (
-    "github.com/bmcszk/unimock/pkg"
-    "github.com/bmcszk/unimock/pkg/config"
-)
-
-// Create configuration
-mockConfig := &config.MockConfig{
-    Sections: map[string]config.Section{
-        "users": {
-            PathPattern: "/api/users/*",
-            BodyIDPaths: []string{"/id"},  // XPath-like syntax, not JSONPath
-            ReturnBody:  true,
-        },
-    },
-}
-
-// Start embedded server
-server, err := pkg.NewServer(
-    pkg.WithPort(8080),
-    pkg.WithMockConfig(mockConfig),
-)
-if err != nil {
-    log.Fatal(err)
-}
-
-go server.ListenAndServe()
-```
-
-### With Client Libraries
-
-Use Unimock from your tests:
-
-```go
-// Go
-client := unimock.NewClient("http://localhost:8080")
-user := client.Post("/api/users", userData)
-```
-
-**[📖 Full Client Guide](docs/client.md)**
+**[📖 Usage Examples](docs/examples.md)**
 
 ## Advanced Features
 
-- **[Data Transformations](docs/transformations.md)** - Modify responses on-the-fly
-- **[Request Matching](docs/matching.md)** - Advanced path and content matching
-- **[Monitoring](docs/monitoring.md)** - Metrics and health checks
+- **[Go Library](docs/library.md)** - Embed Unimock in Go applications with transformations
+- **[Go Client Library](docs/client.md)** - Complete Go client with scenario management
+- **[ID Extraction](docs/id_extraction.md)** - Flexible ID extraction from headers, JSON, and XML
+- **[Technical Endpoints](docs/technical_endpoints.md)** - Health checks, metrics, and scenario management
 
 ## API Reference
 

@@ -1,6 +1,6 @@
-# Storage System (Internal Implementation)
+# Internal Storage Architecture
 
-This document describes the internal storage implementation of Unimock. This information is primarily for developers and contributors to understand the architecture and is not relevant for end users of the mock server.
+This document describes the internal storage implementation of Unimock. This information is for developers and contributors who need to understand the internal architecture.
 
 ## Architecture Overview
 

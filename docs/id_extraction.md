@@ -1,30 +1,30 @@
 # ID Extraction
 
-This document explains how Unimock extracts IDs from HTTP requests.
+This document explains how Unimock extracts IDs from HTTP requests for resource identification and storage.
 
 ## Overview
 
 Unimock can extract IDs from three sources:
-1. URL path
-2. HTTP headers
-3. Request body (JSON/XML)
+1. **URL path** - From the path segment (e.g., `/users/123`)
+2. **HTTP headers** - From named headers (e.g., `X-User-ID: 123`)
+3. **Request body** - From JSON/XML content using XPath-like expressions
 
-The extraction is configured per API endpoint pattern using sections in the configuration file.
+The extraction is configured per API endpoint pattern using sections in the main configuration file.
 
 ## Configuration
 
-Each section in the configuration defines how to extract IDs for a specific API endpoint pattern:
+Each section in `config.yaml` defines how to extract IDs for a specific API endpoint pattern:
 
 ```yaml
-sections:
-  users:
-    path_pattern: "/users/*"  # URL pattern to match
-    header_id_name: "X-Resource-ID"  # Optional: HTTP header to extract ID from
-    body_id_paths:  # Optional: XPath-like paths to extract IDs from request body
-      - "/id"           # Root level ID
-      - "/data/id"      # Nested ID
-      - "//id"          # Any ID anywhere
-      - "/items/*/id"   # Array of objects with IDs
+# Example configuration showing all ID extraction methods
+users:
+  path_pattern: "/api/users/*"  # URL pattern to match
+  header_id_name: "X-User-ID"   # Optional: HTTP header to extract ID from
+  body_id_paths:                # Optional: XPath-like paths to extract IDs from request body
+    - "/id"                     # Root level ID
+    - "/user/id"                # Nested ID
+    - "//id"                    # Any ID anywhere in document
+  return_body: true             # Optional: return POST body on GET requests
 ```
 
 ### Path Pattern

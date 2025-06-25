@@ -6,12 +6,27 @@ This guide covers different ways to deploy and run Unimock.
 
 | Method | Best For | Command |
 |--------|----------|---------|
-| Docker | Quick testing | `docker run -p 8080:8080 ghcr.io/bmcszk/unimock` |
-| Go Binary | Go developers | `go run .` |
-| Kubernetes | Production testing | `helm install unimock ./helm/unimock` |
-| Tilt | Local development | `make tilt-run` |
+| **Docker** | Quick testing | `docker run -p 8080:8080 ghcr.io/bmcszk/unimock` |
+| **Helm (Registry)** | Production deployment | `helm install unimock oci://ghcr.io/bmcszk/charts/unimock` |
+| **Helm (Local)** | Local Kubernetes testing | `helm install unimock ./helm/unimock` |
+| **Go Library** | Embedded in Go apps | `pkg.NewServer()` |
+| **Tilt** | Local development | `make tilt-run` |
 
 ## Docker Deployment
+
+### Available Images
+
+All images are available at: `ghcr.io/bmcszk/unimock`
+
+**Tags:**
+- `latest` - Latest stable release (from latest version tag)
+- `v1.x.x` - Specific version releases (e.g., `v1.2.0`)
+- `v1.x` - Minor version tags (e.g., `v1.2`)
+- `v1` - Major version tags (e.g., `v1`)
+
+**Platforms:**
+- `linux/amd64` (Intel/AMD 64-bit)
+- `linux/arm64` (ARM 64-bit, including Apple Silicon)
 
 ### Basic Usage
 
@@ -61,12 +76,6 @@ Start with:
 docker-compose up -d
 ```
 
-### Available Tags
-
-- `latest` - Latest stable release
-- `v1.x.x` - Specific version tags
-- `main` - Latest development build
-
 ## Kubernetes with Helm
 
 ### Prerequisites
@@ -74,7 +83,20 @@ docker-compose up -d
 - Kubernetes 1.19+
 - Helm 3.2.0+
 
-### Basic Installation
+### Installation from Registry (Recommended)
+
+```bash
+# Install latest version from GitHub Container Registry
+helm install unimock oci://ghcr.io/bmcszk/charts/unimock
+
+# Install specific version
+helm install unimock oci://ghcr.io/bmcszk/charts/unimock --version 1.2.0
+
+# Install with custom values
+helm install unimock oci://ghcr.io/bmcszk/charts/unimock -f my-values.yaml
+```
+
+### Installation from Local Chart
 
 ```bash
 # Clone repository
@@ -110,10 +132,11 @@ scenarios:
 
 # Custom configuration
 config:
-  sections:
-    - path: "/api/users/*"
-      id_path: "/id"
-      return_body: true
+  users:
+    path_pattern: "/api/users/*"
+    body_id_paths:
+      - "/id"
+    return_body: true
 
 # Enable ingress
 ingress:
@@ -138,7 +161,7 @@ resources:
 
 ```bash
 # Port forward for local access
-kubectl port-forward svc/my-unimock 8080:8080
+kubectl port-forward svc/unimock 8080:8080
 
 # Test
 curl http://localhost:8080/_uni/health
@@ -147,7 +170,7 @@ curl http://localhost:8080/_uni/health
 ### Uninstall
 
 ```bash
-helm uninstall my-unimock
+helm uninstall unimock
 ```
 
 ## Local Development with Tilt
@@ -196,39 +219,47 @@ For automated testing:
 make tilt-ci
 ```
 
-## Go Binary
+## Go Library
 
-### Install from Source
+Embed Unimock directly in your Go application for testing, development, or production use. The library provides full programmatic control including data transformations, scenario management, and embedded server capabilities.
+
+**[📖 Complete Go Library Guide](library.md)**
+
+### Quick Example
+
+```go
+import "github.com/bmcszk/unimock/pkg"
+
+// Start embedded server
+server, err := pkg.NewServer(
+    pkg.WithPort(8080),
+    pkg.WithMockConfig(mockConfig),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+go server.ListenAndServe()
+```
+
+### Go Binary
+
+For standalone usage:
 
 ```bash
-# Clone and build
+# Install from source
 git clone https://github.com/bmcszk/unimock.git
 cd unimock
 make build
-
-# Run
 ./unimock
-```
 
-### Install with Go
-
-```bash
+# Install with Go
 go install github.com/bmcszk/unimock@latest
 unimock
-```
 
-### Configuration
-
-By default, looks for `config.yaml` in current directory:
-
-```bash
-# Use custom config
+# Configuration via environment variables
 UNIMOCK_CONFIG=/path/to/config.yaml unimock
-
-# Use different port
 UNIMOCK_PORT=9090 unimock
-
-# Enable debug logging
 UNIMOCK_LOG_LEVEL=debug unimock
 ```
 
@@ -257,11 +288,11 @@ monitoring:
 
 # Production config
 config:
-  sections:
-    - path: "/api/v1/users/*"
-      id_path: "/id"
-      return_body: true
-      strict_path: false
+  users:
+    path_pattern: "/api/v1/users/*"
+    body_id_paths:
+      - "/id"
+    return_body: true
 
 # Health checks
 probes:
@@ -291,7 +322,7 @@ ingress:
 
 Deploy:
 ```bash
-helm install unimock-prod ./helm/unimock -f production-values.yaml
+helm install unimock-prod oci://ghcr.io/bmcszk/charts/unimock -f production-values.yaml
 ```
 
 ### Docker Swarm
@@ -338,6 +369,32 @@ docker stack deploy -c docker-stack.yml unimock
 | `UNIMOCK_LOG_LEVEL` | Log level (debug, info, warn, error) | `info` |
 | `UNIMOCK_SCENARIOS_FILE` | Scenarios file path | (disabled) |
 
+## Security Considerations
+
+### Image Security
+
+- Uses distroless base image for minimal attack surface
+- Runs as non-root user
+- Images are scanned with Trivy for vulnerabilities
+- Static binary with no dynamic dependencies
+
+### Runtime Security
+
+```yaml
+# Example security-hardened container
+services:
+  unimock:
+    image: ghcr.io/bmcszk/unimock:latest
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "65534:65534"  # nobody user
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+```
+
 ## Health Checks
 
 All deployment methods support health checking:
@@ -368,10 +425,6 @@ curl http://localhost:8080/_uni/metrics
 - `unimock_requests_total` - Total HTTP requests
 - `unimock_request_duration_seconds` - Request latency
 - `unimock_active_mocks` - Number of stored mocks
-
-### Grafana Dashboard
-
-Import the provided dashboard from `monitoring/grafana-dashboard.json` for visualizing Unimock metrics.
 
 ## Troubleshooting
 
@@ -415,3 +468,30 @@ This shows:
 - Request routing decisions
 - ID extraction attempts
 - Response selection logic
+
+## Building from Source
+
+### Local Build
+
+```bash
+# Clone repository
+git clone https://github.com/bmcszk/unimock.git
+cd unimock
+
+# Build image
+docker build -t unimock:local .
+
+# Run locally built image
+docker run -p 8080:8080 unimock:local
+```
+
+### Multi-platform Build
+
+```bash
+# Setup buildx for multi-platform builds
+docker buildx create --use
+
+# Build for multiple platforms
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t unimock:multi-platform .
+```
