@@ -106,10 +106,10 @@ docker run -p 8080:8080 \
 
 #### Available Tags
 
-- `latest` - Latest stable release from master branch
+- `latest` - Latest stable release (from latest version tag)
 - `v1.x.x` - Specific version tags (e.g., `v1.2.0`)
-- `master` - Latest build from master branch
-- `sha-xxxxxxx` - Specific commit builds
+- `v1.x` - Minor version tags (e.g., `v1.2`)
+- `v1` - Major version tags (e.g., `v1`)
 
 #### Docker Compose Example
 

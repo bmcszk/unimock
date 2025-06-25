@@ -6,8 +6,7 @@ This guide covers deploying Unimock using Docker and GitHub Container Registry.
 
 Unimock automatically builds and publishes Docker images to GitHub Container Registry (ghcr.io) via GitHub Actions:
 
-- **On every push to master**: Creates `latest` and `master` tags
-- **On version tags**: Creates versioned tags (e.g., `v1.2.0`, `v1.2`, `v1`)
+- **On version tags**: Creates versioned tags (e.g., `v1.2.0`, `v1.2`, `v1`) and updates `latest`
 - **On pull requests**: Builds images for testing (not published)
 
 ## Available Images
@@ -16,10 +15,10 @@ All images are available at: `ghcr.io/bmcszk/unimock`
 
 ### Tags
 
-- `latest` - Latest stable release
-- `master` - Latest from master branch  
-- `v1.x.x` - Specific version releases
-- `sha-xxxxxxx` - Specific commit builds
+- `latest` - Latest stable release (from latest version tag)
+- `v1.x.x` - Specific version releases (e.g., `v1.2.0`)
+- `v1.x` - Minor version tags (e.g., `v1.2`)
+- `v1` - Major version tags (e.g., `v1`)
 
 ### Platforms
 
