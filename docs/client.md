@@ -1,479 +1,471 @@
-# Client Libraries
+# Go Client Library
 
-Use Unimock from your application code with these client libraries.
+The Unimock Go client provides a comprehensive interface for interacting with Unimock servers, including both HTTP operations and scenario management.
 
-## Go Client
-
-### Installation
+## Installation
 
 ```bash
 go get github.com/bmcszk/unimock/pkg/client
 ```
 
-### Basic Usage
+## Quick Start
 
 ```go
 package main
 
 import (
+    "context"
     "fmt"
     "log"
+    
     "github.com/bmcszk/unimock/pkg/client"
 )
 
 func main() {
-    // Create client
-    c := client.NewClient("http://localhost:8080")
-    
-    // Add test data
-    user := map[string]interface{}{
-        "id": "123",
-        "name": "John Doe",
-        "email": "john@example.com",
-    }
-    
-    err := c.Post("/api/users", user)
+    // Create client (uses localhost:8080 if URL is empty)
+    c, err := client.NewClient("http://localhost:8080")
     if err != nil {
         log.Fatal(err)
     }
     
-    // Retrieve data
-    var result map[string]interface{}
-    err = c.Get("/api/users/123", &result)
+    ctx := context.Background()
+    
+    // Store data via POST
+    headers := map[string]string{"Content-Type": "application/json"}
+    data := `{"id": "123", "name": "John Doe", "email": "john@example.com"}`
+    
+    resp, err := c.Post(ctx, "/api/users", headers, []byte(data))
     if err != nil {
         log.Fatal(err)
     }
+    fmt.Printf("Created: %d\n", resp.StatusCode)
     
-    fmt.Printf("User: %+v\n", result)
+    // Retrieve data via GET
+    resp, err = c.Get(ctx, "/api/users/123", nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Retrieved: %s\n", string(resp.Body))
 }
 ```
 
-### Advanced Usage
+## Client Creation
 
 ```go
-// Custom headers
+// Connect to localhost:8080 (default)
+client, err := client.NewClient("")
+
+// Connect to custom URL
+client, err := client.NewClient("http://localhost:9090")
+client, err := client.NewClient("https://unimock.example.com")
+
+// The client includes a 10-second timeout HTTP client by default
+```
+
+## HTTP Methods
+
+The client supports all standard HTTP methods with consistent signatures:
+
+### Basic HTTP Operations
+
+```go
+ctx := context.Background()
 headers := map[string]string{
-    "X-User-ID": "123",
-    "Authorization": "Bearer token",
+    "Content-Type": "application/json",
+    "X-Custom-Header": "value",
 }
-err := c.PostWithHeaders("/api/users", user, headers)
 
-// Update data
+// GET request
+resp, err := client.Get(ctx, "/api/users/123", headers)
+
+// HEAD request
+resp, err := client.Head(ctx, "/api/users/123", headers)
+
+// POST request
+body := []byte(`{"name": "John Doe"}`)
+resp, err := client.Post(ctx, "/api/users", headers, body)
+
+// PUT request
+body := []byte(`{"id": "123", "name": "Jane Doe"}`)
+resp, err := client.Put(ctx, "/api/users/123", headers, body)
+
+// PATCH request
+body := []byte(`{"name": "Jane Smith"}`)
+resp, err := client.Patch(ctx, "/api/users/123", headers, body)
+
+// DELETE request
+resp, err := client.Delete(ctx, "/api/users/123", headers)
+
+// OPTIONS request
+resp, err := client.Options(ctx, "/api/users", headers)
+```
+
+### JSON Convenience Methods
+
+For JSON requests, use the convenience methods that handle serialization:
+
+```go
+// POST with automatic JSON marshaling
+user := map[string]interface{}{
+    "id":    "123",
+    "name":  "John Doe",
+    "email": "john@example.com",
+}
+
+resp, err := client.PostJSON(ctx, "/api/users", headers, user)
+
+// PUT with automatic JSON marshaling
 user["name"] = "Jane Doe"
-err = c.Put("/api/users/123", user)
+resp, err := client.PutJSON(ctx, "/api/users/123", headers, user)
 
-// Delete data
-err = c.Delete("/api/users/123")
+// PATCH with automatic JSON marshaling
+updates := map[string]string{"name": "Jane Smith"}
+resp, err := client.PatchJSON(ctx, "/api/users/123", headers, updates)
+```
 
-// Raw HTTP response
-resp, err := c.GetRaw("/api/users/123")
+## Response Handling
+
+All methods return a `Response` struct:
+
+```go
+type Response struct {
+    StatusCode int         // HTTP status code (200, 404, etc.)
+    Headers    http.Header // Response headers
+    Body       []byte      // Response body content
+}
+```
+
+Example response handling:
+
+```go
+resp, err := client.Get(ctx, "/api/users/123", nil)
 if err != nil {
     log.Fatal(err)
 }
-defer resp.Body.Close()
 
-// Check status
-if resp.StatusCode != 200 {
-    fmt.Printf("Error: %d\n", resp.StatusCode)
+// Check status code
+switch resp.StatusCode {
+case 200:
+    fmt.Printf("Success: %s\n", string(resp.Body))
+case 404:
+    fmt.Println("User not found")
+case 500:
+    fmt.Println("Server error")
+default:
+    fmt.Printf("Unexpected status: %d\n", resp.StatusCode)
+}
+
+// Access headers
+contentType := resp.Headers.Get("Content-Type")
+fmt.Printf("Content-Type: %s\n", contentType)
+
+// Parse JSON response
+var user map[string]interface{}
+if err := json.Unmarshal(resp.Body, &user); err != nil {
+    log.Fatal(err)
 }
 ```
 
-### Error Handling
+## Scenario Management
+
+The client provides full CRUD operations for managing scenarios:
+
+### Create Scenario
 
 ```go
-// Check for specific errors
-err := c.Get("/api/users/999", &result)
+import "github.com/bmcszk/unimock/internal/model"
+
+scenario := &model.Scenario{
+    UUID:        "user-not-found", // Optional, auto-generated if empty
+    Method:      "GET",
+    Path:        "/api/users/999",
+    StatusCode:  404,
+    ContentType: "application/json",
+    Data:        `{"error": "User not found", "code": "USER_NOT_FOUND"}`,
+}
+
+err := client.CreateScenario(ctx, scenario)
 if err != nil {
-    if client.IsNotFound(err) {
-        fmt.Println("User not found")
-    } else if client.IsServerError(err) {
-        fmt.Println("Server error")
-    } else {
-        log.Fatal(err)
-    }
+    log.Fatal(err)
 }
 ```
 
-## HTTP/REST Examples
+### Get Scenario
 
-### cURL
-
-```bash
-# Add data
-curl -X POST http://localhost:8080/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"id": "123", "name": "John Doe"}'
-
-# Get data
-curl http://localhost:8080/api/users/123
-
-# Update data
-curl -X PUT http://localhost:8080/api/users/123 \
-  -H "Content-Type: application/json" \
-  -d '{"id": "123", "name": "Jane Doe"}'
-
-# Delete data
-curl -X DELETE http://localhost:8080/api/users/123
-```
-
-### JavaScript/Node.js
-
-```javascript
-const axios = require('axios');
-
-class UnimockClient {
-    constructor(baseURL = 'http://localhost:8080') {
-        this.client = axios.create({ baseURL });
-    }
-    
-    async post(path, data) {
-        const response = await this.client.post(path, data);
-        return response.data;
-    }
-    
-    async get(path) {
-        const response = await this.client.get(path);
-        return response.data;
-    }
-    
-    async put(path, data) {
-        const response = await this.client.put(path, data);
-        return response.data;
-    }
-    
-    async delete(path) {
-        await this.client.delete(path);
-    }
+```go
+// Get specific scenario by UUID
+scenario, err := client.GetScenario(ctx, "user-not-found")
+if err != nil {
+    log.Fatal(err)
 }
 
-// Usage
-const unimock = new UnimockClient();
-
-async function example() {
-    // Add user
-    await unimock.post('/api/users', {
-        id: '123',
-        name: 'John Doe',
-        email: 'john@example.com'
-    });
-    
-    // Get user
-    const user = await unimock.get('/api/users/123');
-    console.log('User:', user);
-    
-    // Update user
-    await unimock.put('/api/users/123', {
-        id: '123',
-        name: 'Jane Doe',
-        email: 'jane@example.com'
-    });
-    
-    // Delete user
-    await unimock.delete('/api/users/123');
-}
-
-example().catch(console.error);
+fmt.Printf("Scenario: %s %s -> %d\n", scenario.Method, scenario.Path, scenario.StatusCode)
 ```
 
-### Python
+### List All Scenarios
 
-```python
-import requests
-import json
-
-class UnimockClient:
-    def __init__(self, base_url='http://localhost:8080'):
-        self.base_url = base_url
-        self.session = requests.Session()
-    
-    def post(self, path, data):
-        url = f"{self.base_url}{path}"
-        response = self.session.post(url, json=data)
-        response.raise_for_status()
-        return response.json() if response.content else None
-    
-    def get(self, path):
-        url = f"{self.base_url}{path}"
-        response = self.session.get(url)
-        response.raise_for_status()
-        return response.json()
-    
-    def put(self, path, data):
-        url = f"{self.base_url}{path}"
-        response = self.session.put(url, json=data)
-        response.raise_for_status()
-        return response.json() if response.content else None
-    
-    def delete(self, path):
-        url = f"{self.base_url}{path}"
-        response = self.session.delete(url)
-        response.raise_for_status()
-
-# Usage
-client = UnimockClient()
-
-# Add user
-client.post('/api/users', {
-    'id': '123',
-    'name': 'John Doe',
-    'email': 'john@example.com'
-})
-
-# Get user
-user = client.get('/api/users/123')
-print(f"User: {user}")
-
-# Update user
-client.put('/api/users/123', {
-    'id': '123',
-    'name': 'Jane Doe',
-    'email': 'jane@example.com'
-})
-
-# Delete user
-client.delete('/api/users/123')
-```
-
-### Java
-
-```java
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.URI;
-import java.util.Map;
-
-public class UnimockClient {
-    private final HttpClient client;
-    private final String baseUrl;
-    private final ObjectMapper mapper;
-    
-    public UnimockClient(String baseUrl) {
-        this.client = HttpClient.newHttpClient();
-        this.baseUrl = baseUrl;
-        this.mapper = new ObjectMapper();
-    }
-    
-    public void post(String path, Object data) throws Exception {
-        String json = mapper.writeValueAsString(data);
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(baseUrl + path))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(json))
-            .build();
-        
-        client.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-    
-    public <T> T get(String path, Class<T> responseType) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(baseUrl + path))
-            .GET()
-            .build();
-        
-        HttpResponse<String> response = client.send(request, 
-            HttpResponse.BodyHandlers.ofString());
-        
-        return mapper.readValue(response.body(), responseType);
-    }
+```go
+scenarios, err := client.ListScenarios(ctx)
+if err != nil {
+    log.Fatal(err)
 }
 
-// Usage
-UnimockClient client = new UnimockClient("http://localhost:8080");
+for _, scenario := range scenarios {
+    fmt.Printf("- %s: %s %s\n", scenario.UUID, scenario.Method, scenario.Path)
+}
+```
 
-// Add user
-Map<String, Object> user = Map.of(
-    "id", "123",
-    "name", "John Doe",
-    "email", "john@example.com"
-);
-client.post("/api/users", user);
+### Update Scenario
 
-// Get user
-Map userResult = client.get("/api/users/123", Map.class);
-System.out.println("User: " + userResult);
+```go
+// Update existing scenario
+scenario.StatusCode = 410
+scenario.Data = `{"error": "User permanently deleted"}`
+
+err := client.UpdateScenario(ctx, "user-not-found", scenario)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+### Delete Scenario
+
+```go
+err := client.DeleteScenario(ctx, "user-not-found")
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+## Health Check
+
+Check if the Unimock server is healthy:
+
+```go
+err := client.HealthCheck(ctx)
+if err != nil {
+    log.Printf("Health check failed: %v", err)
+} else {
+    fmt.Println("Server is healthy")
+}
+```
+
+## Error Handling
+
+The client returns detailed errors for different failure conditions:
+
+```go
+resp, err := client.Get(ctx, "/api/users/999", nil)
+if err != nil {
+    // Network or client errors
+    log.Printf("Request failed: %v", err)
+    return
+}
+
+// Check HTTP status codes
+switch resp.StatusCode {
+case 200:
+    // Success
+case 404:
+    fmt.Println("Resource not found")
+case 409:
+    fmt.Println("Conflict - resource already exists")
+case 500:
+    fmt.Println("Server error")
+default:
+    fmt.Printf("Unexpected status: %d\n", resp.StatusCode)
+}
+```
+
+## URL Handling
+
+The client supports both relative paths and absolute URLs:
+
+```go
+// Relative paths (recommended)
+resp, err := client.Get(ctx, "/api/users/123", nil)
+
+// Absolute URLs (overrides base URL)
+resp, err := client.Get(ctx, "https://api.example.com/users/123", nil)
+
+// URLs are automatically cleaned and joined properly
+resp, err := client.Get(ctx, "api/users/123", nil)    // Leading slash added
+resp, err := client.Get(ctx, "/api/users/123/", nil)  // Trailing slash preserved
 ```
 
 ## Testing Integration
 
-### Go Testing
+### Unit Testing
 
 ```go
-package main
-
-import (
-    "testing"
-    "github.com/bmcszk/unimock/pkg/client"
-)
-
 func TestUserAPI(t *testing.T) {
-    // Setup
-    c := client.NewClient("http://localhost:8080")
+    client, err := client.NewClient("http://localhost:8080")
+    require.NoError(t, err)
+    
+    ctx := context.Background()
     
     // Test data
     user := map[string]interface{}{
-        "id": "test123",
-        "name": "Test User",
+        "id":    "test123",
+        "name":  "Test User",
         "email": "test@example.com",
     }
     
     // Create user
-    err := c.Post("/api/users", user)
-    if err != nil {
-        t.Fatalf("Failed to create user: %v", err)
-    }
+    resp, err := client.PostJSON(ctx, "/api/users", nil, user)
+    require.NoError(t, err)
+    assert.Equal(t, 201, resp.StatusCode)
     
     // Verify user exists
-    var result map[string]interface{}
-    err = c.Get("/api/users/test123", &result)
-    if err != nil {
-        t.Fatalf("Failed to get user: %v", err)
-    }
+    resp, err = client.Get(ctx, "/api/users/test123", nil)
+    require.NoError(t, err)
+    assert.Equal(t, 200, resp.StatusCode)
     
-    // Check fields
-    if result["name"] != "Test User" {
-        t.Errorf("Expected name 'Test User', got %v", result["name"])
-    }
+    // Parse response
+    var result map[string]interface{}
+    err = json.Unmarshal(resp.Body, &result)
+    require.NoError(t, err)
+    assert.Equal(t, "Test User", result["name"])
     
     // Cleanup
-    err = c.Delete("/api/users/test123")
-    if err != nil {
-        t.Fatalf("Failed to delete user: %v", err)
-    }
+    resp, err = client.Delete(ctx, "/api/users/test123", nil)
+    require.NoError(t, err)
 }
 ```
 
-### Jest (JavaScript)
+### Integration Testing with Scenarios
 
-```javascript
-const UnimockClient = require('./unimock-client');
-
-describe('User API', () => {
-    let client;
+```go
+func TestUserNotFoundScenario(t *testing.T) {
+    client, err := client.NewClient("http://localhost:8080")
+    require.NoError(t, err)
     
-    beforeEach(() => {
-        client = new UnimockClient('http://localhost:8080');
-    });
+    ctx := context.Background()
     
-    test('should create and retrieve user', async () => {
-        // Create user
-        const userData = {
-            id: 'test123',
-            name: 'Test User',
-            email: 'test@example.com'
-        };
-        
-        await client.post('/api/users', userData);
-        
-        // Retrieve user
-        const user = await client.get('/api/users/test123');
-        
-        expect(user.name).toBe('Test User');
-        expect(user.email).toBe('test@example.com');
-        
-        // Cleanup
-        await client.delete('/api/users/test123');
-    });
-    
-    test('should handle 404 for non-existent user', async () => {
-        await expect(client.get('/api/users/nonexistent'))
-            .rejects.toThrow();
-    });
-});
-```
-
-### pytest (Python)
-
-```python
-import pytest
-from unimock_client import UnimockClient
-
-@pytest.fixture
-def client():
-    return UnimockClient('http://localhost:8080')
-
-def test_user_crud(client):
-    user_data = {
-        'id': 'test123',
-        'name': 'Test User',
-        'email': 'test@example.com'
+    // Create scenario for user not found
+    scenario := &model.Scenario{
+        Method:      "GET",
+        Path:        "/api/users/999",
+        StatusCode:  404,
+        ContentType: "application/json",
+        Data:        `{"error": "User not found"}`,
     }
     
-    # Create
-    client.post('/api/users', user_data)
+    err = client.CreateScenario(ctx, scenario)
+    require.NoError(t, err)
     
-    # Read
-    user = client.get('/api/users/test123')
-    assert user['name'] == 'Test User'
-    assert user['email'] == 'test@example.com'
+    // Cleanup scenario after test
+    defer func() {
+        client.DeleteScenario(ctx, scenario.UUID)
+    }()
     
-    # Update
-    user_data['name'] = 'Updated User'
-    client.put('/api/users/test123', user_data)
+    // Test the scenario
+    resp, err := client.Get(ctx, "/api/users/999", nil)
+    require.NoError(t, err)
+    assert.Equal(t, 404, resp.StatusCode)
     
-    updated_user = client.get('/api/users/test123')
-    assert updated_user['name'] == 'Updated User'
+    var errorResp map[string]string
+    err = json.Unmarshal(resp.Body, &errorResp)
+    require.NoError(t, err)
+    assert.Equal(t, "User not found", errorResp["error"])
+}
+```
+
+### Test Helpers
+
+```go
+// Helper function for creating test scenarios
+func createTestScenario(t *testing.T, client *client.Client, method, path string, statusCode int, data string) string {
+    scenario := &model.Scenario{
+        Method:      method,
+        Path:        path,
+        StatusCode:  statusCode,
+        ContentType: "application/json",
+        Data:        data,
+    }
     
-    # Delete
-    client.delete('/api/users/test123')
+    err := client.CreateScenario(context.Background(), scenario)
+    require.NoError(t, err)
     
-    # Verify deletion
-    with pytest.raises(requests.exceptions.HTTPError):
-        client.get('/api/users/test123')
+    // Return UUID for cleanup
+    return scenario.UUID
+}
+
+// Helper function for cleanup
+func cleanupScenario(t *testing.T, client *client.Client, uuid string) {
+    err := client.DeleteScenario(context.Background(), uuid)
+    require.NoError(t, err)
+}
 ```
 
 ## Best Practices
 
-### 1. Use Environment Variables
+### 1. Use Context for Timeouts
 
 ```go
-// Don't hardcode URLs
-baseURL := os.Getenv("UNIMOCK_URL")
-if baseURL == "" {
-    baseURL = "http://localhost:8080"  // fallback
-}
-client := client.NewClient(baseURL)
+// Create context with timeout
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+resp, err := client.Get(ctx, "/api/users/123", nil)
 ```
 
-### 2. Clean Up Test Data
+### 2. Clean Up Test Resources
 
 ```go
-func TestWithCleanup(t *testing.T) {
-    client := client.NewClient("http://localhost:8080")
+func TestUserCRUD(t *testing.T) {
+    client, _ := client.NewClient("http://localhost:8080")
+    ctx := context.Background()
     
-    // Clean up after test
+    // Create test user
+    user := map[string]string{"id": "test123", "name": "Test User"}
+    client.PostJSON(ctx, "/api/users", nil, user)
+    
+    // Ensure cleanup
     defer func() {
-        client.Delete("/api/users/test123")
+        client.Delete(ctx, "/api/users/test123", nil)
     }()
     
-    // Your test code here
+    // Your test logic here...
 }
 ```
 
-### 3. Use Unique Test IDs
+### 3. Use Environment Variables for URLs
 
 ```go
-// Generate unique IDs to avoid conflicts
-testID := fmt.Sprintf("test-%d", time.Now().UnixNano())
-user := map[string]interface{}{
-    "id": testID,
-    "name": "Test User",
+func NewTestClient() (*client.Client, error) {
+    url := os.Getenv("UNIMOCK_URL")
+    if url == "" {
+        url = "http://localhost:8080" // fallback
+    }
+    return client.NewClient(url)
 }
 ```
 
-### 4. Check Health Before Tests
+### 4. Check Server Health Before Tests
 
 ```go
 func TestMain(m *testing.M) {
-    // Wait for Unimock to be ready
-    client := client.NewClient("http://localhost:8080")
+    client, err := client.NewClient("http://localhost:8080")
+    if err != nil {
+        log.Fatal(err)
+    }
     
-    for i := 0; i < 30; i++ {
-        if err := client.Health(); err == nil {
+    // Wait for server to be ready
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+    
+    for {
+        if err := client.HealthCheck(ctx); err == nil {
             break
         }
-        time.Sleep(time.Second)
+        
+        select {
+        case <-ctx.Done():
+            log.Fatal("Server not ready within timeout")
+        case <-time.After(time.Second):
+            // Continue waiting
+        }
     }
     
     // Run tests
@@ -482,4 +474,49 @@ func TestMain(m *testing.M) {
 }
 ```
 
-This ensures Unimock is running before your tests start.
+### 5. Use Unique Test IDs
+
+```go
+// Generate unique test IDs to avoid conflicts
+testID := fmt.Sprintf("test-%d", time.Now().UnixNano())
+user := map[string]string{
+    "id":   testID,
+    "name": "Test User",
+}
+```
+
+## Advanced Usage
+
+### Custom Headers for All Requests
+
+```go
+// Create headers map that you reuse
+commonHeaders := map[string]string{
+    "Authorization": "Bearer " + token,
+    "X-API-Version": "v1",
+}
+
+// Use in requests
+resp, err := client.Get(ctx, "/api/users", commonHeaders)
+```
+
+### Working with Different Content Types
+
+```go
+// XML request
+xmlData := `<?xml version="1.0"?><user><name>John</name></user>`
+headers := map[string]string{"Content-Type": "application/xml"}
+resp, err := client.Post(ctx, "/api/users", headers, []byte(xmlData))
+
+// Plain text request
+textData := "Simple text data"
+headers = map[string]string{"Content-Type": "text/plain"}
+resp, err = client.Post(ctx, "/api/logs", headers, []byte(textData))
+
+// Binary data
+binaryData, _ := ioutil.ReadFile("image.jpg")
+headers = map[string]string{"Content-Type": "image/jpeg"}
+resp, err = client.Post(ctx, "/api/uploads", headers, binaryData)
+```
+
+The Go client provides a complete interface for both basic HTTP operations and advanced scenario management, making it easy to integrate Unimock into your Go applications and tests.

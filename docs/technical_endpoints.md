@@ -41,18 +41,20 @@ Response:
 
 ## Scenarios
 
-Unimock provides a RESTful API for managing test scenarios. Scenarios can be created, retrieved, updated, and deleted.
+Unimock provides a RESTful API for managing test scenarios. Scenarios can be created, retrieved, updated, and deleted via the `/_uni/scenarios` endpoint.
 
-### Scenario Resource
+### Scenario Fields
 
 Each scenario contains the following fields:
 
 - `uuid`: Unique identifier for the scenario (auto-generated if not provided)
-- `path`: API path this scenario is for
-- `statusCode`: HTTP status code to return
-- `contentType`: Content type of the response
-- `location`: Location header to return (auto-generated if not provided)
-- `data`: Response data to return
+- `method`: HTTP method (GET, POST, PUT, DELETE, HEAD, PATCH, OPTIONS)
+- `path`: API path this scenario is for (supports wildcards with `*`)
+- `status_code`: HTTP status code to return
+- `content_type`: Content type of the response
+- `location`: Location header to return (optional)
+- `headers`: Additional response headers (optional)
+- `data`: Response body data (optional)
 
 ### Create a Scenario
 
@@ -60,9 +62,10 @@ Each scenario contains the following fields:
 curl -X POST http://localhost:8080/_uni/scenarios \
   -H "Content-Type: application/json" \
   -d '{
+    "method": "GET",
     "path": "/api/users/123",
-    "statusCode": 200,
-    "contentType": "application/json",
+    "status_code": 200,
+    "content_type": "application/json",
     "data": "{\"id\":\"123\",\"name\":\"John Doe\"}"
   }'
 ```
@@ -71,10 +74,10 @@ Response:
 ```json
 {
   "uuid": "550e8400-e29b-41d4-a716-446655440000",
+  "method": "GET",
   "path": "/api/users/123",
-  "statusCode": 200,
-  "contentType": "application/json",
-  "location": "/_uni/scenarios/550e8400-e29b-41d4-a716-446655440000",
+  "status_code": 200,
+  "content_type": "application/json",
   "data": "{\"id\":\"123\",\"name\":\"John Doe\"}"
 }
 ```
@@ -97,9 +100,10 @@ curl -X GET http://localhost:8080/_uni/scenarios
 curl -X PUT http://localhost:8080/_uni/scenarios/550e8400-e29b-41d4-a716-446655440000 \
   -H "Content-Type: application/json" \
   -d '{
+    "method": "GET",
     "path": "/api/users/123",
-    "statusCode": 201,
-    "contentType": "application/json",
+    "status_code": 201,
+    "content_type": "application/json",
     "data": "{\"id\":\"123\",\"name\":\"Jane Doe\"}"
   }'
 ```
