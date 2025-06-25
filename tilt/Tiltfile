@@ -2,7 +2,7 @@
 
 # Build the Docker image with build tag
 docker_build(
-    'unimock:build',  # Name with tag directly in the ref
+    'ghcr.io/bmcszk/unimock:build',  # Use ghcr.io repository with build tag
     '..',
     dockerfile='../Dockerfile'
 )

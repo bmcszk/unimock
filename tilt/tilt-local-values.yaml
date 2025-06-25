@@ -1,8 +1,8 @@
 # Custom values for local development with Tilt
 
-# Use local registry for development
+# Use ghcr.io registry with build tag for development
 image:
-  repository: unimock
+  repository: ghcr.io/bmcszk/unimock
   tag: build
   pullPolicy: Never
 
