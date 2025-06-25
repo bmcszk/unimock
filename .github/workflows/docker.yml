@@ -69,3 +69,34 @@ jobs:
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-results.sarif'
+
+    - name: Install Helm
+      if: github.event_name != 'pull_request'
+      uses: azure/setup-helm@v4
+      with:
+        version: 'latest'
+
+    - name: Update Helm chart version
+      if: github.event_name != 'pull_request'
+      run: |
+        # Extract version from git tag (remove 'v' prefix if present)
+        VERSION=${GITHUB_REF#refs/tags/v}
+        VERSION=${VERSION#refs/tags/}
+        
+        # Update Chart.yaml with the new version
+        sed -i "s/^version: .*/version: ${VERSION}/" helm/unimock/Chart.yaml
+        sed -i "s/^appVersion: .*/appVersion: \"${VERSION}\"/" helm/unimock/Chart.yaml
+        
+        echo "Updated chart version to: ${VERSION}"
+
+    - name: Package and push Helm chart
+      if: github.event_name != 'pull_request'
+      run: |
+        # Package the chart
+        helm package helm/unimock
+        
+        # Log in to GHCR for Helm
+        echo ${{ secrets.GITHUB_TOKEN }} | helm registry login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin
+        
+        # Push chart to GHCR
+        helm push unimock-*.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
