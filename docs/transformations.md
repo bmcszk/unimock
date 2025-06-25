@@ -57,7 +57,7 @@ sections:
 ```yaml
 sections:
   - path: "/api/users/*"
-    id_path: "$.id"
+    id_path: "/id"
     transformations:
       - type: "enrich"
         add_fields:
@@ -420,7 +420,7 @@ sections:
     transformations:
       - type: "compute"
         field: "tax_amount"
-        expression: "$.total * ($.customer.state == 'CA' ? 0.1 : 0.05)"
+        expression: "/total * (/customer/state == 'CA' ? 0.1 : 0.05)"
 ```
 
 ### 4. Use Consistent Field Names
@@ -439,7 +439,7 @@ transformations:
 transformations:
   - type: "compute"
     field: "display_name"
-    expression: "$.first_name + ' ' + $.last_name"
+    expression: "/first_name + ' ' + /last_name"
     default: "Unknown User"  # Fallback for missing names
 ```
 

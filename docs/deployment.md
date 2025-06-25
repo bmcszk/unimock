@@ -112,7 +112,7 @@ scenarios:
 config:
   sections:
     - path: "/api/users/*"
-      id_path: "$.id"
+      id_path: "/id"
       return_body: true
 
 # Enable ingress
@@ -259,7 +259,7 @@ monitoring:
 config:
   sections:
     - path: "/api/v1/users/*"
-      id_path: "$.id"
+      id_path: "/id"
       return_body: true
       strict_path: false
 

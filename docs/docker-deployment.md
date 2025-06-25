@@ -177,9 +177,9 @@ data:
   config.yaml: |
     sections:
       - path: "/api/users/*"
-        id_path: "$.id"
+        id_path: "/id"
       - path: "/api/products/*"
-        id_path: "$.id"
+        id_path: "/id"
 
 ---
 apiVersion: v1

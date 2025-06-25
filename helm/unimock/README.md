@@ -162,10 +162,10 @@ The following table lists the configurable parameters of the Unimock chart and t
 config:
   sections:
     - path: "/api/users/*"
-      id_path: "$.id"
+      id_path: "/id"
       return_body: true
     - path: "/api/products/*"
-      id_path: "$.product_id"
+      id_path: "/product_id"
       return_body: true
 
 resources:
@@ -252,11 +252,11 @@ monitoring:
 config:
   sections:
     - path: "/api/v1/users/*"
-      id_path: "$.id"
+      id_path: "/id"
       return_body: true
       strict_path: false
     - path: "/api/v1/orders/*"
-      id_path: "$.order_id"
+      id_path: "/order_id"
       header_id_name: "X-Order-ID"
       return_body: true
       strict_path: false
@@ -283,7 +283,7 @@ Use structured YAML objects for better validation and IDE support:
 config:
   sections:
     - path: "/api/users/*"
-      id_path: "$.id"
+      id_path: "/id"
       return_body: true
 
 scenarios:
@@ -306,7 +306,7 @@ config:
   yaml: |
     sections:
       - path: "/api/users/*"
-        id_path: "$.id"
+        id_path: "/id"
 
 scenarios:
   enabled: true
