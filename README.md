@@ -53,10 +53,10 @@ Create a `config.yaml` file to define which endpoints to mock:
 ```yaml
 sections:
   - path: "/api/users/*"     # Match /api/users/123
-    id_path: "$.id"          # Extract ID from JSON body
+    id_path: "/id"           # Extract ID from JSON body (XPath-like syntax)
     return_body: true        # Return the posted data
   - path: "/api/orders/*"
-    id_path: "$.order_id"
+    id_path: "/order_id"     # Extract order_id field
     header_id_name: "X-Order-ID"  # Get ID from header
 ```
 
@@ -105,7 +105,7 @@ mockConfig := &config.MockConfig{
     Sections: map[string]config.Section{
         "users": {
             PathPattern: "/api/users/*",
-            BodyIDPaths: []string{"/id"},
+            BodyIDPaths: []string{"/id"},  // XPath-like syntax, not JSONPath
             ReturnBody:  true,
         },
     },

@@ -103,15 +103,15 @@ config:
   # YAML object format (recommended)
   sections:
     - path: "/api/users/*"
-      id_path: "$.id"
+      id_path: "/id"
       return_body: true
       strict_path: false
     - path: "/api/products/*" 
-      id_path: "$.id"
+      id_path: "/id"
       return_body: true
       strict_path: false
     - path: "/api/orders/*"
-      id_path: "$.order_id"
+      id_path: "/order_id"
       header_id_name: "X-Order-ID"
       return_body: true
       strict_path: false
@@ -120,7 +120,7 @@ config:
   # yaml: |
   #   sections:
   #     - path: "/api/users/*"
-  #       id_path: "$.id"
+  #       id_path: "/id"
 
 # Predefined scenarios configuration
 scenarios:
