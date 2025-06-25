@@ -26,6 +26,7 @@ const (
 type MockHandler struct {
 	service         service.MockService
 	scenarioService service.ScenarioService
+	techService     service.TechService
 	logger          *slog.Logger
 	mockCfg         *config.MockConfig
 }
@@ -33,16 +34,27 @@ type MockHandler struct {
 func NewMockHandler(
 	mockService service.MockService,
 	scenarioService service.ScenarioService,
+	techService service.TechService,
 	logger *slog.Logger,
 	cfg *config.MockConfig,
 ) *MockHandler {
 	return &MockHandler{
 		service:         mockService,
 		scenarioService: scenarioService,
+		techService:     techService,
 		logger:          logger,
 		mockCfg:         cfg,
 	}
 }
+
+// trackResponse tracks the response metrics for a request
+func (h *MockHandler) trackResponse(ctx context.Context, path string, statusCode int) {
+	// Track request count and response status
+	h.techService.IncrementRequestCount(ctx, path)
+	h.techService.TrackResponse(ctx, path, statusCode)
+}
+
+
 // HandlePOST processes POST requests step by step
 func (h *MockHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting POST request processing", "path", req.URL.Path)
@@ -820,24 +832,35 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 	req.URL.Path = strings.TrimSuffix(req.URL.Path, "/")
 
 	// Process the request using the appropriate handler
+	var resp *http.Response
+	var err error
+	
 	switch req.Method {
 	case http.MethodGet:
-		return h.HandleGET(ctx, req)
+		resp, err = h.HandleGET(ctx, req)
 	case http.MethodHead:
-		return h.HandleHEAD(ctx, req)
+		resp, err = h.HandleHEAD(ctx, req)
 	case http.MethodPost:
-		return h.HandlePOST(ctx, req)
+		resp, err = h.HandlePOST(ctx, req)
 	case http.MethodPut:
-		return h.HandlePUT(ctx, req)
+		resp, err = h.HandlePUT(ctx, req)
 	case http.MethodDelete:
-		return h.HandleDELETE(ctx, req)
+		resp, err = h.HandleDELETE(ctx, req)
 	default:
-		return &http.Response{
+		resp = &http.Response{
 			StatusCode: http.StatusMethodNotAllowed,
 			Header:     make(http.Header),
 			Body:       io.NopCloser(strings.NewReader("method not allowed")),
-		}, nil
+		}
+		err = nil
 	}
+	
+	// Track the response metrics
+	if resp != nil {
+		h.trackResponse(ctx, req.URL.Path, resp.StatusCode)
+	}
+	
+	return resp, err
 }
 
 // ServeHTTP implements the http.Handler interface

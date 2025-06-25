@@ -61,7 +61,7 @@ func setupTestRouter(_ *testing.T) (*router.Router, service.ScenarioService) {
 	techService := service.NewTechService(time.Now())
 
 	// Create handlers
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, logger, cfg)
+	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
 	techHandler := handler.NewTechHandler(techService, logger)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 

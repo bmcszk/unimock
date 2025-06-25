@@ -44,4 +44,6 @@ type TechService interface {
 	GetMetrics(ctx context.Context) map[string]any
 	// IncrementRequestCount increments the request counter
 	IncrementRequestCount(ctx context.Context, path string)
+	// TrackResponse tracks a response by path and status code
+	TrackResponse(ctx context.Context, path string, statusCode int)
 }

@@ -157,7 +157,7 @@ func NewServer(serverConfig *config.ServerConfig, mockConfig *config.MockConfig)
 	}
 
 	// Create handlers with services
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, logger, mockConfig)
+	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, mockConfig)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 	techHandler := handler.NewTechHandler(techService, logger)
 
