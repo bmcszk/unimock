@@ -1,4 +1,4 @@
-.PHONY: test build clean run helm-lint tilt-run kind-start kind-stop k8s-setup check install-lint install-gotestsum
+.PHONY: test build clean run helm-lint tilt-run tilt-stop tilt-ci kind-start kind-stop k8s-setup check install-lint install-gotestsum
 
 # Go parameters
 GOCMD=go
@@ -120,8 +120,16 @@ kind-stop:
 helm-lint:
 	cd helm/unimock && helm lint .
 
-tilt-run: kind-start
+tilt-run: kind-start ## Run Tilt for local development
 	cd tilt && tilt up
+
+.PHONY: tilt-stop
+tilt-stop: ## Stop Tilt and clean up resources
+	cd tilt && tilt down
+
+.PHONY: tilt-ci
+tilt-ci: kind-start ## Run Tilt in CI mode (non-interactive)
+	cd tilt && tilt ci
 
 k8s-setup: kind-start
 	helm upgrade --install $(BINARY_NAME) ./helm/unimock
@@ -153,5 +161,7 @@ help:
 	@echo "  kind-stop  - Delete the Kind Kubernetes cluster"
 	@echo "  helm-lint  - Lint the Helm chart"
 	@echo "  tilt-run   - Start Tilt for local development"
+	@echo "  tilt-stop  - Stop Tilt and clean up resources"
+	@echo "  tilt-ci    - Run Tilt in CI mode (non-interactive)"
 	@echo "  k8s-setup  - Deploy to Kubernetes using Helm"
 	@echo "  check      - Run all checks" 

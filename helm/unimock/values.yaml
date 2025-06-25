@@ -1,80 +1,253 @@
-replicaCount: 1
+# Default values for unimock
+# This is a YAML-formatted file
 
+# Unimock runs as single instance only (hardcoded to 1 replica)
+
+# Container image configuration
 image:
-  repository: unimock
+  # GitHub Container Registry
+  repository: ghcr.io/bmcszk/unimock
   pullPolicy: IfNotPresent
-  tag: "latest"
+  # Overrides the image tag whose default is the chart appVersion
+  tag: ""
 
+# Image pull secrets for private registries
 imagePullSecrets: []
+
+# Override names
 nameOverride: ""
 fullnameOverride: ""
 
+# Service account configuration
 serviceAccount:
-  create: false
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
   name: ""
 
+# Pod annotations
 podAnnotations: {}
-podSecurityContext: {}
+# Pod labels
+podLabels: {}
 
+# Pod security context
+podSecurityContext:
+  fsGroup: 65534
+
+# Security context for the container
 securityContext:
+  allowPrivilegeEscalation: false
   capabilities:
     drop:
     - ALL
   readOnlyRootFilesystem: true
   runAsNonRoot: true
-  runAsUser: 65532
+  runAsUser: 65534
+  runAsGroup: 65534
 
+# Service configuration
 service:
   type: ClusterIP
   port: 8080
+  targetPort: http
+  # annotations: {}
 
+# Ingress configuration
 ingress:
   enabled: false
   className: ""
   annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
   hosts:
     - host: unimock.local
       paths:
         - path: /
           pathType: Prefix
   tls: []
+  #  - secretName: unimock-tls
+  #    hosts:
+  #      - unimock.local
 
+# Resource limits and requests
 resources:
   limits:
-    memory: 128Mi
+    cpu: 500m
+    memory: 256Mi
   requests:
     cpu: 100m
     memory: 128Mi
 
+# Horizontal Pod Autoscaler (not supported - single replica only)
+# autoscaling:
+#   enabled: false
+#   minReplicas: 1
+#   maxReplicas: 1
+#   targetCPUUtilizationPercentage: 80
+#   targetMemoryUtilizationPercentage: 80
+
+# Environment variables
 env:
   UNIMOCK_PORT: "8080"
   UNIMOCK_LOG_LEVEL: "info"
+  # UNIMOCK_SCENARIOS_FILE: "/etc/unimock/scenarios.yaml"  # Uncomment to enable scenarios
 
+# Unimock configuration
+# Can be either a YAML object or a string
 config:
-  # Default mock configuration
-  yaml: |
-    # Configuration for different API endpoints and their ID extraction rules
-    
-    # Section for user-related endpoints
-    users:
-      path_pattern: "/api/users/*"
-      body_id_paths:
-        - "//id"
-        - "//@id"
-        - "//user/id"
-        - "//user/@id"
-      header_id_name: "X-User-ID"
-    
-    # Section for order-related endpoints
-    orders:
-      path_pattern: "/api/orders/*"
-      body_id_paths:
-        - "//id"
-        - "//@id"
-        - "//order/id"
-        - "//order/@id"
+  # YAML object format (recommended)
+  sections:
+    - path: "/api/users/*"
+      id_path: "$.id"
+      return_body: true
+      strict_path: false
+    - path: "/api/products/*" 
+      id_path: "$.id"
+      return_body: true
+      strict_path: false
+    - path: "/api/orders/*"
+      id_path: "$.order_id"
       header_id_name: "X-Order-ID"
+      return_body: true
+      strict_path: false
 
+  # Alternative: Raw YAML string format
+  # yaml: |
+  #   sections:
+  #     - path: "/api/users/*"
+  #       id_path: "$.id"
+
+# Predefined scenarios configuration
+scenarios:
+  enabled: false
+  # Define scenarios as YAML objects (recommended)
+  data:
+    scenarios:
+      - uuid: "health-check"
+        method: "GET"
+        path: "/_uni/health"
+        status_code: 200
+        content_type: "application/json"
+        data: '{"status":"ok","service":"unimock"}'
+      - uuid: "sample-user"
+        method: "GET"
+        path: "/api/users/sample"
+        status_code: 200
+        content_type: "application/json"
+        headers:
+          X-Sample-Header: "example"
+        data: |
+          {
+            "id": "sample",
+            "name": "Sample User",
+            "email": "sample@example.com"
+          }
+
+  # Alternative: Raw YAML string format
+  # yaml: |
+  #   scenarios:
+  #     - uuid: "test-scenario"
+  #       method: "GET"
+  #       path: "/test"
+  #       status_code: 200
+  #       data: "test response"
+
+# Probes configuration
+probes:
+  liveness:
+    enabled: true
+    httpGet:
+      path: /_uni/health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  readiness:
+    enabled: true
+    httpGet:
+      path: /_uni/health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+  startup:
+    enabled: true
+    httpGet:
+      path: /_uni/health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+
+# Node selector for pod assignment
 nodeSelector: {}
+
+# Tolerations for pod assignment
 tolerations: []
-affinity: {} 
+
+# Affinity for pod assignment
+affinity: {}
+
+# Pod Disruption Budget (not needed for single replica)
+# podDisruptionBudget:
+#   enabled: false
+#   minAvailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  # ingress: []
+  # egress: []
+
+# Monitoring configuration
+monitoring:
+  # Enable ServiceMonitor for Prometheus
+  serviceMonitor:
+    enabled: false
+    # namespace: monitoring
+    # interval: 30s
+    # path: /_uni/metrics
+    # labels: {}
+    # annotations: {}
+
+# Extra volumes and volume mounts
+extraVolumes: []
+extraVolumeMounts: []
+
+# Extra environment variables
+extraEnv: []
+# - name: CUSTOM_VAR
+#   value: "custom-value"
+
+# Extra environment variables from secrets/configmaps
+extraEnvFrom: []
+# - secretRef:
+#     name: unimock-secret
+# - configMapRef:
+#     name: unimock-config
+
+# Init containers
+initContainers: []
+
+# Sidecar containers
+sidecars: []
+
+# Pod restart policy
+restartPolicy: Always
+
+# DNS policy
+dnsPolicy: ClusterFirst
+
+# Termination grace period
+terminationGracePeriodSeconds: 30

@@ -8,6 +8,7 @@ COPY . .
 
 # Build the application with optimizations
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -mod=readonly \
     -ldflags='-w -s -extldflags "-static"' \
     -a -installsuffix cgo \
     -o /unimock .
