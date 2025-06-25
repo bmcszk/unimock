@@ -44,6 +44,18 @@ type Client struct {
 	HTTPClient *http.Client
 }
 
+// Response represents an HTTP response from the server
+type Response struct {
+	// StatusCode is the HTTP status code (200, 404, etc.)
+	StatusCode int
+
+	// Headers contains the response headers
+	Headers http.Header
+
+	// Body contains the response body content
+	Body []byte
+}
+
 // NewClient creates a new client with the given base URL
 func NewClient(baseURL string) (*Client, error) {
 	if baseURL == "" {
@@ -62,6 +74,160 @@ func NewClient(baseURL string) (*Client, error) {
 		},
 	}, nil
 }
+
+// ========================================
+// Universal HTTP Methods
+// ========================================
+
+// Get performs a GET request to the specified path
+func (c *Client) Get(ctx context.Context, urlPath string, headers map[string]string) (*Response, error) {
+	return c.doRequest(ctx, http.MethodGet, urlPath, headers, nil)
+}
+
+// Head performs a HEAD request to the specified path
+func (c *Client) Head(ctx context.Context, urlPath string, headers map[string]string) (*Response, error) {
+	return c.doRequest(ctx, http.MethodHead, urlPath, headers, nil)
+}
+
+// Post performs a POST request to the specified path with the given body
+func (c *Client) Post(ctx context.Context, urlPath string, headers map[string]string, body []byte) (*Response, error) {
+	return c.doRequest(ctx, http.MethodPost, urlPath, headers, body)
+}
+
+// Put performs a PUT request to the specified path with the given body
+func (c *Client) Put(ctx context.Context, urlPath string, headers map[string]string, body []byte) (*Response, error) {
+	return c.doRequest(ctx, http.MethodPut, urlPath, headers, body)
+}
+
+// Delete performs a DELETE request to the specified path
+func (c *Client) Delete(ctx context.Context, urlPath string, headers map[string]string) (*Response, error) {
+	return c.doRequest(ctx, http.MethodDelete, urlPath, headers, nil)
+}
+
+// Patch performs a PATCH request to the specified path with the given body
+func (c *Client) Patch(ctx context.Context, urlPath string, headers map[string]string, body []byte) (*Response, error) {
+	return c.doRequest(ctx, http.MethodPatch, urlPath, headers, body)
+}
+
+// Options performs an OPTIONS request to the specified path
+func (c *Client) Options(ctx context.Context, urlPath string, headers map[string]string) (*Response, error) {
+	return c.doRequest(ctx, http.MethodOptions, urlPath, headers, nil)
+}
+
+// PostJSON performs a POST request with JSON content
+func (c *Client) PostJSON(ctx context.Context, urlPath string, headers map[string]string, data any) (*Response, error) {
+	return c.doJSONRequest(ctx, http.MethodPost, urlPath, headers, data)
+}
+
+// PutJSON performs a PUT request with JSON content
+func (c *Client) PutJSON(ctx context.Context, urlPath string, headers map[string]string, data any) (*Response, error) {
+	return c.doJSONRequest(ctx, http.MethodPut, urlPath, headers, data)
+}
+
+// PatchJSON performs a PATCH request with JSON content
+func (c *Client) PatchJSON(
+	ctx context.Context,
+	urlPath string,
+	headers map[string]string,
+	data any,
+) (*Response, error) {
+	return c.doJSONRequest(ctx, http.MethodPatch, urlPath, headers, data)
+}
+
+// doRequest is the internal method that performs HTTP requests
+func (c *Client) doRequest(
+	ctx context.Context,
+	method, urlPath string,
+	headers map[string]string,
+	body []byte,
+) (*Response, error) {
+	// Build the request URL
+	requestURL := c.buildRequestURL(urlPath)
+
+	// Create request body reader
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = bytes.NewReader(body)
+	}
+
+	// Create the HTTP request
+	req, err := http.NewRequestWithContext(ctx, method, requestURL, bodyReader)
+	if err != nil {
+		return nil, fmt.Errorf(msgFailedCreateRequest, err)
+	}
+
+	// Set headers
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	// Send the request
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf(msgFailedSendRequest, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Create response object
+	return &Response{
+		StatusCode: resp.StatusCode,
+		Headers:    resp.Header,
+		Body:       respBody,
+	}, nil
+}
+
+// doJSONRequest performs HTTP requests with JSON payloads
+func (c *Client) doJSONRequest(
+	ctx context.Context,
+	method, urlPath string,
+	headers map[string]string,
+	data any,
+) (*Response, error) {
+	// Serialize data to JSON
+	jsonBody, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize data to JSON: %w", err)
+	}
+
+	// Create headers map if nil
+	if headers == nil {
+		headers = make(map[string]string)
+	}
+
+	// Set Content-Type header
+	headers["Content-Type"] = "application/json"
+
+	// Perform the request
+	return c.doRequest(ctx, method, urlPath, headers, jsonBody)
+}
+
+// HealthCheck performs a health check on the Unimock server
+func (c *Client) HealthCheck(ctx context.Context) (*Response, error) {
+	return c.Get(ctx, "/_uni/health", nil)
+}
+
+// buildRequestURL builds the complete URL for a request
+func (c *Client) buildRequestURL(requestPath string) string {
+	// If path is an absolute URL, parse it and use it directly
+	if parsedPath, err := url.Parse(requestPath); err == nil && parsedPath.IsAbs() {
+		return requestPath
+	}
+
+	// Build URL relative to base URL
+	u := *c.BaseURL
+	u.Path = requestPath
+	return u.String()
+}
+
+// ========================================
+// Scenario Management
+// ========================================
 
 // CreateScenario creates a new scenario
 func (c *Client) CreateScenario(ctx context.Context, scenario *model.Scenario) (*model.Scenario, error) {
