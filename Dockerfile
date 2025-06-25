@@ -3,10 +3,15 @@ WORKDIR /app
 RUN apk add --no-cache git
 COPY go.mod go.sum ./
 RUN go mod download
-# We're using modules, make sure vendor is not used if present
-RUN go env -w GOFLAGS="-mod=mod"
+# Copy source code
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /unimock
+
+# Build the application with optimizations
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -mod=readonly \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o /unimock .
 
 FROM gcr.io/distroless/static-debian12
 COPY --from=builder /unimock /usr/local/bin/unimock

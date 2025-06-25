@@ -6,4 +6,24 @@ metadata:
     {{- include "unimock.labels" . | nindent 4 }}
 data:
   config.yaml: |-
-{{ .Values.config.yaml | indent 4 }} 
+{{- if .Values.config.yaml }}
+{{ .Values.config.yaml | indent 4 }}
+{{- else }}
+{{ toYaml .Values.config | indent 4 }}
+{{- end }}
+---
+{{- if .Values.scenarios.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "unimock.fullname" . }}-scenarios
+  labels:
+    {{- include "unimock.labels" . | nindent 4 }}
+data:
+  scenarios.yaml: |-
+{{- if .Values.scenarios.yaml }}
+{{ .Values.scenarios.yaml | indent 4 }}
+{{- else }}
+{{ toYaml .Values.scenarios.data | indent 4 }}
+{{- end }}
+{{- end }}

@@ -48,4 +48,25 @@ Selector labels
 {{- define "unimock.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "unimock.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Template labels
+*/}}
+{{- define "unimock.templateLabels" -}}
+{{ include "unimock.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "unimock.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "unimock.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
 {{- end }} 

@@ -1,35 +1,62 @@
-Thank you for installing {{ .Chart.Name }}.
-
-Your release is named {{ .Release.Name }}.
-
-To check if the deployment is ready, run:
-  kubectl get deployment {{ include "unimock.fullname" . }}
-
-To access your Unimock instance:
-
+1. Get the application URL by running these commands:
 {{- if .Values.ingress.enabled }}
-  Access the application via your configured Ingress:
-  {{- range $host := .Values.ingress.hosts }}
+{{- range $host := .Values.ingress.hosts }}
   {{- range .paths }}
   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
   {{- end }}
-  {{- end }}
+{{- end }}
 {{- else if contains "NodePort" .Values.service.type }}
   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "unimock.fullname" . }})
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
   echo http://$NODE_IP:$NODE_PORT
 {{- else if contains "LoadBalancer" .Values.service.type }}
      NOTE: It may take a few minutes for the LoadBalancer IP to be available.
-           You can watch the status using: kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "unimock.fullname" . }}
+           You can watch the status of your LoadBalancer by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "unimock.fullname" . }}'
   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "unimock.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
   echo http://$SERVICE_IP:{{ .Values.service.port }}
 {{- else if contains "ClusterIP" .Values.service.type }}
-  kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "unimock.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
-  echo "Visit http://localhost:{{ .Values.service.port }} to access the Unimock server"
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "unimock.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:{{ .Values.service.port }} to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME {{ .Values.service.port }}:$CONTAINER_PORT
 {{- end }}
 
-To check the health of your Unimock instance:
+2. Check the health of your Unimock instance:
+{{- if contains "ClusterIP" .Values.service.type }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "unimock.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }} &
   curl http://localhost:{{ .Values.service.port }}/_uni/health
+{{- else }}
+  curl http://<SERVICE_URL>/_uni/health
+{{- end }}
 
-To see metrics:
-  curl http://localhost:{{ .Values.service.port }}/_uni/metrics 
+3. View application metrics:
+{{- if contains "ClusterIP" .Values.service.type }}
+  curl http://localhost:{{ .Values.service.port }}/_uni/metrics
+{{- else }}
+  curl http://<SERVICE_URL>/_uni/metrics
+{{- end }}
+
+4. Configuration details:
+   - Image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+   - Replicas: {{ .Values.replicaCount }}
+{{- if .Values.scenarios.enabled }}
+   - Scenarios: Enabled ({{ len .Values.scenarios.data.scenarios | default 0 }} predefined scenarios)
+{{- else }}
+   - Scenarios: Disabled
+{{- end }}
+   - Scaling: Single replica only (testing mode)
+
+5. Useful commands:
+   # View pods
+   kubectl get pods -l app.kubernetes.io/name={{ include "unimock.name" . }}
+   
+   # View logs
+   kubectl logs -l app.kubernetes.io/name={{ include "unimock.name" . }} -f
+   
+   # View configuration
+   kubectl get configmap {{ include "unimock.fullname" . }}-config -o yaml
+{{- if .Values.scenarios.enabled }}
+   
+   # View scenarios
+   kubectl get configmap {{ include "unimock.fullname" . }}-scenarios -o yaml
+{{- end }}
