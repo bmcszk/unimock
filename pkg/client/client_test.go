@@ -3,8 +3,10 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -382,5 +384,391 @@ func TestClientContextCancellation(t *testing.T) {
 	_, err = apiClient2.GetScenario(ctx, "test-uuid")
 	if err == nil {
 		t.Error("Expected error due to context cancellation, got nil")
+	}
+}
+
+// ========================================
+// Universal HTTP Methods Tests
+// ========================================
+
+func TestUniversalHTTPMethods(t *testing.T) {
+	server := createUniversalHTTPTestServer()
+	defer server.Close()
+
+	apiClient, ctx := setupTestClient(t, server.URL)
+
+	t.Run("GET", func(t *testing.T) {
+		testGetMethod(ctx, t, apiClient)
+	})
+
+	t.Run("HEAD", func(t *testing.T) {
+		testHeadMethod(ctx, t, apiClient)
+	})
+
+	t.Run("POST", func(t *testing.T) {
+		testPostMethod(ctx, t, apiClient)
+	})
+
+	t.Run("PUT", func(t *testing.T) {
+		testPutMethod(ctx, t, apiClient)
+	})
+
+	t.Run("DELETE", func(t *testing.T) {
+		testDeleteMethod(ctx, t, apiClient)
+	})
+
+	t.Run("PATCH", func(t *testing.T) {
+		testPatchMethod(ctx, t, apiClient)
+	})
+
+	t.Run("OPTIONS", func(t *testing.T) {
+		testOptionsMethod(ctx, t, apiClient)
+	})
+}
+
+func TestJSONMethods(t *testing.T) {
+	server := createUniversalHTTPTestServer()
+	defer server.Close()
+
+	apiClient, ctx := setupTestClient(t, server.URL)
+
+	t.Run("PostJSON", func(t *testing.T) {
+		testPostJSONMethod(ctx, t, apiClient)
+	})
+
+	t.Run("PutJSON", func(t *testing.T) {
+		testPutJSONMethod(ctx, t, apiClient)
+	})
+
+	t.Run("PatchJSON", func(t *testing.T) {
+		testPatchJSONMethod(ctx, t, apiClient)
+	})
+}
+
+func TestURLHandling(t *testing.T) {
+	server := createUniversalHTTPTestServer()
+	defer server.Close()
+
+	apiClient, ctx := setupTestClient(t, server.URL)
+
+	testRelativePath(ctx, t, apiClient)
+	testAbsoluteURL(ctx, t, apiClient, server.URL)
+}
+
+func testRelativePath(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	resp, err := apiClient.Get(ctx, "/api/users", nil)
+	if err != nil {
+		t.Fatalf("Failed to make GET request: %v", err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func testAbsoluteURL(ctx context.Context, t *testing.T, apiClient *client.Client, serverURL string) {
+	t.Helper()
+	absoluteURL := serverURL + "/api/users"
+	resp, err := apiClient.Get(ctx, absoluteURL, nil)
+	if err != nil {
+		t.Fatalf("Failed to make GET request with absolute URL: %v", err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestErrorHandling(t *testing.T) {
+	server := createErrorTestServer()
+	defer server.Close()
+
+	apiClient, ctx := setupTestClient(t, server.URL)
+
+	t.Run("HTTPError", func(t *testing.T) {
+		resp, err := apiClient.Get(ctx, "/error", nil)
+		if err != nil {
+			t.Fatalf("Expected no error for HTTP error response, got: %v", err)
+		}
+		if resp.StatusCode != 404 {
+			t.Errorf("Expected status 404, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("JSONSerializationError", func(t *testing.T) {
+		// Create a data structure that can't be serialized to JSON
+		invalidData := make(chan int)
+		_, err := apiClient.PostJSON(ctx, "/api/users", nil, invalidData)
+		if err == nil {
+			t.Error("Expected JSON serialization error, got nil")
+		}
+	})
+}
+
+func TestContextCancellation(t *testing.T) {
+	server := createSlowTestServer()
+	defer server.Close()
+
+	apiClient, err := client.NewClient(server.URL)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Create a context with immediate cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	// Try to make a request with canceled context
+	_, err = apiClient.Get(ctx, "/api/users", nil)
+	if err == nil {
+		t.Error("Expected error due to context cancellation, got nil")
+	}
+}
+
+// Test server implementations
+
+func createUniversalHTTPTestServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Test-Header", "test-value")
+		w.Header().Set("Content-Type", "application/json")
+
+		switch r.Method {
+		case http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"method":"GET","path":"` + r.URL.Path + `"}`))
+		case http.MethodHead:
+			w.WriteHeader(http.StatusOK)
+			// HEAD responses should not have body
+		case http.MethodPost, http.MethodPut, http.MethodPatch:
+			body, _ := io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{"method":"` + r.Method + `","body":"` + string(body) + `"}`))
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+		case http.MethodOptions:
+			w.Header().Set("Allow", "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS")
+			w.WriteHeader(http.StatusOK)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	}))
+}
+
+func createErrorTestServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/error" {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"error":"Not found"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	}))
+}
+
+func createSlowTestServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// Sleep to simulate a slow response
+		time.Sleep(200 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	}))
+}
+
+// Individual test functions
+
+func testGetMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	headers := map[string]string{"X-Custom-Header": "custom-value"}
+	
+	resp, err := apiClient.Get(ctx, "/api/users", headers)
+	if err != nil {
+		t.Fatalf("Failed to make GET request: %v", err)
+	}
+
+	validateBasicResponse(t, resp, 200)
+	validateResponseHeaders(t, resp)
+	validateResponseBody(t, resp, "GET")
+}
+
+func testHeadMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	headers := map[string]string{"X-Custom-Header": "custom-value"}
+	
+	resp, err := apiClient.Head(ctx, "/api/users", headers)
+	if err != nil {
+		t.Fatalf("Failed to make HEAD request: %v", err)
+	}
+
+	validateBasicResponse(t, resp, 200)
+	validateResponseHeaders(t, resp)
+	// HEAD responses should have empty body
+	if len(resp.Body) != 0 {
+		t.Errorf("Expected empty body for HEAD request, got %d bytes", len(resp.Body))
+	}
+}
+
+func testPostMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	headers := map[string]string{"Content-Type": "application/json"}
+	body := []byte(`{"name":"test"}`)
+	
+	resp, err := apiClient.Post(ctx, "/api/users", headers, body)
+	if err != nil {
+		t.Fatalf("Failed to make POST request: %v", err)
+	}
+
+	validateBasicResponse(t, resp, 201)
+	validateResponseHeaders(t, resp)
+	validateResponseBody(t, resp, "POST")
+}
+
+func testPutMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	headers := map[string]string{"Content-Type": "application/json"}
+	body := []byte(`{"name":"updated"}`)
+	
+	resp, err := apiClient.Put(ctx, "/api/users", headers, body)
+	if err != nil {
+		t.Fatalf("Failed to make PUT request: %v", err)
+	}
+
+	validateBasicResponse(t, resp, 201)
+	validateResponseHeaders(t, resp)
+	validateResponseBody(t, resp, "PUT")
+}
+
+func testDeleteMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	headers := map[string]string{"X-Custom-Header": "custom-value"}
+	
+	resp, err := apiClient.Delete(ctx, "/api/users", headers)
+	if err != nil {
+		t.Fatalf("Failed to make DELETE request: %v", err)
+	}
+
+	if resp.StatusCode != 204 {
+		t.Errorf("Expected status 204, got %d", resp.StatusCode)
+	}
+	validateResponseHeaders(t, resp)
+}
+
+func testPatchMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	headers := map[string]string{"Content-Type": "application/json"}
+	body := []byte(`{"name":"patched"}`)
+	
+	resp, err := apiClient.Patch(ctx, "/api/users", headers, body)
+	if err != nil {
+		t.Fatalf("Failed to make PATCH request: %v", err)
+	}
+
+	validateBasicResponse(t, resp, 201)
+	validateResponseHeaders(t, resp)
+	validateResponseBody(t, resp, "PATCH")
+}
+
+func testOptionsMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	headers := map[string]string{"X-Custom-Header": "custom-value"}
+	
+	resp, err := apiClient.Options(ctx, "/api/users", headers)
+	if err != nil {
+		t.Fatalf("Failed to make OPTIONS request: %v", err)
+	}
+
+	validateBasicResponse(t, resp, 200)
+	validateResponseHeaders(t, resp)
+	
+	// Check for Allow header
+	allowHeader := resp.Headers.Get("Allow")
+	if allowHeader == "" {
+		t.Error("Expected Allow header in OPTIONS response")
+	}
+}
+
+func testPostJSONMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	data := map[string]any{
+		"name": "test",
+		"age":  25,
+	}
+	
+	resp, err := apiClient.PostJSON(ctx, "/api/users", nil, data)
+	if err != nil {
+		t.Fatalf("Failed to make PostJSON request: %v", err)
+	}
+
+	validateBasicResponse(t, resp, 201)
+	validateResponseHeaders(t, resp)
+	validateResponseBody(t, resp, "POST")
+}
+
+func testPutJSONMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	data := map[string]any{
+		"name": "updated",
+		"age":  30,
+	}
+	
+	resp, err := apiClient.PutJSON(ctx, "/api/users", nil, data)
+	if err != nil {
+		t.Fatalf("Failed to make PutJSON request: %v", err)
+	}
+
+	validateBasicResponse(t, resp, 201)
+	validateResponseHeaders(t, resp)
+	validateResponseBody(t, resp, "PUT")
+}
+
+func testPatchJSONMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
+	t.Helper()
+	data := map[string]any{
+		"name": "patched",
+	}
+	
+	resp, err := apiClient.PatchJSON(ctx, "/api/users", nil, data)
+	if err != nil {
+		t.Fatalf("Failed to make PatchJSON request: %v", err)
+	}
+
+	validateBasicResponse(t, resp, 201)
+	validateResponseHeaders(t, resp)
+	validateResponseBody(t, resp, "PATCH")
+}
+
+// Validation helper functions
+
+func validateBasicResponse(t *testing.T, resp *client.Response, expectedStatus int) {
+	t.Helper()
+	if resp == nil {
+		t.Fatal("Response is nil")
+	}
+	if resp.StatusCode != expectedStatus {
+		t.Errorf("Expected status %d, got %d", expectedStatus, resp.StatusCode)
+	}
+}
+
+func validateResponseHeaders(t *testing.T, resp *client.Response) {
+	t.Helper()
+	if resp.Headers == nil {
+		t.Fatal("Response headers are nil")
+	}
+	
+	testHeader := resp.Headers.Get("X-Test-Header")
+	if testHeader != "test-value" {
+		t.Errorf("Expected X-Test-Header 'test-value', got '%s'", testHeader)
+	}
+}
+
+func validateResponseBody(t *testing.T, resp *client.Response, expectedMethod string) {
+	t.Helper()
+	if len(resp.Body) == 0 {
+		t.Error("Expected response body, got empty")
+		return
+	}
+	
+	bodyStr := string(resp.Body)
+	if !strings.Contains(bodyStr, expectedMethod) {
+		t.Errorf("Expected response body to contain method '%s', got: %s", expectedMethod, bodyStr)
 	}
 }
