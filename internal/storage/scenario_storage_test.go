@@ -50,7 +50,7 @@ func validateScenarioFields(t *testing.T, retrieved, expected *model.Scenario) {
 func testCreateAndGet(t *testing.T, storageInstance storage.ScenarioStorage, scenario *model.Scenario) {
 	t.Helper()
 	// Create
-	err := storageInstance.Create("test-id", scenario)
+	err := storageInstance.Create("test-id", *scenario)
 	if err != nil {
 		t.Fatalf("Failed to create scenario: %v", err)
 	}
@@ -61,14 +61,14 @@ func testCreateAndGet(t *testing.T, storageInstance storage.ScenarioStorage, sce
 		t.Fatalf("Failed to get scenario: %v", err)
 	}
 
-	validateScenarioFields(t, retrieved, scenario)
+	validateScenarioFields(t, &retrieved, scenario)
 }
 
 // Helper function to test update operations
 func testUpdate(t *testing.T, storageInstance storage.ScenarioStorage, updatedScenario *model.Scenario) {
 	t.Helper()
 	// Update
-	err := storageInstance.Update("test-id", updatedScenario)
+	err := storageInstance.Update("test-id", *updatedScenario)
 	if err != nil {
 		t.Fatalf("Failed to update scenario: %v", err)
 	}
@@ -79,7 +79,7 @@ func testUpdate(t *testing.T, storageInstance storage.ScenarioStorage, updatedSc
 		t.Fatalf("Failed to get updated scenario: %v", err)
 	}
 
-	validateScenarioFields(t, retrieved, updatedScenario)
+	validateScenarioFields(t, &retrieved, updatedScenario)
 }
 
 // Helper function to test list and delete operations
@@ -136,7 +136,7 @@ func TestScenarioStorage_ErrorCases(t *testing.T) {
 	}
 
 	// Update non-existent scenario
-	err = storageInstance.Update("non-existent", &model.Scenario{UUID: "non-existent"})
+	err = storageInstance.Update("non-existent", model.Scenario{UUID: "non-existent"})
 	if err == nil {
 		t.Error("Expected error when updating non-existent scenario, got nil")
 	}
@@ -147,9 +147,9 @@ func TestScenarioStorage_ErrorCases(t *testing.T) {
 		t.Error("Expected error when deleting non-existent scenario, got nil")
 	}
 
-	// Create with nil scenario
-	err = storageInstance.Create("test-id", nil)
+	// Create with empty ID
+	err = storageInstance.Create("", model.Scenario{})
 	if err == nil {
-		t.Error("Expected error when creating nil scenario, got nil")
+		t.Error("Expected error when creating scenario with empty ID, got nil")
 	}
 }

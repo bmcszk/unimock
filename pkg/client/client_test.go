@@ -263,8 +263,9 @@ func testGetScenario(ctx context.Context, t *testing.T, apiClient *client.Client
 	if err != nil {
 		t.Errorf("Failed to get scenario: %v", err)
 	}
-	if scenario == nil {
-		t.Fatal("Expected scenario, got nil")
+	// Check if scenario is not empty (zero value check)
+	if scenario.UUID == "" {
+		t.Fatal("Expected scenario with UUID, got empty scenario")
 	}
 	if scenario.UUID != "test-uuid" {
 		t.Errorf("Expected UUID test-uuid, got %s", scenario.UUID)
@@ -300,12 +301,12 @@ func testCreateScenario(ctx context.Context, t *testing.T, apiClient *client.Cli
 		Data:        `{"message":"New test data"}`,
 	}
 
-	created, err := apiClient.CreateScenario(ctx, newScenario)
+	created, err := apiClient.CreateScenario(ctx, *newScenario)
 	if err != nil {
 		t.Errorf("Failed to create scenario: %v", err)
 	}
-	if created == nil {
-		t.Fatal("Expected created scenario, got nil")
+	if created.UUID == "" {
+		t.Fatal("Expected created scenario with UUID, got empty scenario")
 	}
 	if created.UUID != "new-uuid" {
 		t.Errorf("Expected UUID new-uuid, got %s", created.UUID)
@@ -326,19 +327,19 @@ func testUpdateScenario(ctx context.Context, t *testing.T, apiClient *client.Cli
 	}
 
 	// Test updating an existing scenario
-	updated, err := apiClient.UpdateScenario(ctx, "test-uuid", updateScenario)
+	updated, err := apiClient.UpdateScenario(ctx, "test-uuid", *updateScenario)
 	if err != nil {
 		t.Errorf("Failed to update scenario: %v", err)
 	}
-	if updated == nil {
-		t.Fatal("Expected updated scenario, got nil")
+	if updated.UUID == "" {
+		t.Fatal("Expected updated scenario with UUID, got empty scenario")
 	}
 	if updated.RequestPath != updateScenario.RequestPath {
 		t.Errorf("Expected request path %s, got %s", updateScenario.RequestPath, updated.RequestPath)
 	}
 
 	// Test updating a non-existent scenario
-	_, err = apiClient.UpdateScenario(ctx, "not-found", updateScenario)
+	_, err = apiClient.UpdateScenario(ctx, "not-found", *updateScenario)
 	if err == nil {
 		t.Error("Expected error for non-existent scenario, got nil")
 	}

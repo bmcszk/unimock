@@ -86,15 +86,16 @@ func (h *UniHandler) preparePostData(
 	req *http.Request,
 	section *config.Section,
 	sectionName string,
-) ([]string, *model.UniData, *http.Response) {
+) ([]string, model.UniData, *http.Response) {
 	// Extract IDs from request
 	ids, err := h.extractIDs(ctx, req, section, sectionName)
 	if err != nil {
 		h.logger.Error("failed to extract IDs for POST", "path", req.URL.Path, "error", err)
 		if strings.Contains(err.Error(), "failed to parse JSON body") {
-			return nil, nil, h.errorResponse(http.StatusBadRequest, "invalid request: failed to parse JSON body")
+			return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest, 
+				"invalid request: failed to parse JSON body")
 		}
-		return nil, nil, h.errorResponse(http.StatusBadRequest, "failed to extract IDs")
+		return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest, "failed to extract IDs")
 	}
 
 	// Generate UUID if no IDs found
@@ -108,37 +109,37 @@ func (h *UniHandler) preparePostData(
 	mockData, err := h.buildUniDataFromRequest(req, ids)
 	if err != nil {
 		h.logger.Error("failed to build UniData for POST", "error", err)
-		return nil, nil, h.errorResponse(http.StatusBadRequest, "failed to process request data")
+		return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest, "failed to process request data")
 	}
 
-	return ids, mockData, nil
+	return ids, *mockData, nil
 }
 // processPostRequest applies transformations and stores the resource
 func (h *UniHandler) processPostRequest(
 	ctx context.Context,
 	_ *http.Request,
-	mockData *model.UniData,
+	mockData model.UniData,
 	section *config.Section,
 	sectionName string,
-) (*model.UniData, *http.Response) {
+) (model.UniData, *http.Response) {
 	// Apply request transformations
-	transformedData, err := h.applyRequestTransformations(mockData, section, sectionName)
+	transformedData, err := h.applyRequestTransformations(&mockData, section, sectionName)
 	if err != nil {
 		h.logger.Error("request transformation failed for POST", "error", err)
-		return nil, h.errorResponse(http.StatusInternalServerError, "request transformation failed")
+		return model.UniData{}, h.errorResponse(http.StatusInternalServerError, "request transformation failed")
 	}
 
 	// Store the resource
-	err = h.service.CreateResource(ctx, sectionName, section.StrictPath, transformedData.IDs, transformedData)
+	err = h.service.CreateResource(ctx, sectionName, section.StrictPath, transformedData.IDs, *transformedData)
 	if err != nil {
 		h.logger.Error("failed to create resource", "error", err)
 		if strings.Contains(err.Error(), "already exists") {
-			return nil, h.errorResponse(http.StatusConflict, "resource already exists")
+			return model.UniData{}, h.errorResponse(http.StatusConflict, "resource already exists")
 		}
-		return nil, h.errorResponse(http.StatusInternalServerError, "failed to create resource")
+		return model.UniData{}, h.errorResponse(http.StatusInternalServerError, "failed to create resource")
 	}
 
-	return transformedData, nil
+	return *transformedData, nil
 }
 
 // HandleGET processes GET requests step by step
@@ -200,7 +201,7 @@ func (h *UniHandler) tryGetIndividualResource(
 	}
 
 	resource, err := h.service.GetResource(ctx, sectionName, section.StrictPath, lastSegment)
-	if err != nil || resource == nil {
+	if err != nil {
 		return h.errorResponse(http.StatusNotFound, "resource not found")
 	}
 
@@ -213,7 +214,7 @@ func (h *UniHandler) tryGetIndividualResource(
 		}
 	}
 
-	return h.buildTransformedResponse(resource, section, sectionName)
+	return h.buildTransformedResponse(&resource, section, sectionName)
 }
 // getResourceCollection gets a collection of resources
 func (h *UniHandler) getResourceCollection(
@@ -271,18 +272,18 @@ func (*UniHandler) extractBasePathFromWildcard(pattern, requestPath string) stri
 
 // transformResourceCollection applies transformations to a collection of resources
 func (h *UniHandler) transformResourceCollection(
-	resources []*model.UniData,
+	resources []model.UniData,
 	section *config.Section,
 	sectionName string,
-) ([]*model.UniData, error) {
-	transformedResources := make([]*model.UniData, len(resources))
+) ([]model.UniData, error) {
+	transformedResources := make([]model.UniData, len(resources))
 	for i, resource := range resources {
-		transformed, err := h.applyResponseTransformations(resource, section, sectionName)
+		transformed, err := h.applyResponseTransformations(&resource, section, sectionName)
 		if err != nil {
 			h.logger.Error("response transformation failed for collection item", "error", err)
 			return nil, err
 		}
-		transformedResources[i] = transformed
+		transformedResources[i] = *transformed
 	}
 	return transformedResources, nil
 }
@@ -340,8 +341,8 @@ func (h *UniHandler) processPUTRequest(
 func (h *UniHandler) validateStrictPathForPUT(
 	ctx context.Context, sectionName string, isStrictPath bool, id string,
 ) error {
-	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
-	if err != nil || existingResource == nil {
+	_, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
+	if err != nil {
 		h.logger.Debug("resource not found for strict PUT", "sectionName", sectionName, "id", id)
 		return errors.New("resource not found")
 	}
@@ -356,7 +357,7 @@ func (h *UniHandler) validateStrictPathForPUT(
 func (h *UniHandler) executeResourceUpdate(
 	ctx context.Context, id string, data *model.UniData, section *config.Section, sectionName string,
 ) (*http.Response, error) {
-	err := h.service.UpdateResource(ctx, sectionName, section.StrictPath, id, data)
+	err := h.service.UpdateResource(ctx, sectionName, section.StrictPath, id, *data)
 	if err != nil {
 		h.logger.Error("failed to update resource", "error", err)
 		return h.errorResponse(http.StatusInternalServerError, "failed to update resource"), nil
@@ -411,8 +412,8 @@ func (h *UniHandler) processDELETERequest(
 func (h *UniHandler) validateStrictPathForDELETE(
 	ctx context.Context, sectionName string, isStrictPath bool, id string,
 ) error {
-	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
-	if err != nil || existingResource == nil {
+	_, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
+	if err != nil {
 		h.logger.Debug("resource not found for strict DELETE", "sectionName", sectionName, "id", id)
 		return errors.New("resource not found")
 	}

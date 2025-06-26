@@ -12,12 +12,12 @@ import (
 
 // buildPOSTResponse builds response for POST requests
 func (h *UniHandler) buildPOSTResponse(
-	data *model.UniData,
+	data model.UniData,
 	section *config.Section,
 	sectionName string,
 ) (*http.Response, error) {
 	// Apply response transformations
-	responseData, err := h.applyResponseTransformations(data, section, sectionName)
+	responseData, err := h.applyResponseTransformations(&data, section, sectionName)
 	if err != nil {
 		h.logger.Error("response transformation failed for POST", "error", err)
 		return h.errorResponse(http.StatusInternalServerError, "response transformation failed"), nil
@@ -110,7 +110,7 @@ func (*UniHandler) buildSingleResourceResponse(data *model.UniData) *http.Respon
 }
 
 // buildCollectionResponse builds response for collection of resources
-func (h *UniHandler) buildCollectionResponse(resources []*model.UniData) *http.Response {
+func (h *UniHandler) buildCollectionResponse(resources []model.UniData) *http.Response {
 	jsonItems := h.extractJSONItems(resources)
 	responseBody := h.buildJSONArrayBody(jsonItems)
 	
@@ -122,7 +122,7 @@ func (h *UniHandler) buildCollectionResponse(resources []*model.UniData) *http.R
 }
 
 // extractJSONItems filters JSON resources and returns their bodies
-func (*UniHandler) extractJSONItems(resources []*model.UniData) [][]byte {
+func (*UniHandler) extractJSONItems(resources []model.UniData) [][]byte {
 	var jsonItems [][]byte
 	for _, resource := range resources {
 		if strings.Contains(strings.ToLower(resource.ContentType), "json") {

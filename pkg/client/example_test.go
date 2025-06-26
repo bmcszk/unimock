@@ -30,7 +30,7 @@ func Example() {
 	}
 
 	// Create the scenario
-	createdScenario, err := clientInstance.CreateScenario(ctx, scenario)
+	createdScenario, err := clientInstance.CreateScenario(ctx, *scenario)
 	if err != nil {
 		log.Fatalf("Failed to create scenario: %v", err)
 	}
@@ -62,7 +62,7 @@ func Example() {
 		Data:        `{"users": [{"id": "123", "name": "Updated User"}]}`,
 	}
 
-	_, err = clientInstance.UpdateScenario(ctx, createdScenario.UUID, updatedScenario)
+	_, err = clientInstance.UpdateScenario(ctx, createdScenario.UUID, *updatedScenario)
 	if err != nil {
 		log.Fatalf("Failed to update scenario: %v", err)
 	}
@@ -187,7 +187,7 @@ func ExampleClient_mixed_usage() {
 		Data:        `{"message": "This is a predefined response"}`,
 	}
 
-	created, err := c.CreateScenario(ctx, scenario)
+	created, err := c.CreateScenario(ctx, *scenario)
 	if err != nil {
 		log.Fatalf("Failed to create scenario: %v", err)
 	}

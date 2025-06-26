@@ -133,7 +133,7 @@ func populateTestData(store storage.UniStorage, testData []*model.UniData) {
 	for _, data := range testData {
 		ids := []string{data.Path[strings.LastIndex(data.Path, "/")+1:]}
 		data.IDs = ids
-		store.Create("users", false, data)
+		store.Create("users", false, *data)
 	}
 }
 

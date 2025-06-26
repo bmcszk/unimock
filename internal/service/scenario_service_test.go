@@ -141,25 +141,6 @@ func getScenarioByPathTestCases() []struct {
 	}
 }
 
-// Helper function to validate scenario by path response
-func validateGetScenarioByPathResponse(
-	t *testing.T, scenario *model.Scenario, expectedUUID string, expectedStatus int, expectedData string,
-) {
-	t.Helper()
-	if expectedUUID == "" {
-		if scenario != nil {
-			t.Errorf("expected nil scenario, got %+v", scenario)
-		}
-		return
-	}
-
-	if scenario == nil {
-		t.Error("expected scenario, got nil")
-		return
-	}
-
-	validateScenarioResponse(t, scenario, expectedUUID, expectedStatus, expectedData)
-}
 
 func TestScenarioService_GetScenarioByPath(t *testing.T) {
 	// Create service
@@ -520,8 +501,8 @@ func validateScenarioData(t *testing.T, scenario *model.Scenario, expectedStatus
 
 // Helper function to validate CreateScenario response
 func validateCreateScenarioResponse( //nolint:revive
-	t *testing.T, scenarioSvc *service.ScenarioService, scenario *model.Scenario, err error,
-	expectedStatus int, expectedData string, expectError bool, errorContains string,
+	t *testing.T, _ *service.ScenarioService, _ *model.Scenario, err error,
+	_ int, _ string, expectError bool, errorContains string,
 ) {
 	t.Helper()
 	if validateErrorResponse(t, err, expectError, errorContains) {

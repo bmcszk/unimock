@@ -76,7 +76,7 @@ func TestTransformationSimple_ResponseHeaders(t *testing.T) {
 		Body:        []byte(`{"id": "123", "name": "test user"}`),
 		ContentType: "application/json",
 	}
-	err := mockService.CreateResource(ctx, "users", false, []string{"123"}, testData)
+	err := mockService.CreateResource(ctx, "users", false, []string{"123"}, *testData)
 	require.NoError(t, err)
 
 	// Copy test data to the handler's service storage
@@ -95,7 +95,7 @@ func TestTransformationSimple_ResponseHeaders(t *testing.T) {
 		Body:        []byte(`{"id": "123", "name": "test user"}`),
 		ContentType: "application/json",
 	}
-	err = handlerUniService.CreateResource(ctx, "users", false, []string{"123"}, handlerTestData)
+	err = handlerUniService.CreateResource(ctx, "users", false, []string{"123"}, *handlerTestData)
 	require.NoError(t, err)
 
 	// Re-create handler with the correct storage

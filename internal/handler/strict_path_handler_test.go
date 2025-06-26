@@ -367,6 +367,6 @@ func setupUsersCollection(store storage.UniStorage) {
 		Body:        []byte(`{"id": "123", "name": "test"}`),
 	}
 	// Create in both modes to support both strict and non-strict tests
-	store.Create("users", false, testData)
-	store.Create("users", true, testData)
+	store.Create("users", false, *testData)
+	store.Create("users", true, *testData)
 }

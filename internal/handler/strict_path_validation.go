@@ -73,7 +73,7 @@ func (h *UniHandler) validateStrictPathForOperation(ctx context.Context, reqPath
 	
 	// Additional strict path access validation
 	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
-	if err == nil && existingResource != nil {
+	if err == nil {
 		if err := h.validateStrictPathAccess(reqPath, existingResource.Path, sectionPattern); err != nil {
 			h.logger.Debug("strict path access validation failed for "+operation, 
 				"requestPath", reqPath, "resourcePath", existingResource.Path, "error", err)
