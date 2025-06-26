@@ -257,7 +257,7 @@ func TestScenarioService_ListScenarios(t *testing.T) {
 // Helper function to setup GetScenario test data
 func setupGetScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService) {
 	t.Helper()
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		UUID:        "test-scenario",
 		RequestPath: "GET /api/users",
 		StatusCode:  200,
@@ -265,7 +265,7 @@ func setupGetScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService) {
 		Data:        `{"users": []}`,
 	}
 
-	_, err := scenarioSvc.CreateScenario(context.Background(), *scenario)
+	_, err := scenarioSvc.CreateScenario(context.Background(), scenario)
 	if err != nil {
 		t.Fatalf("failed to setup test data: %v", err)
 	}
@@ -539,7 +539,7 @@ func TestScenarioService_CreateScenario(t *testing.T) {
 // Helper function to setup UpdateScenario test data
 func setupUpdateScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService) {
 	t.Helper()
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		UUID:        "test-scenario",
 		RequestPath: "GET /api/users",
 		StatusCode:  200,
@@ -547,7 +547,7 @@ func setupUpdateScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService)
 		Data:        `{"users": []}`,
 	}
 
-	_, err := scenarioSvc.CreateScenario(context.Background(), *scenario)
+	_, err := scenarioSvc.CreateScenario(context.Background(), scenario)
 	if err != nil {
 		t.Fatalf("failed to setup test data: %v", err)
 	}
@@ -693,7 +693,7 @@ func TestScenarioService_UpdateScenario(t *testing.T) {
 // Helper function to setup DeleteScenario test data
 func setupDeleteScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService) {
 	t.Helper()
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		UUID:        "test-scenario",
 		RequestPath: "GET /api/users",
 		StatusCode:  200,
@@ -701,7 +701,7 @@ func setupDeleteScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService)
 		Data:        `{"users": []}`,
 	}
 
-	_, err := scenarioSvc.CreateScenario(context.Background(), *scenario)
+	_, err := scenarioSvc.CreateScenario(context.Background(), scenario)
 	if err != nil {
 		t.Fatalf("failed to setup test data: %v", err)
 	}
