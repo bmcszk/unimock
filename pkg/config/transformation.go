@@ -7,12 +7,12 @@ import (
 // RequestTransformFunc defines a function type for transforming request data before processing.
 // It receives the UniData and should return the transformed UniData or an error if transformation fails.
 // Returning an error will result in a 500 Internal Server Error being sent to the client.
-type RequestTransformFunc func(data *model.UniData) (*model.UniData, error)
+type RequestTransformFunc func(data model.UniData) (model.UniData, error)
 
 // ResponseTransformFunc defines a function type for transforming response data after processing.
 // It receives the UniData to be returned and should return the transformed UniData or an error.
 // Returning an error will result in a 500 Internal Server Error being sent to the client.
-type ResponseTransformFunc func(data *model.UniData) (*model.UniData, error)
+type ResponseTransformFunc func(data model.UniData) (model.UniData, error)
 
 // TransformationConfig holds the transformation functions and configuration for a section.
 // This configuration is only available when using Unimock as a library and cannot be

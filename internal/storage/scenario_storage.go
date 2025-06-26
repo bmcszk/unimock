@@ -24,14 +24,14 @@ type ScenarioStorage interface {
 // scenarioStorage implements the ScenarioStorage interface
 type scenarioStorage struct {
 	mu        *sync.RWMutex
-	scenarios map[string]*model.Scenario
+	scenarios map[string]model.Scenario
 }
 
 // NewScenarioStorage creates a new instance of ScenarioStorage
 func NewScenarioStorage() ScenarioStorage {
 	return &scenarioStorage{
 		mu:        &sync.RWMutex{},
-		scenarios: make(map[string]*model.Scenario),
+		scenarios: make(map[string]model.Scenario),
 	}
 }
 
@@ -48,8 +48,8 @@ func (s *scenarioStorage) Create(id string, scenario model.Scenario) error {
 		return errors.NewConflictError(id)
 	}
 
-	// Store the scenario (convert to pointer for internal storage)
-	s.scenarios[id] = &scenario
+	// Store the scenario
+	s.scenarios[id] = scenario
 
 	return nil
 }
@@ -67,7 +67,7 @@ func (s *scenarioStorage) Get(id string) (model.Scenario, error) {
 		return model.Scenario{}, errors.NewNotFoundError(id, "")
 	}
 
-	return *scenario, nil
+	return scenario, nil
 }
 
 func (s *scenarioStorage) Update(id string, scenario model.Scenario) error {
@@ -83,8 +83,8 @@ func (s *scenarioStorage) Update(id string, scenario model.Scenario) error {
 		return errors.NewNotFoundError(id, "")
 	}
 
-	// Update the scenario (convert to pointer for internal storage)
-	s.scenarios[id] = &scenario
+	// Update the scenario
+	s.scenarios[id] = scenario
 
 	return nil
 }
@@ -114,7 +114,7 @@ func (s *scenarioStorage) List() []model.Scenario {
 
 	scenarios := make([]model.Scenario, 0, len(s.scenarios))
 	for _, scenario := range s.scenarios {
-		scenarios = append(scenarios, *scenario)
+		scenarios = append(scenarios, scenario)
 	}
 
 	return scenarios

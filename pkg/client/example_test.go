@@ -22,7 +22,7 @@ func Example() {
 	defer cancel()
 
 	// Create a new scenario
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		RequestPath: "GET /api/users",
 		StatusCode:  200,
 		ContentType: "application/json",
@@ -30,7 +30,7 @@ func Example() {
 	}
 
 	// Create the scenario
-	createdScenario, err := clientInstance.CreateScenario(ctx, *scenario)
+	createdScenario, err := clientInstance.CreateScenario(ctx, scenario)
 	if err != nil {
 		log.Fatalf("Failed to create scenario: %v", err)
 	}
@@ -54,7 +54,7 @@ func Example() {
 	fmt.Printf("Retrieved scenario: %s %s\n", retrievedScenario.UUID, retrievedScenario.RequestPath)
 
 	// Update the scenario
-	updatedScenario := &model.Scenario{
+	updatedScenario := model.Scenario{
 		UUID:        createdScenario.UUID,
 		RequestPath: "GET /api/users",
 		StatusCode:  201,
@@ -62,7 +62,7 @@ func Example() {
 		Data:        `{"users": [{"id": "123", "name": "Updated User"}]}`,
 	}
 
-	_, err = clientInstance.UpdateScenario(ctx, createdScenario.UUID, *updatedScenario)
+	_, err = clientInstance.UpdateScenario(ctx, createdScenario.UUID, updatedScenario)
 	if err != nil {
 		log.Fatalf("Failed to update scenario: %v", err)
 	}
@@ -180,14 +180,14 @@ func ExampleClient_mixed_usage() {
 	defer cancel()
 
 	// First, create a scenario for a specific endpoint
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		RequestPath: "GET /api/special/endpoint",
 		StatusCode:  200,
 		ContentType: "application/json",
 		Data:        `{"message": "This is a predefined response"}`,
 	}
 
-	created, err := c.CreateScenario(ctx, *scenario)
+	created, err := c.CreateScenario(ctx, scenario)
 	if err != nil {
 		log.Fatalf("Failed to create scenario: %v", err)
 	}

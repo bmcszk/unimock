@@ -33,14 +33,14 @@ func setupMultiIDTestHandler() *handler.UniHandler {
 		},
 	}
 
-	mockService := service.NewUniService(store, cfg)
+	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	return handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
+	return handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
 }
 
 func TestMultiIDPostExtraction(t *testing.T) {
-	mockHandler := setupMultiIDTestHandler()
+	uniHandler := setupMultiIDTestHandler()
 
 	// Create request with multiple IDs in body and header
 	jsonBody := `{"id": "prod123", "details": {"upc": "123456789"}, "internalCode": "INT456"}`
@@ -50,7 +50,7 @@ func TestMultiIDPostExtraction(t *testing.T) {
 
 	// Execute request
 	w := httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, req)
+	uniHandler.ServeHTTP(w, req)
 
 	// Verify response
 	if w.Code != http.StatusCreated {
@@ -64,7 +64,7 @@ func TestMultiIDPostExtraction(t *testing.T) {
 	}
 }
 
-func createTestResource(mockHandler *handler.UniHandler) {
+func createTestResource(uniHandler *handler.UniHandler) {
 	jsonBody := `{"id": "prod456", "details": {"upc": "987654321"}, ` +
 		`"internalCode": "INT789", "name": "Test Product"}`
 	postReq := httptest.NewRequest("POST", "/products", bytes.NewBufferString(jsonBody))
@@ -72,12 +72,12 @@ func createTestResource(mockHandler *handler.UniHandler) {
 	postReq.Header.Set("X-Primary-ID", "primary456")
 
 	w := httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, postReq)
+	uniHandler.ServeHTTP(w, postReq)
 }
 
 func TestMultiIDGetRetrieval(t *testing.T) {
-	mockHandler := setupMultiIDTestHandler()
-	createTestResource(mockHandler)
+	uniHandler := setupMultiIDTestHandler()
+	createTestResource(uniHandler)
 
 	// Test GET with different IDs extracted from body and header
 	testIDs := []string{"prod456", "primary456", "987654321", "INT789"}
@@ -85,7 +85,7 @@ func TestMultiIDGetRetrieval(t *testing.T) {
 	for _, testID := range testIDs {
 		getReq := httptest.NewRequest("GET", "/products/"+testID, nil)
 		w := httptest.NewRecorder()
-		mockHandler.ServeHTTP(w, getReq)
+		uniHandler.ServeHTTP(w, getReq)
 
 		if w.Code != http.StatusOK {
 			t.Errorf("GET with ID %s failed: status %d", testID, w.Code)
@@ -94,7 +94,7 @@ func TestMultiIDGetRetrieval(t *testing.T) {
 }
 
 func TestMultiIDConflictPrevention(t *testing.T) {
-	mockHandler := setupMultiIDTestHandler()
+	uniHandler := setupMultiIDTestHandler()
 
 	// Create first resource
 	jsonBody1 := `{"id": "conflict_test_1", "details": {"upc": "CONFLICT_UPC"}, "internalCode": "INT001"}`
@@ -102,7 +102,7 @@ func TestMultiIDConflictPrevention(t *testing.T) {
 	postReq1.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, postReq1)
+	uniHandler.ServeHTTP(w, postReq1)
 
 	if w.Code != http.StatusCreated {
 		t.Fatalf("failed to create first resource: status %d", w.Code)
@@ -114,7 +114,7 @@ func TestMultiIDConflictPrevention(t *testing.T) {
 	postReq2.Header.Set("Content-Type", "application/json")
 
 	w = httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, postReq2)
+	uniHandler.ServeHTTP(w, postReq2)
 
 	// Should get conflict error
 	if w.Code != http.StatusConflict {
@@ -124,7 +124,7 @@ func TestMultiIDConflictPrevention(t *testing.T) {
 }
 
 func TestMultiIDUpdateAndDelete(t *testing.T) {
-	mockHandler := setupMultiIDTestHandler()
+	uniHandler := setupMultiIDTestHandler()
 
 	// Create a resource
 	jsonBody := `{"id": "update_test", "details": {"upc": "UPDATE_UPC"}, "internalCode": "UPDATE_INT"}`
@@ -132,7 +132,7 @@ func TestMultiIDUpdateAndDelete(t *testing.T) {
 	postReq.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, postReq)
+	uniHandler.ServeHTTP(w, postReq)
 
 	if w.Code != http.StatusCreated {
 		t.Fatalf("failed to create resource: status %d", w.Code)
@@ -145,7 +145,7 @@ func TestMultiIDUpdateAndDelete(t *testing.T) {
 	putReq.Header.Set("Content-Type", "application/json")
 
 	w = httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, putReq)
+	uniHandler.ServeHTTP(w, putReq)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("PUT failed: status %d, body: %s", w.Code, w.Body.String())
@@ -154,7 +154,7 @@ func TestMultiIDUpdateAndDelete(t *testing.T) {
 	// Verify update is visible via original ID
 	getReq := httptest.NewRequest("GET", "/products/update_test", nil)
 	w = httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, getReq)
+	uniHandler.ServeHTTP(w, getReq)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("GET after PUT failed: status %d", w.Code)
@@ -167,7 +167,7 @@ func TestMultiIDUpdateAndDelete(t *testing.T) {
 	// Delete using internal code
 	delReq := httptest.NewRequest("DELETE", "/products/UPDATE_INT", nil)
 	w = httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, delReq)
+	uniHandler.ServeHTTP(w, delReq)
 
 	if w.Code != http.StatusNoContent {
 		t.Errorf("DELETE failed: status %d", w.Code)
@@ -176,7 +176,7 @@ func TestMultiIDUpdateAndDelete(t *testing.T) {
 	// Verify resource is gone via original ID
 	getReq = httptest.NewRequest("GET", "/products/update_test", nil)
 	w = httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, getReq)
+	uniHandler.ServeHTTP(w, getReq)
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("GET after DELETE should return 404, got %d", w.Code)
@@ -188,14 +188,14 @@ func TestStorageMultiIDSupport(t *testing.T) {
 
 	// Create resource with multiple IDs
 	ids := []string{"id1", "id2", "id3"}
-	data := &model.UniData{
+	data := model.UniData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"test": "data"}`),
 		IDs:         ids,
 	}
 
-	err := store.Create("test", false, *data)
+	err := store.Create("test", false, data)
 	if err != nil {
 		t.Fatalf("failed to create resource with multiple IDs: %v", err)
 	}
@@ -219,28 +219,28 @@ func TestStorageIDConflictPrevention(t *testing.T) {
 
 	// Create first resource
 	ids1 := []string{"conflict1", "shared"}
-	data1 := &model.UniData{
+	data1 := model.UniData{
 		Path:        "/test1",
 		ContentType: "application/json",
 		Body:        []byte(`{"test": "data1"}`),
 	}
 
 	data1.IDs = ids1
-	err := store.Create("test", false, *data1)
+	err := store.Create("test", false, data1)
 	if err != nil {
 		t.Fatalf("failed to create first resource: %v", err)
 	}
 
 	// Try to create second resource with conflicting ID
 	ids2 := []string{"conflict2", "shared"} // "shared" conflicts
-	data2 := &model.UniData{
+	data2 := model.UniData{
 		Path:        "/test2",
 		ContentType: "application/json",
 		Body:        []byte(`{"test": "data2"}`),
 	}
 
 	data2.IDs = ids2
-	err = store.Create("test", false, *data2)
+	err = store.Create("test", false, data2)
 	if err == nil {
 		t.Error("expected conflict error, but creation succeeded")
 	}

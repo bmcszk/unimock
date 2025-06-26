@@ -136,13 +136,13 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdScenario, err := h.service.CreateScenario(r.Context(), *scenario)
+	createdScenario, err := h.service.CreateScenario(r.Context(), scenario)
 	if err != nil {
 		h.handleCreateError(w, err, scenario.UUID)
 		return
 	}
 
-	h.writeScenarioResponse(w, &createdScenario, http.StatusCreated)
+	h.writeScenarioResponse(w, createdScenario, http.StatusCreated)
 }
 
 func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, uuid string) {
@@ -155,7 +155,7 @@ func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, u
 		return
 	}
 
-	if err := h.service.UpdateScenario(r.Context(), uuid, *scenario); err != nil {
+	if err := h.service.UpdateScenario(r.Context(), uuid, scenario); err != nil {
 		h.handleUpdateError(w, err, uuid)
 		return
 	}
@@ -193,22 +193,22 @@ func (h *ScenarioHandler) validateContentType(w http.ResponseWriter, contentType
 }
 
 // parseScenarioFromBody parses a scenario from the request body
-func (h *ScenarioHandler) parseScenarioFromBody(w http.ResponseWriter, r *http.Request) (*model.Scenario, error) {
+func (h *ScenarioHandler) parseScenarioFromBody(w http.ResponseWriter, r *http.Request) (model.Scenario, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		h.logger.Error("failed to read request body", errorLogKey, err)
 		http.Error(w, "Failed to read body", http.StatusBadRequest)
-		return nil, err
+		return model.Scenario{}, err
 	}
 
 	var scenario model.Scenario
 	if err := json.Unmarshal(body, &scenario); err != nil {
 		h.logger.Error("failed to unmarshal scenario", errorLogKey, err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return nil, err
+		return model.Scenario{}, err
 	}
 
-	return &scenario, nil
+	return scenario, nil
 }
 
 // handleCreateError handles errors from scenario creation
@@ -236,11 +236,11 @@ func (h *ScenarioHandler) handleUpdateError(w http.ResponseWriter, err error, uu
 }
 
 // writeScenarioResponse writes a scenario as JSON response
-func (h *ScenarioHandler) writeScenarioResponse(w http.ResponseWriter, scenario *model.Scenario, statusCode int) {
+func (h *ScenarioHandler) writeScenarioResponse(w http.ResponseWriter, scenario model.Scenario, statusCode int) {
 	w.Header().Set(contentTypeHeader, applicationJSON)
 	w.WriteHeader(statusCode)
 
-	scenarioJSON, err := json.Marshal(scenario)
+	scenarioJSON, err := json.Marshal(&scenario)
 	if err != nil {
 		h.logger.Error("failed to marshal scenario", errorLogKey, err)
 		return

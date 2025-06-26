@@ -94,7 +94,7 @@ func (*UniHandler) extractLastPathSegment(urlPath string) string {
 }
 
 // buildTransformedResponse applies transformations and builds the response
-func (h *UniHandler) buildTransformedResponse(resource *model.UniData, 
+func (h *UniHandler) buildTransformedResponse(resource model.UniData, 
 	section *config.Section, sectionName string) *http.Response {
 	transformedData, err := h.applyResponseTransformations(resource, section, sectionName)
 	if err != nil {

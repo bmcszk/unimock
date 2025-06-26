@@ -19,7 +19,7 @@ import (
 )
 
 func TestUniHandler_MetricsIntegration(t *testing.T) {
-	mockHandler, techService := setupMetricsTestHandler(t)
+	uniHandler, techService := setupMetricsTestHandler(t)
 	ctx := context.Background()
 
 	tests := getMetricsTestCases()
@@ -27,7 +27,7 @@ func TestUniHandler_MetricsIntegration(t *testing.T) {
 	// Execute all requests
 	for _, tt := range tests {
 		t.Run(tt.method+"_"+tt.path, func(t *testing.T) {
-			executeMetricsTestRequest(ctx, t, mockHandler, tt)
+			executeMetricsTestRequest(ctx, t, uniHandler, tt)
 		})
 	}
 
@@ -36,15 +36,15 @@ func TestUniHandler_MetricsIntegration(t *testing.T) {
 }
 
 func TestUniHandler_MetricsTracking_AllHTTPMethods(t *testing.T) {
-	mockHandler, techService := setupHTTPMethodsTestHandler(t)
+	uniHandler, techService := setupHTTPMethodsTestHandler(t)
 	ctx := context.Background()
 
 	// Create initial resource
-	createInitialResource(ctx, t, mockHandler)
+	createInitialResource(ctx, t, uniHandler)
 
 	// Test all HTTP methods
 	methods := []string{"GET", "POST", "PUT", "DELETE", "HEAD"}
-	testAllHTTPMethods(ctx, t, mockHandler, methods)
+	testAllHTTPMethods(ctx, t, uniHandler, methods)
 
 	// Verify tracking
 	verifyHTTPMethodsTracking(ctx, t, techService)
@@ -81,11 +81,11 @@ func setupMetricsTestHandler(t *testing.T) (*handler.UniHandler, *service.TechSe
 		},
 	}
 
-	mockService := service.NewUniService(store, cfg)
+	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
 	
-	return mockHandler, techService
+	return uniHandler, techService
 }
 
 func setupHTTPMethodsTestHandler(t *testing.T) (*handler.UniHandler, *service.TechService) {
@@ -105,11 +105,11 @@ func setupHTTPMethodsTestHandler(t *testing.T) (*handler.UniHandler, *service.Te
 		},
 	}
 
-	mockService := service.NewUniService(store, cfg)
+	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
 	
-	return mockHandler, techService
+	return uniHandler, techService
 }
 
 func getMetricsTestCases() []metricsTestCase {
@@ -127,7 +127,7 @@ func getMetricsTestCases() []metricsTestCase {
 }
 
 func executeMetricsTestRequest(
-	ctx context.Context, t *testing.T, mockHandler *handler.UniHandler, tt metricsTestCase,
+	ctx context.Context, t *testing.T, uniHandler *handler.UniHandler, tt metricsTestCase,
 ) {
 	t.Helper()
 	var req *http.Request
@@ -138,7 +138,7 @@ func executeMetricsTestRequest(
 		req = httptest.NewRequest(tt.method, tt.path, nil)
 	}
 
-	resp, err := mockHandler.HandleRequest(ctx, req)
+	resp, err := uniHandler.HandleRequest(ctx, req)
 	require.NoError(t, err)
 	assert.Equal(t, tt.expectedCode, resp.StatusCode, 
 		"Expected status code %d for %s %s", tt.expectedCode, tt.method, tt.path)
@@ -198,29 +198,29 @@ func verifyMetricsResults(
 	assert.Equal(t, int64(1), invalidPath["404"], "Expected 1 GET request with 404 status")
 }
 
-func createInitialResource(ctx context.Context, t *testing.T, mockHandler *handler.UniHandler) {
+func createInitialResource(ctx context.Context, t *testing.T, uniHandler *handler.UniHandler) {
 	t.Helper()
 	postReq := httptest.NewRequest("POST", "/test", strings.NewReader(`{"id": "123", "data": "test"}`))
 	postReq.Header.Set("Content-Type", "application/json")
-	postResp, err := mockHandler.HandleRequest(ctx, postReq)
+	postResp, err := uniHandler.HandleRequest(ctx, postReq)
 	require.NoError(t, err)
 	if postResp.Body != nil {
 		postResp.Body.Close()
 	}
 }
 
-func testAllHTTPMethods(ctx context.Context, t *testing.T, mockHandler *handler.UniHandler, methods []string) {
+func testAllHTTPMethods(ctx context.Context, t *testing.T, uniHandler *handler.UniHandler, methods []string) {
 	t.Helper()
 	path := "/test/123"
 	
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
-			testSingleHTTPMethod(ctx, t, mockHandler, method, path)
+			testSingleHTTPMethod(ctx, t, uniHandler, method, path)
 		})
 	}
 }
 
-func testSingleHTTPMethod(ctx context.Context, t *testing.T, mockHandler *handler.UniHandler, method, path string) {
+func testSingleHTTPMethod(ctx context.Context, t *testing.T, uniHandler *handler.UniHandler, method, path string) {
 	t.Helper()
 	var req *http.Request
 	if method == "PUT" {
@@ -230,7 +230,7 @@ func testSingleHTTPMethod(ctx context.Context, t *testing.T, mockHandler *handle
 		req = httptest.NewRequest(method, path, nil)
 	}
 
-	resp, err := mockHandler.HandleRequest(ctx, req)
+	resp, err := uniHandler.HandleRequest(ctx, req)
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 	if resp.Body != nil {

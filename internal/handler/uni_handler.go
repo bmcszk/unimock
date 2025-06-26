@@ -112,7 +112,7 @@ func (h *UniHandler) preparePostData(
 		return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest, "failed to process request data")
 	}
 
-	return ids, *mockData, nil
+	return ids, mockData, nil
 }
 // processPostRequest applies transformations and stores the resource
 func (h *UniHandler) processPostRequest(
@@ -123,14 +123,14 @@ func (h *UniHandler) processPostRequest(
 	sectionName string,
 ) (model.UniData, *http.Response) {
 	// Apply request transformations
-	transformedData, err := h.applyRequestTransformations(&mockData, section, sectionName)
+	transformedData, err := h.applyRequestTransformations(mockData, section, sectionName)
 	if err != nil {
 		h.logger.Error("request transformation failed for POST", "error", err)
 		return model.UniData{}, h.errorResponse(http.StatusInternalServerError, "request transformation failed")
 	}
 
 	// Store the resource
-	err = h.service.CreateResource(ctx, sectionName, section.StrictPath, transformedData.IDs, *transformedData)
+	err = h.service.CreateResource(ctx, sectionName, section.StrictPath, transformedData.IDs, transformedData)
 	if err != nil {
 		h.logger.Error("failed to create resource", "error", err)
 		if strings.Contains(err.Error(), "already exists") {
@@ -139,7 +139,7 @@ func (h *UniHandler) processPostRequest(
 		return model.UniData{}, h.errorResponse(http.StatusInternalServerError, "failed to create resource")
 	}
 
-	return *transformedData, nil
+	return transformedData, nil
 }
 
 // HandleGET processes GET requests step by step
@@ -214,7 +214,7 @@ func (h *UniHandler) tryGetIndividualResource(
 		}
 	}
 
-	return h.buildTransformedResponse(&resource, section, sectionName)
+	return h.buildTransformedResponse(resource, section, sectionName)
 }
 // getResourceCollection gets a collection of resources
 func (h *UniHandler) getResourceCollection(
@@ -278,12 +278,12 @@ func (h *UniHandler) transformResourceCollection(
 ) ([]model.UniData, error) {
 	transformedResources := make([]model.UniData, len(resources))
 	for i, resource := range resources {
-		transformed, err := h.applyResponseTransformations(&resource, section, sectionName)
+		transformed, err := h.applyResponseTransformations(resource, section, sectionName)
 		if err != nil {
 			h.logger.Error("response transformation failed for collection item", "error", err)
 			return nil, err
 		}
-		transformedResources[i] = *transformed
+		transformedResources[i] = transformed
 	}
 	return transformedResources, nil
 }
@@ -355,9 +355,9 @@ func (h *UniHandler) validateStrictPathForPUT(
 
 // executeResourceUpdate performs the actual resource update and response building
 func (h *UniHandler) executeResourceUpdate(
-	ctx context.Context, id string, data *model.UniData, section *config.Section, sectionName string,
+	ctx context.Context, id string, data model.UniData, section *config.Section, sectionName string,
 ) (*http.Response, error) {
-	err := h.service.UpdateResource(ctx, sectionName, section.StrictPath, id, *data)
+	err := h.service.UpdateResource(ctx, sectionName, section.StrictPath, id, data)
 	if err != nil {
 		h.logger.Error("failed to update resource", "error", err)
 		return h.errorResponse(http.StatusInternalServerError, "failed to update resource"), nil
@@ -457,18 +457,18 @@ func (h *UniHandler) findSection(reqPath string) (*config.Section, string, error
 }
 
 // buildUniDataFromRequest creates UniData from HTTP request
-func (*UniHandler) buildUniDataFromRequest(req *http.Request, ids []string) (*model.UniData, error) {
+func (*UniHandler) buildUniDataFromRequest(req *http.Request, ids []string) (model.UniData, error) {
 	// Read request body
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read request body: %w", err)
+		return model.UniData{}, fmt.Errorf("failed to read request body: %w", err)
 	}
 	
 	// Restore body for potential re-reading
 	req.Body = io.NopCloser(bytes.NewBuffer(body))
 	
 	// Build UniData
-	mockData := &model.UniData{
+	mockData := model.UniData{
 		Path:        strings.TrimSuffix(req.URL.Path, "/"),
 		IDs:         ids,
 		ContentType: req.Header.Get("Content-Type"),
@@ -485,10 +485,10 @@ func (*UniHandler) buildUniDataFromRequest(req *http.Request, ids []string) (*mo
 
 // applyRequestTransformations applies request transformations if configured
 func (h *UniHandler) applyRequestTransformations(
-	data *model.UniData,
+	data model.UniData,
 	section *config.Section,
 	sectionName string,
-) (*model.UniData, error) {
+) (model.UniData, error) {
 	if section.Transformations == nil || !section.Transformations.HasRequestTransforms() {
 		return data, nil
 	}
@@ -497,9 +497,9 @@ func (h *UniHandler) applyRequestTransformations(
 	for i, transform := range section.Transformations.RequestTransforms {
 		h.logger.Debug("applying request transformation", "section", sectionName, "index", i)
 		
-		transformedData, err := h.safeExecuteTransform(transform, currentData, "request", sectionName)
+		transformedData, err := transform(currentData)
 		if err != nil {
-			return nil, fmt.Errorf("request transformation %d failed: %w", i, err)
+			return model.UniData{}, fmt.Errorf("request transformation %d failed: %w", i, err)
 		}
 		
 		currentData = transformedData
@@ -510,10 +510,10 @@ func (h *UniHandler) applyRequestTransformations(
 
 // applyResponseTransformations applies response transformations if configured
 func (h *UniHandler) applyResponseTransformations(
-	data *model.UniData,
+	data model.UniData,
 	section *config.Section,
 	sectionName string,
-) (*model.UniData, error) {
+) (model.UniData, error) {
 	if section.Transformations == nil || !section.Transformations.HasResponseTransforms() {
 		return data, nil
 	}
@@ -522,36 +522,15 @@ func (h *UniHandler) applyResponseTransformations(
 	for i, transform := range section.Transformations.ResponseTransforms {
 		h.logger.Debug("applying response transformation", "section", sectionName, "index", i)
 		
-		transformedData, err := h.safeExecuteTransform(transform, currentData, "response", sectionName)
+		transformedData, err := transform(currentData)
 		if err != nil {
-			return nil, fmt.Errorf("response transformation %d failed: %w", i, err)
+			return model.UniData{}, fmt.Errorf("response transformation %d failed: %w", i, err)
 		}
 		
 		currentData = transformedData
 	}
 	
 	return currentData, nil
-}
-
-// safeExecuteTransform executes a transformation with panic recovery
-func (h *UniHandler) safeExecuteTransform(
-	transform func(*model.UniData) (*model.UniData, error),
-	data *model.UniData,
-	transformType string,
-	sectionName string,
-) (transformedData *model.UniData, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			h.logger.Error("transformation panicked", 
-				"type", transformType, 
-				"section", sectionName, 
-				"panic", r)
-			err = fmt.Errorf("%s transformation panicked: %v", transformType, r)
-			transformedData = nil
-		}
-	}()
-	
-	return transform(data)
 }
 
 

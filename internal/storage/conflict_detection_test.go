@@ -27,12 +27,12 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 		{
 			name: "strict_path=true: different paths, same ID - no conflict",
 			setup: func(store storage.UniStorage) {
-				data := &model.UniData{
+				data := model.UniData{
 					Path: "/users/subpath",
 					IDs:  []string{"123"},
 					Body: []byte(`{"id": "123", "name": "test"}`),
 				}
-				store.Create("users", true, *data)
+				store.Create("users", true, data)
 			},
 			sectionName:    "users",
 			isStrictPath:   true,
@@ -44,12 +44,12 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 		{
 			name: "strict_path=true: same path, same ID - conflict",
 			setup: func(store storage.UniStorage) {
-				data := &model.UniData{
+				data := model.UniData{
 					Path: "/users/subpath",
 					IDs:  []string{"123"},
 					Body: []byte(`{"id": "123", "name": "test"}`),
 				}
-				store.Create("users", true, *data)
+				store.Create("users", true, data)
 			},
 			sectionName:    "users",
 			isStrictPath:   true,
@@ -61,12 +61,12 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 		{
 			name: "strict_path=false: different paths, same ID - conflict",
 			setup: func(store storage.UniStorage) {
-				data := &model.UniData{
+				data := model.UniData{
 					Path: "/users/subpath",
 					IDs:  []string{"123"},
 					Body: []byte(`{"id": "123", "name": "test"}`),
 				}
-				store.Create("users", false, *data)
+				store.Create("users", false, data)
 			},
 			sectionName:    "users",
 			isStrictPath:   false,
@@ -78,12 +78,12 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 		{
 			name: "strict_path=false: different sections, same ID - no conflict",
 			setup: func(store storage.UniStorage) {
-				data := &model.UniData{
+				data := model.UniData{
 					Path: "/users/subpath",
 					IDs:  []string{"123"},
 					Body: []byte(`{"id": "123", "name": "test"}`),
 				}
-				store.Create("users", false, *data)
+				store.Create("users", false, data)
 			},
 			sectionName:    "products",
 			isStrictPath:   false,
@@ -95,12 +95,12 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 		{
 			name: "mixed modes: strict creates resource, non-strict tries same section/ID",
 			setup: func(store storage.UniStorage) {
-				data := &model.UniData{
+				data := model.UniData{
 					Path: "/users/admin",
 					IDs:  []string{"456"},
 					Body: []byte(`{"id": "456", "name": "admin"}`),
 				}
-				store.Create("users", true, *data)
+				store.Create("users", true, data)
 			},
 			sectionName:    "users",
 			isStrictPath:   false,
@@ -119,13 +119,13 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 			tt.setup(store)
 			
 			// Try to create a new resource that might conflict
-			newData := &model.UniData{
+			newData := model.UniData{
 				Path: tt.resourcePath,
 				IDs:  []string{tt.id},
 				Body: []byte(`{"id": "` + tt.id + `", "name": "new resource"}`),
 			}
 			
-			err := store.Create(tt.sectionName, tt.isStrictPath, *newData)
+			err := store.Create(tt.sectionName, tt.isStrictPath, newData)
 			
 			if tt.expectConflict {
 				assert.Error(t, err, tt.description)
@@ -155,24 +155,24 @@ func TestSectionAwareResourceAccess(t *testing.T) {
 }
 
 // setupSectionAwareTestData creates test resources in different scopes
-func setupSectionAwareTestData(t *testing.T, store storage.UniStorage) (strictData, nonStrictData *model.UniData) {
+func setupSectionAwareTestData(t *testing.T, store storage.UniStorage) (strictData, nonStrictData model.UniData) {
 	t.Helper()
 	
 	// Create resources in different scopes with different IDs
-	strictData = &model.UniData{
+	strictData = model.UniData{
 		Path: "/users/admin",
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "strict admin"}`),
 	}
-	err := store.Create("users", true, *strictData)
+	err := store.Create("users", true, strictData)
 	require.NoError(t, err)
 	
-	nonStrictData = &model.UniData{
+	nonStrictData = model.UniData{
 		Path: "/users/regular",
 		IDs:  []string{"456"}, // Different ID to avoid conflict
 		Body: []byte(`{"id": "456", "name": "non-strict user"}`),
 	}
-	err = store.Create("users", false, *nonStrictData)
+	err = store.Create("users", false, nonStrictData)
 	require.NoError(t, err)
 	
 	return strictData, nonStrictData
@@ -184,13 +184,13 @@ type sectionAwareTestCase struct {
 	sectionName  string
 	isStrictPath bool
 	id           string
-	expectedData *model.UniData
+	expectedData model.UniData
 	shouldFind   bool
 	description  string
 }
 
 // getSectionAwareTestCases returns test cases for section-aware access
-func getSectionAwareTestCases(strictData, nonStrictData *model.UniData) []sectionAwareTestCase {
+func getSectionAwareTestCases(strictData, nonStrictData model.UniData) []sectionAwareTestCase {
 	return []sectionAwareTestCase{
 		{
 			name:         "strict mode finds strict resource",
@@ -237,15 +237,15 @@ func validateSectionAwareAccess(t *testing.T, store storage.UniStorage, tt secti
 	
 	if tt.shouldFind {
 		assert.NoError(t, err, tt.description)
-		assert.NotNil(t, result, tt.description)
-		if tt.expectedData != nil {
+		assert.NotEmpty(t, result.Path, tt.description)
+		if tt.expectedData.Path != "" {
 			assert.Equal(t, tt.expectedData.Path, result.Path)
 			assert.Equal(t, tt.expectedData.IDs, result.IDs)
 		}
 	} else {
 		assert.Error(t, err, tt.description)
 		// Since result is now a value type, check for zero value instead of nil
-		assert.Equal(t, model.UniData{}, result, tt.description)
+		assert.Empty(t, result.Path, tt.description)
 	}
 }
 
@@ -254,22 +254,22 @@ func TestResourceUpdateConflictDetection(t *testing.T) {
 	store := storage.NewUniStorage()
 	
 	// Create initial resource
-	initialData := &model.UniData{
+	initialData := model.UniData{
 		Path: "/users/admin",
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "original"}`),
 	}
-	err := store.Create("users", true, *initialData)
+	err := store.Create("users", true, initialData)
 	require.NoError(t, err)
 	
 	// Test updating existing resource
-	updatedData := &model.UniData{
+	updatedData := model.UniData{
 		Path: "/users/admin",
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "updated"}`),
 	}
 	
-	err = store.Update("users", true, "123", *updatedData)
+	err = store.Update("users", true, "123", updatedData)
 	assert.NoError(t, err, "Should be able to update existing resource")
 	
 	// Verify update
@@ -278,13 +278,13 @@ func TestResourceUpdateConflictDetection(t *testing.T) {
 	assert.Contains(t, string(result.Body), "updated")
 	
 	// Test updating non-existent resource
-	nonExistentData := &model.UniData{
+	nonExistentData := model.UniData{
 		Path: "/users/admin",
 		IDs:  []string{"999"},
 		Body: []byte(`{"id": "999", "name": "should not work"}`),
 	}
 	
-	err = store.Update("users", true, "999", *nonExistentData)
+	err = store.Update("users", true, "999", nonExistentData)
 	assert.Error(t, err, "Should not be able to update non-existent resource")
 	assert.IsType(t, &errors.NotFoundError{}, err)
 }
@@ -294,20 +294,20 @@ func TestResourceDeletionWithScoping(t *testing.T) {
 	store := storage.NewUniStorage()
 	
 	// Create resources in different scopes with different IDs
-	strictData := &model.UniData{
+	strictData := model.UniData{
 		Path: "/users/admin",
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "strict admin"}`),
 	}
-	err := store.Create("users", true, *strictData)
+	err := store.Create("users", true, strictData)
 	require.NoError(t, err)
 	
-	nonStrictData := &model.UniData{
+	nonStrictData := model.UniData{
 		Path: "/users/regular",
 		IDs:  []string{"456"}, // Different ID to avoid conflict
 		Body: []byte(`{"id": "456", "name": "non-strict user"}`),
 	}
-	err = store.Create("users", false, *nonStrictData)
+	err = store.Create("users", false, nonStrictData)
 	require.NoError(t, err)
 	
 	// Delete strict resource
@@ -337,21 +337,21 @@ func TestNonStrictModeIDUniquenessPerSection(t *testing.T) {
 	store := storage.NewUniStorage()
 	
 	// Create first resource in non-strict mode
-	firstData := &model.UniData{
+	firstData := model.UniData{
 		Path: "/users/regular",
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "first user"}`),
 	}
-	err := store.Create("users", false, *firstData)
+	err := store.Create("users", false, firstData)
 	require.NoError(t, err)
 	
 	// Try to create second resource with same ID in same section
-	secondData := &model.UniData{
+	secondData := model.UniData{
 		Path: "/users/admin", // Different path but same section and ID
 		IDs:  []string{"123"},
 		Body: []byte(`{"id": "123", "name": "second user"}`),
 	}
-	err = store.Create("users", false, *secondData)
+	err = store.Create("users", false, secondData)
 	assert.Error(t, err, "Should not allow duplicate ID in same section for non-strict mode")
 	assert.IsType(t, &errors.ConflictError{}, err)
 }

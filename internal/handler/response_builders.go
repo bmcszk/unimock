@@ -17,7 +17,7 @@ func (h *UniHandler) buildPOSTResponse(
 	sectionName string,
 ) (*http.Response, error) {
 	// Apply response transformations
-	responseData, err := h.applyResponseTransformations(&data, section, sectionName)
+	responseData, err := h.applyResponseTransformations(data, section, sectionName)
 	if err != nil {
 		h.logger.Error("response transformation failed for POST", "error", err)
 		return h.errorResponse(http.StatusInternalServerError, "response transformation failed"), nil
@@ -47,7 +47,7 @@ func (h *UniHandler) buildPOSTResponse(
 }
 
 // buildPUTResponse builds response for PUT operations based on configuration
-func (*UniHandler) buildPUTResponse(data *model.UniData, section *config.Section) *http.Response {
+func (*UniHandler) buildPUTResponse(data model.UniData, section *config.Section) *http.Response {
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     make(http.Header),
@@ -91,7 +91,7 @@ func (*UniHandler) buildDELETEResponse(section *config.Section) *http.Response {
 }
 
 // buildSingleResourceResponse builds response for individual resource
-func (*UniHandler) buildSingleResourceResponse(data *model.UniData) *http.Response {
+func (*UniHandler) buildSingleResourceResponse(data model.UniData) *http.Response {
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     make(http.Header),

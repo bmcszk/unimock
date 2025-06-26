@@ -56,24 +56,24 @@ func setupTestRouter(_ *testing.T) (*router.Router, *service.ScenarioService) {
 	}
 
 	// Create services
-	mockService := service.NewUniService(store, cfg)
+	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
 	// Create handlers
-	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
 	techHandler := handler.NewTechHandler(techService, logger)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create router
-	appRouter := router.NewRouter(mockHandler, techHandler, scenarioHandler, scenarioService, logger, cfg)
+	appRouter := router.NewRouter(uniHandler, techHandler, scenarioHandler, scenarioService, logger, cfg)
 
 	return appRouter, scenarioService
 }
 
 func setupTestScenarios(t *testing.T, scenarioService *service.ScenarioService) {
 	t.Helper()
-	scenarios := []*model.Scenario{
+	scenarios := []model.Scenario{
 		{
 			UUID:        "test-scenario-1",
 			RequestPath: "GET /api/test",
@@ -91,7 +91,7 @@ func setupTestScenarios(t *testing.T, scenarioService *service.ScenarioService) 
 	}
 
 	for _, scenario := range scenarios {
-		_, err := scenarioService.CreateScenario(context.TODO(), *scenario)
+		_, err := scenarioService.CreateScenario(context.TODO(), scenario)
 		if err != nil {
 			t.Fatalf("Failed to create test scenario: %v", err)
 		}

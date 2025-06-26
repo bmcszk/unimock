@@ -16,7 +16,7 @@ const (
 
 // Router is a http.Handler that routes requests to the appropriate handler based on path prefix
 type Router struct {
-	mockHandler     http.Handler
+	uniHandler      http.Handler
 	techHandler     http.Handler
 	scenarioHandler http.Handler
 	scenarioService *service.ScenarioService
@@ -26,13 +26,13 @@ type Router struct {
 
 // NewRouter creates a new Router instance
 func NewRouter(
-	mockHandler, techHandler, scenarioHandler http.Handler, 
+	uniHandler, techHandler, scenarioHandler http.Handler, 
 	scenarioService *service.ScenarioService, 
 	logger *slog.Logger, 
 	uniConfig *config.UniConfig,
 ) *Router {
 	return &Router{
-		mockHandler:     mockHandler,
+		uniHandler:      uniHandler,
 		techHandler:     techHandler,
 		scenarioHandler: scenarioHandler,
 		scenarioService: scenarioService,
@@ -53,7 +53,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	
-	r.routeToMockHandler(w, req, requestPath)
+	r.routeToUniHandler(w, req, requestPath)
 }
 
 // normalizePath normalizes the request path
@@ -77,12 +77,12 @@ func (r *Router) handleScenario(w http.ResponseWriter, req *http.Request, reques
 		pathLogKey, requestPath,
 		"uuid", scenario.UUID)
 
-	r.writeScenarioResponse(w, req, &scenario)
+	r.writeScenarioResponse(w, req, scenario)
 	return true
 }
 
 // writeScenarioResponse writes the scenario response
-func (r *Router) writeScenarioResponse(w http.ResponseWriter, req *http.Request, scenario *model.Scenario) {
+func (r *Router) writeScenarioResponse(w http.ResponseWriter, req *http.Request, scenario model.Scenario) {
 	w.Header().Set("Content-Type", scenario.ContentType)
 	if scenario.Location != "" {
 		w.Header().Set("Location", scenario.Location)
@@ -121,8 +121,8 @@ func (r *Router) routeToSpecialHandlers(w http.ResponseWriter, req *http.Request
 	return false
 }
 
-// routeToMockHandler routes to the mock handler after validation
-func (r *Router) routeToMockHandler(w http.ResponseWriter, req *http.Request, requestPath string) {
+// routeToUniHandler routes to the uni handler after validation
+func (r *Router) routeToUniHandler(w http.ResponseWriter, req *http.Request, requestPath string) {
 	if r.uniConfig == nil {
 		r.logger.Error("router's uniConfig is nil", pathLogKey, requestPath)
 		http.Error(w, "server configuration error", http.StatusInternalServerError)
@@ -142,6 +142,6 @@ func (r *Router) routeToMockHandler(w http.ResponseWriter, req *http.Request, re
 		return
 	}
 
-	r.logger.Debug("routing to mock handler", pathLogKey, requestPath)
-	r.mockHandler.ServeHTTP(w, req)
+	r.logger.Debug("routing to uni handler", pathLogKey, requestPath)
+	r.uniHandler.ServeHTTP(w, req)
 }

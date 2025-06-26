@@ -317,13 +317,13 @@ func setupStrictPathHandler(t *testing.T, strictPath bool) strictPathHandlerDeps
 		},
 	}
 
-	mockService := service.NewUniService(store, cfg)
+	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
 	
 	return strictPathHandlerDeps{
-		handler: mockHandler,
+		handler: uniHandler,
 		store:   store,
 		config:  cfg,
 		logger:  logger,
@@ -346,13 +346,13 @@ func setupWildcardHandler(t *testing.T, pathPattern string) strictPathHandlerDep
 		},
 	}
 
-	mockService := service.NewUniService(store, cfg)
+	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
 	
 	return strictPathHandlerDeps{
-		handler: mockHandler,
+		handler: uniHandler,
 		store:   store,
 		config:  cfg,
 		logger:  logger,
@@ -360,13 +360,13 @@ func setupWildcardHandler(t *testing.T, pathPattern string) strictPathHandlerDep
 }
 
 func setupUsersCollection(store storage.UniStorage) {
-	testData := &model.UniData{
+	testData := model.UniData{
 		Path:        "/users/123",
 		IDs:         []string{"123"},
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123", "name": "test"}`),
 	}
 	// Create in both modes to support both strict and non-strict tests
-	store.Create("users", false, *testData)
-	store.Create("users", true, *testData)
+	store.Create("users", false, testData)
+	store.Create("users", true, testData)
 }

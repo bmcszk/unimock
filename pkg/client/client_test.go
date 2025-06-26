@@ -135,7 +135,7 @@ func createTestServer() *httptest.Server {
 // handleTestServerRequest handles incoming requests to the test server
 func handleTestServerRequest(w http.ResponseWriter, r *http.Request) {
 	testScenario := getTestScenario()
-	testScenarios := []*model.Scenario{testScenario}
+	testScenarios := []model.Scenario{testScenario}
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -157,8 +157,8 @@ func handleTestServerRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 // getTestScenario returns a test scenario for mocking
-func getTestScenario() *model.Scenario {
-	return &model.Scenario{
+func getTestScenario() model.Scenario {
+	return model.Scenario{
 		UUID:        "test-uuid",
 		RequestPath: "GET /api/test",
 		StatusCode:  200,
@@ -192,7 +192,7 @@ func isDeleteScenarioRequest(r *http.Request) bool {
 }
 
 // Request handlers
-func handleGetScenarioRequest(w http.ResponseWriter, r *http.Request, testScenario *model.Scenario) {
+func handleGetScenarioRequest(w http.ResponseWriter, r *http.Request, testScenario model.Scenario) {
 	if r.URL.Path == "/_uni/scenarios/not-found" {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("Not found"))
@@ -294,14 +294,14 @@ func testListScenarios(ctx context.Context, t *testing.T, apiClient *client.Clie
 
 func testCreateScenario(ctx context.Context, t *testing.T, apiClient *client.Client) {
 	t.Helper()
-	newScenario := &model.Scenario{
+	newScenario := model.Scenario{
 		RequestPath: "POST /api/test",
 		StatusCode:  201,
 		ContentType: "application/json",
 		Data:        `{"message":"New test data"}`,
 	}
 
-	created, err := apiClient.CreateScenario(ctx, *newScenario)
+	created, err := apiClient.CreateScenario(ctx, newScenario)
 	if err != nil {
 		t.Errorf("Failed to create scenario: %v", err)
 	}
@@ -318,7 +318,7 @@ func testCreateScenario(ctx context.Context, t *testing.T, apiClient *client.Cli
 
 func testUpdateScenario(ctx context.Context, t *testing.T, apiClient *client.Client) {
 	t.Helper()
-	updateScenario := &model.Scenario{
+	updateScenario := model.Scenario{
 		UUID:        "test-uuid",
 		RequestPath: "PUT /api/test",
 		StatusCode:  200,
@@ -327,7 +327,7 @@ func testUpdateScenario(ctx context.Context, t *testing.T, apiClient *client.Cli
 	}
 
 	// Test updating an existing scenario
-	updated, err := apiClient.UpdateScenario(ctx, "test-uuid", *updateScenario)
+	updated, err := apiClient.UpdateScenario(ctx, "test-uuid", updateScenario)
 	if err != nil {
 		t.Errorf("Failed to update scenario: %v", err)
 	}
@@ -339,7 +339,7 @@ func testUpdateScenario(ctx context.Context, t *testing.T, apiClient *client.Cli
 	}
 
 	// Test updating a non-existent scenario
-	_, err = apiClient.UpdateScenario(ctx, "not-found", *updateScenario)
+	_, err = apiClient.UpdateScenario(ctx, "not-found", updateScenario)
 	if err == nil {
 		t.Error("Expected error for non-existent scenario, got nil")
 	}

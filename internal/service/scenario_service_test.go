@@ -14,7 +14,7 @@ import (
 // Helper function to create test scenarios
 func createTestScenarios(t *testing.T, scenarioSvc *service.ScenarioService) {
 	t.Helper()
-	scenarios := []*model.Scenario{
+	scenarios := []model.Scenario{
 		{
 			UUID:        "test-scenario-1",
 			RequestPath: "GET /api/users",
@@ -46,7 +46,7 @@ func createTestScenarios(t *testing.T, scenarioSvc *service.ScenarioService) {
 	}
 
 	for _, scenario := range scenarios {
-		_, err := scenarioSvc.CreateScenario(context.Background(), *scenario)
+		_, err := scenarioSvc.CreateScenario(context.Background(), scenario)
 		if err != nil {
 			t.Fatalf("failed to setup test data: %v", err)
 		}
@@ -55,7 +55,7 @@ func createTestScenarios(t *testing.T, scenarioSvc *service.ScenarioService) {
 
 // Helper function to validate scenario response
 func validateScenarioResponse(
-	t *testing.T, scenario *model.Scenario, expectedUUID string, expectedStatus int, expectedData string,
+	t *testing.T, scenario model.Scenario, expectedUUID string, expectedStatus int, expectedData string,
 ) {
 	t.Helper()
 	if scenario.UUID != expectedUUID {
@@ -159,16 +159,16 @@ func TestScenarioService_GetScenarioByPath(t *testing.T) {
 				assert.False(t, found, "Expected no scenario for %s %s", tt.method, tt.path)
 			} else {
 				assert.True(t, found, "Expected scenario found for %s %s", tt.method, tt.path)
-				validateScenarioResponse(t, &scenario, tt.expectedUUID, tt.expectedStatus, tt.expectedData)
+				validateScenarioResponse(t, scenario, tt.expectedUUID, tt.expectedStatus, tt.expectedData)
 			}
 		})
 	}
 }
 
 // Helper function to create list test scenarios
-func createListTestScenarios(t *testing.T, scenarioSvc *service.ScenarioService) []*model.Scenario {
+func createListTestScenarios(t *testing.T, scenarioSvc *service.ScenarioService) []model.Scenario {
 	t.Helper()
-	scenarios := []*model.Scenario{
+	scenarios := []model.Scenario{
 		{
 			UUID:        "test-scenario-1",
 			RequestPath: "GET /api/users",
@@ -193,27 +193,28 @@ func createListTestScenarios(t *testing.T, scenarioSvc *service.ScenarioService)
 	}
 
 	for _, scenario := range scenarios {
-		_, err := scenarioSvc.CreateScenario(context.Background(), *scenario)
+		_, err := scenarioSvc.CreateScenario(context.Background(), scenario)
 		if err != nil {
 			t.Fatalf("failed to setup test data: %v", err)
 		}
 	}
 
+	// Convert to slice for return
 	return scenarios
 }
 
 // Helper function to find scenario in list
-func findScenarioInList(scenarios []model.Scenario, uuid string) *model.Scenario {
+func findScenarioInList(scenarios []model.Scenario, uuid string) (model.Scenario, bool) {
 	for _, s := range scenarios {
 		if s.UUID == uuid {
-			return &s
+			return s, true
 		}
 	}
-	return nil
+	return model.Scenario{}, false
 }
 
 // Helper function to validate scenario in list
-func validateScenarioInList(t *testing.T, expected *model.Scenario, actual *model.Scenario, index int) {
+func validateScenarioInList(t *testing.T, expected model.Scenario, actual model.Scenario, index int) {
 	t.Helper()
 	if actual.RequestPath != expected.RequestPath {
 		t.Errorf("scenario[%d].RequestPath = %q, want %q", index, actual.RequestPath, expected.RequestPath)
@@ -244,8 +245,8 @@ func TestScenarioService_ListScenarios(t *testing.T) {
 
 	// Check each scenario
 	for i, scenario := range scenarios {
-		actual := findScenarioInList(allScenarios, scenario.UUID)
-		if actual == nil {
+		actual, found := findScenarioInList(allScenarios, scenario.UUID)
+		if !found {
 			t.Errorf("scenario %q not found in list", scenario.UUID)
 			continue
 		}
@@ -316,7 +317,7 @@ func getScenarioTestCases() []struct {
 
 // Helper function to validate GetScenario response
 func validateGetScenarioResponse( //nolint:revive
-	t *testing.T, scenario *model.Scenario, err error, expectedStatus int, expectedData string,
+	t *testing.T, scenario model.Scenario, err error, expectedStatus int, expectedData string,
 	expectError bool, errorContains string,
 ) {
 	t.Helper()
@@ -341,7 +342,7 @@ func TestScenarioService_GetScenario(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			scenario, err := scenarioSvc.GetScenario(context.Background(), tt.uuid)
 			validateGetScenarioResponse(
-				t, &scenario, err, tt.expectedStatus, tt.expectedData, tt.expectError, tt.errorContains,
+				t, scenario, err, tt.expectedStatus, tt.expectedData, tt.expectError, tt.errorContains,
 			)
 		})
 	}
@@ -366,7 +367,7 @@ func setupCreateScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService)
 // Helper function to get test cases for CreateScenario
 func getCreateScenarioTestCases() []struct {
 	name           string
-	scenario       *model.Scenario
+	scenario       model.Scenario
 	expectedStatus int
 	expectedData   string
 	expectError    bool
@@ -374,7 +375,7 @@ func getCreateScenarioTestCases() []struct {
 } {
 	return []struct {
 		name           string
-		scenario       *model.Scenario
+		scenario       model.Scenario
 		expectedStatus int
 		expectedData   string
 		expectError    bool
@@ -382,7 +383,7 @@ func getCreateScenarioTestCases() []struct {
 	}{
 		{
 			name: "valid scenario",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				RequestPath: "GET /api/users",
 				StatusCode:  200,
 				ContentType: "application/json",
@@ -393,7 +394,7 @@ func getCreateScenarioTestCases() []struct {
 		},
 		{
 			name: "scenario with UUID",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				UUID:        "custom-uuid",
 				RequestPath: "GET /api/users",
 				StatusCode:  200,
@@ -405,7 +406,7 @@ func getCreateScenarioTestCases() []struct {
 		},
 		{
 			name: "scenario with location",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				UUID:        "test-scenario",
 				Location:    "/_uni/scenarios/test-scenario",
 				RequestPath: "GET /api/users",
@@ -418,7 +419,7 @@ func getCreateScenarioTestCases() []struct {
 		},
 		{
 			name: "duplicate UUID",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				UUID:        "test-scenario",
 				RequestPath: "GET /api/users",
 				StatusCode:  200,
@@ -430,7 +431,7 @@ func getCreateScenarioTestCases() []struct {
 		},
 		{
 			name: "invalid request path",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				RequestPath: "INVALID /api/users",
 				StatusCode:  200,
 				ContentType: "application/json",
@@ -441,7 +442,7 @@ func getCreateScenarioTestCases() []struct {
 		},
 		{
 			name: "valid text/plain content type",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				RequestPath: "GET /api/users",
 				StatusCode:  200,
 				ContentType: "text/plain",
@@ -454,7 +455,7 @@ func getCreateScenarioTestCases() []struct {
 		},
 		{
 			name: "create with valid empty content type",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				UUID:        "create-test-empty-content-type",
 				RequestPath: "GET /path",
 				StatusCode:  200,
@@ -489,7 +490,7 @@ func validateErrorResponse(t *testing.T, err error, expectError bool, errorConta
 }
 
 // Helper function to validate scenario data
-func validateScenarioData(t *testing.T, scenario *model.Scenario, expectedStatus int, expectedData string) {
+func validateScenarioData(t *testing.T, scenario model.Scenario, expectedStatus int, expectedData string) {
 	t.Helper()
 	if scenario.StatusCode != expectedStatus {
 		t.Errorf("StatusCode = %d, want %d", scenario.StatusCode, expectedStatus)
@@ -501,7 +502,7 @@ func validateScenarioData(t *testing.T, scenario *model.Scenario, expectedStatus
 
 // Helper function to validate CreateScenario response
 func validateCreateScenarioResponse( //nolint:revive
-	t *testing.T, _ *service.ScenarioService, _ *model.Scenario, err error,
+	t *testing.T, _ *service.ScenarioService, _ model.Scenario, err error,
 	_ int, _ string, expectError bool, errorContains string,
 ) {
 	t.Helper()
@@ -526,7 +527,7 @@ func TestScenarioService_CreateScenario(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := scenarioSvc.CreateScenario(context.Background(), *tt.scenario)
+			_, err := scenarioSvc.CreateScenario(context.Background(), tt.scenario)
 			validateCreateScenarioResponse(
 				t, scenarioSvc, tt.scenario, err, tt.expectedStatus, tt.expectedData,
 				tt.expectError, tt.errorContains,
@@ -555,7 +556,7 @@ func setupUpdateScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService)
 // Helper function to get test cases for UpdateScenario
 func getUpdateScenarioTestCases() []struct {
 	name           string
-	scenario       *model.Scenario
+	scenario       model.Scenario
 	expectedStatus int
 	expectedData   string
 	expectError    bool
@@ -563,7 +564,7 @@ func getUpdateScenarioTestCases() []struct {
 } {
 	return []struct {
 		name           string
-		scenario       *model.Scenario
+		scenario       model.Scenario
 		expectedStatus int
 		expectedData   string
 		expectError    bool
@@ -571,7 +572,7 @@ func getUpdateScenarioTestCases() []struct {
 	}{
 		{
 			name: "update existing scenario",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				UUID:        "test-scenario",
 				RequestPath: "GET /api/users",
 				StatusCode:  201,
@@ -583,7 +584,7 @@ func getUpdateScenarioTestCases() []struct {
 		},
 		{
 			name: "update with different UUID",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				UUID:        "different-uuid",
 				RequestPath: "GET /api/users",
 				StatusCode:  201,
@@ -595,7 +596,7 @@ func getUpdateScenarioTestCases() []struct {
 		},
 		{
 			name: "non-existent scenario",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				UUID:        "non-existent",
 				RequestPath: "GET /api/users",
 				StatusCode:  200,
@@ -607,7 +608,7 @@ func getUpdateScenarioTestCases() []struct {
 		},
 		{
 			name: "invalid request path",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				UUID:        "test-scenario",
 				RequestPath: "INVALID /api/users",
 				StatusCode:  200,
@@ -619,7 +620,7 @@ func getUpdateScenarioTestCases() []struct {
 		},
 		{
 			name: "valid text/plain content type",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				UUID:        "test-scenario",
 				RequestPath: "GET /api/users",
 				StatusCode:  200,
@@ -633,7 +634,7 @@ func getUpdateScenarioTestCases() []struct {
 		},
 		{
 			name: "update with valid empty content type",
-			scenario: &model.Scenario{
+			scenario: model.Scenario{
 				UUID:        "test-scenario",
 				RequestPath: "GET /path",
 				StatusCode:  200,
@@ -650,7 +651,7 @@ func getUpdateScenarioTestCases() []struct {
 
 // Helper function to validate UpdateScenario response
 func validateUpdateScenarioResponse( //nolint:revive
-	t *testing.T, scenarioSvc *service.ScenarioService, scenario *model.Scenario, err error,
+	t *testing.T, scenarioSvc *service.ScenarioService, scenario model.Scenario, err error,
 	expectedStatus int, expectedData string, expectError bool, errorContains string,
 ) {
 	t.Helper()
@@ -665,7 +666,7 @@ func validateUpdateScenarioResponse( //nolint:revive
 		return
 	}
 
-	validateScenarioData(t, &updatedScenario, expectedStatus, expectedData)
+	validateScenarioData(t, updatedScenario, expectedStatus, expectedData)
 }
 
 func TestScenarioService_UpdateScenario(t *testing.T) {
@@ -680,7 +681,7 @@ func TestScenarioService_UpdateScenario(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := scenarioSvc.UpdateScenario(context.Background(), tt.scenario.UUID, *tt.scenario)
+			err := scenarioSvc.UpdateScenario(context.Background(), tt.scenario.UUID, tt.scenario)
 			validateUpdateScenarioResponse(
 				t, scenarioSvc, tt.scenario, err, tt.expectedStatus, tt.expectedData,
 				tt.expectError, tt.errorContains,

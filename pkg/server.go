@@ -128,14 +128,14 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 		"port", serverConfig.Port,
 		"log_level", serverConfig.LogLevel)
 
-	// Validate mock configuration
+	// Validate uni configuration
 	if uniConfig == nil {
-		err := "mock configuration is nil"
+		err := "uni configuration is nil"
 		logger.Error(err)
 		return nil, &ConfigError{Message: err}
 	}
 	if len(uniConfig.Sections) == 0 {
-		err := "no sections defined in mock configuration"
+		err := "no sections defined in uni configuration"
 		logger.Error(err)
 		return nil, &ConfigError{Message: err}
 	}
@@ -158,12 +158,12 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 	}
 
 	// Create handlers with services
-	mockHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, uniConfig)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, uniConfig)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 	techHandler := handler.NewTechHandler(techService, logger)
 
 	// Create a router
-	appRouter := router.NewRouter(mockHandler, techHandler, scenarioHandler, scenarioService, logger, uniConfig)
+	appRouter := router.NewRouter(uniHandler, techHandler, scenarioHandler, scenarioService, logger, uniConfig)
 
 	// Create server
 	srv := &http.Server{

@@ -27,8 +27,8 @@ func TestUniHandler_HandleRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockHandler := prepareHandlerForTest(t, tt, deps, testData)
-			executeTestRequest(t, tt, mockHandler)
+			uniHandler := prepareHandlerForTest(t, tt, deps, testData)
+			executeTestRequest(t, tt, uniHandler)
 		})
 	}
 }
@@ -69,8 +69,8 @@ func validateResponseBody(t *testing.T, w *httptest.ResponseRecorder, expectedBo
 	}
 }
 
-// mockHandlerDeps holds the dependencies for mock handler testing
-type mockHandlerDeps struct {
+// uniHandlerDeps holds the dependencies for uni handler testing
+type uniHandlerDeps struct {
 	handler *handler.UniHandler
 	store   storage.UniStorage
 	config  *config.UniConfig
@@ -78,7 +78,7 @@ type mockHandlerDeps struct {
 }
 
 // setupUniHandlerFull creates and configures a mock handler with all dependencies for testing
-func setupUniHandlerFull(t *testing.T) mockHandlerDeps {
+func setupUniHandlerFull(t *testing.T) uniHandlerDeps {
 	t.Helper()
 	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
@@ -94,13 +94,13 @@ func setupUniHandlerFull(t *testing.T) mockHandlerDeps {
 		},
 	}
 
-	mockService := service.NewUniService(store, cfg)
+	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
 	
-	return mockHandlerDeps{
-		handler: mockHandler,
+	return uniHandlerDeps{
+		handler: uniHandler,
 		store:   store,
 		config:  cfg,
 		logger:  logger,
@@ -108,8 +108,8 @@ func setupUniHandlerFull(t *testing.T) mockHandlerDeps {
 }
 
 // getTestData returns the standard test data
-func getTestData() []*model.UniData {
-	return []*model.UniData{
+func getTestData() []model.UniData {
+	return []model.UniData{
 		{
 			Path:        "/users/123",
 			ContentType: "application/json",
@@ -129,11 +129,11 @@ func getTestData() []*model.UniData {
 }
 
 // populateTestData adds test data to the storage
-func populateTestData(store storage.UniStorage, testData []*model.UniData) {
+func populateTestData(store storage.UniStorage, testData []model.UniData) {
 	for _, data := range testData {
 		ids := []string{data.Path[strings.LastIndex(data.Path, "/")+1:]}
 		data.IDs = ids
-		store.Create("users", false, *data)
+		store.Create("users", false, data)
 	}
 }
 
@@ -265,7 +265,7 @@ func prepareHandlerForTest(t *testing.T, tt struct {
 	body           string
 	expectedStatus int
 	expectedBody   string
-}, deps mockHandlerDeps, testData []*model.UniData) *handler.UniHandler {
+}, deps uniHandlerDeps, testData []model.UniData) *handler.UniHandler {
 	t.Helper()
 
 	if needsCleanHandler(tt.name) {
@@ -307,7 +307,7 @@ func executeTestRequest(t *testing.T, tt struct {
 	body           string
 	expectedStatus int
 	expectedBody   string
-}, mockHandler *handler.UniHandler) {
+}, uniHandler *handler.UniHandler) {
 	t.Helper()
 
 	req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
@@ -316,7 +316,7 @@ func executeTestRequest(t *testing.T, tt struct {
 	}
 
 	w := httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, req)
+	uniHandler.ServeHTTP(w, req)
 
 	if w.Code != tt.expectedStatus {
 		t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
@@ -504,7 +504,7 @@ func testDELETEReturnBodyTrue(t *testing.T) {
 	}
 }
 
-func createResource(t *testing.T, deps mockHandlerDeps, id, name string) {
+func createResource(t *testing.T, deps uniHandlerDeps, id, name string) {
 	t.Helper()
 	createBody := `{"id": "` + id + `", "name": "` + name + `"}`
 	createReq := httptest.NewRequest("POST", "/api/test", strings.NewReader(createBody))
@@ -568,7 +568,7 @@ type headTestCase struct {
 	expectHeaders  map[string]string
 }
 
-func createTestResourceForHead(t *testing.T, deps mockHandlerDeps, id, name string) {
+func createTestResourceForHead(t *testing.T, deps uniHandlerDeps, id, name string) {
 	t.Helper()
 	createBody := `{"id": "` + id + `", "name": "` + name + `"}`
 	createReq := httptest.NewRequest("POST", "/users", strings.NewReader(createBody))
@@ -581,7 +581,7 @@ func createTestResourceForHead(t *testing.T, deps mockHandlerDeps, id, name stri
 	}
 }
 
-func executeHeadTest(t *testing.T, deps mockHandlerDeps, tt headTestCase) {
+func executeHeadTest(t *testing.T, deps uniHandlerDeps, tt headTestCase) {
 	t.Helper()
 	req := httptest.NewRequest(tt.method, tt.path, nil)
 	w := httptest.NewRecorder()
@@ -640,7 +640,7 @@ func TestUniHandler_HEAD_vs_GET_Consistency(t *testing.T) {
 	verifyBodyConsistency(t, getW, headW)
 }
 
-func makeRequest(t *testing.T, deps mockHandlerDeps, method, path string) *httptest.ResponseRecorder {
+func makeRequest(t *testing.T, deps uniHandlerDeps, method, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, nil)
 	w := httptest.NewRecorder()

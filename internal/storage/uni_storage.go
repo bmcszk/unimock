@@ -31,7 +31,7 @@ type UniStorage interface {
 // uniStorage implements the Storage interface
 type uniStorage struct {
 	mu      *sync.RWMutex
-	data    map[string]*model.UniData // compositeKey -> data
+	data    map[string]model.UniData // compositeKey -> data
 	pathMap map[string][]string       // path -> []compositeKey
 }
 
@@ -39,15 +39,9 @@ type uniStorage struct {
 func NewUniStorage() UniStorage {
 	return &uniStorage{
 		mu:      &sync.RWMutex{},
-		data:    make(map[string]*model.UniData),
+		data:    make(map[string]model.UniData),
 		pathMap: make(map[string][]string),
 	}
-}
-
-// validateData checks if the data is valid
-func (*uniStorage) validateData(_ model.UniData) error {
-	// No nil check needed since we're using values
-	return nil
 }
 
 // validateID checks if the ID is valid
@@ -80,15 +74,11 @@ func (*uniStorage) extractIDFromCompositeKey(compositeKey string) string {
 
 // Create stores new data using IDs from UniData.IDs field with section-aware conflict detection
 func (s *uniStorage) Create(sectionName string, isStrictPath bool, data model.UniData) error {
-	if err := s.validateData(data); err != nil {
-		return err
-	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// Validate IDs and check for conflicts based on strict_path mode
-	effectiveIDs, err := s.prepareIDsWithConflictCheck(sectionName, isStrictPath, &data)
+	effectiveIDs, err := s.prepareIDsWithConflictCheck(sectionName, isStrictPath, data)
 	if err != nil {
 		return err
 	}
@@ -97,14 +87,14 @@ func (s *uniStorage) Create(sectionName string, isStrictPath bool, data model.Un
 	finalIDs := s.prepareDataForStorage(effectiveIDs, &data)
 
 	// Store the data with composite keys
-	s.storeDataWithCompositeKeys(sectionName, isStrictPath, finalIDs, &data)
+	s.storeDataWithCompositeKeys(sectionName, isStrictPath, finalIDs, data)
 
 	return nil
 }
 
 // prepareIDsWithConflictCheck gets IDs from UniData and validates for conflicts based on strict_path mode
 func (s *uniStorage) prepareIDsWithConflictCheck(
-	sectionName string, isStrictPath bool, data *model.UniData,
+	sectionName string, isStrictPath bool, data model.UniData,
 ) ([]string, error) {
 	// Use IDs from UniData
 	effectiveIDs := data.IDs
@@ -143,7 +133,7 @@ func (*uniStorage) prepareDataForStorage(effectiveIDs []string, data *model.UniD
 
 // storeDataWithCompositeKeys stores the data using composite keys and updates path mappings
 func (s *uniStorage) storeDataWithCompositeKeys(
-	sectionName string, isStrictPath bool, effectiveIDs []string, data *model.UniData,
+	sectionName string, isStrictPath bool, effectiveIDs []string, data model.UniData,
 ) {
 	// Store data using the primary composite key (first ID)
 	primaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, data.Path, effectiveIDs[0])
@@ -166,9 +156,6 @@ func (s *uniStorage) storeDataWithCompositeKeys(
 
 // Update updates existing data for the given ID using section-aware composite key lookup
 func (s *uniStorage) Update(sectionName string, isStrictPath bool, id string, data model.UniData) error {
-	if err := s.validateData(data); err != nil {
-		return err
-	}
 	if err := s.validateID(id); err != nil {
 		return err
 	}
@@ -191,13 +178,13 @@ func (s *uniStorage) Update(sectionName string, isStrictPath bool, id string, da
 	s.removeAllCompositeKeysForResource(sectionName, isStrictPath, oldData)
 	
 	// Store updated data with all IDs
-	s.storeDataWithCompositeKeys(sectionName, isStrictPath, data.IDs, &data)
+	s.storeDataWithCompositeKeys(sectionName, isStrictPath, data.IDs, data)
 
 	// Update pathMap if path has changed
 	if oldData.Path != data.Path {
 		oldPrimaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, oldData.Path, oldData.IDs[0])
 		newPrimaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, data.Path, data.IDs[0])
-		s.updatePathMappingsForUpdate(oldPrimaryCompositeKey, newPrimaryCompositeKey, oldData, &data, data.IDs[0])
+		s.updatePathMappingsForUpdate(oldPrimaryCompositeKey, newPrimaryCompositeKey, oldData, data, data.IDs[0])
 	}
 
 	return nil
@@ -207,7 +194,7 @@ func (s *uniStorage) Update(sectionName string, isStrictPath bool, id string, da
 //nolint:revive // isStrictPath flag is core to the design requirements
 func (s *uniStorage) findExistingResource(
 	sectionName string, isStrictPath bool, id string,
-) (string, *model.UniData, error) {
+) (string, model.UniData, error) {
 	for compositeKey, data := range s.data {
 		keyID := s.extractIDFromCompositeKey(compositeKey)
 		if keyID != id {
@@ -224,20 +211,20 @@ func (s *uniStorage) findExistingResource(
 			return compositeKey, data, nil
 		}
 	}
-	return "", nil, errors.NewNotFoundError(id, "")
+	return "", model.UniData{}, errors.NewNotFoundError(id, "")
 }
 
 // findExistingDataOnly finds existing resource data without returning composite key
 func (s *uniStorage) findExistingDataOnly(
 	sectionName string, isStrictPath bool, id string,
-) (*model.UniData, error) {
+) (model.UniData, error) {
 	_, data, err := s.findExistingResource(sectionName, isStrictPath, id)
 	return data, err
 }
 
 // updatePathMappingsForUpdate handles path map updates when resource path changes
 func (s *uniStorage) updatePathMappingsForUpdate(
-	oldCompositeKey, newCompositeKey string, oldData, newData *model.UniData, id string,
+	oldCompositeKey, newCompositeKey string, oldData, newData model.UniData, id string,
 ) {
 	// Remove from old paths
 	oldIDPath := path.Join(oldData.Path, id)
@@ -285,12 +272,12 @@ func (s *uniStorage) Get(sectionName string, isStrictPath bool, id string) (mode
 	if err != nil {
 		return model.UniData{}, err
 	}
-	return *data, nil
+	return data, nil
 }
 
 // findResourceByID searches for a resource by ID within the given section and strict mode
 //nolint:revive // isStrictPath flag is core to the design requirements
-func (s *uniStorage) findResourceByID(sectionName string, isStrictPath bool, id string) (*model.UniData, error) {
+func (s *uniStorage) findResourceByID(sectionName string, isStrictPath bool, id string) (model.UniData, error) {
 	// Search through all stored data to find matching composite key
 	for compositeKey, data := range s.data {
 		// Extract the ID from the composite key
@@ -305,7 +292,7 @@ func (s *uniStorage) findResourceByID(sectionName string, isStrictPath bool, id 
 		}
 	}
 	
-	return nil, errors.NewNotFoundError(id, "")
+	return model.UniData{}, errors.NewNotFoundError(id, "")
 }
 
 // isCompositeKeyInScope checks if a composite key belongs to the specified scope
@@ -356,13 +343,13 @@ func (s *uniStorage) GetByPath(requestPath string) ([]model.UniData, error) {
 // getExactPathMatches finds resources with exact path matches
 func (s *uniStorage) getExactPathMatches(requestPath string) []model.UniData {
 	var result []model.UniData
-	seen := make(map[*model.UniData]bool)
+	seen := make(map[string]bool)
 	
 	if compositeKeys, ok := s.pathMap[requestPath]; ok {
 		for _, key := range compositeKeys {
-			if data, exists := s.data[key]; exists && !seen[data] {
-				seen[data] = true
-				result = append(result, *data)
+			if data, exists := s.data[key]; exists && !seen[key] {
+				seen[key] = true
+				result = append(result, data)
 			}
 		}
 	}
@@ -372,7 +359,7 @@ func (s *uniStorage) getExactPathMatches(requestPath string) []model.UniData {
 // getPrefixPathMatches finds resources with prefix path matches
 func (s *uniStorage) getPrefixPathMatches(requestPath string) []model.UniData {
 	var result []model.UniData
-	seen := make(map[*model.UniData]bool)
+	seen := make(map[string]bool)
 	
 	for storedPath, compositeKeys := range s.pathMap {
 		storedPath = strings.TrimSuffix(storedPath, pathSeparator)
@@ -386,12 +373,12 @@ func (s *uniStorage) getPrefixPathMatches(requestPath string) []model.UniData {
 
 // addKeysToResult adds composite keys to result if they exist and haven't been seen
 func (s *uniStorage) addKeysToResult(
-	result []model.UniData, seen map[*model.UniData]bool, compositeKeys []string,
+	result []model.UniData, seen map[string]bool, compositeKeys []string,
 ) []model.UniData {
 	for _, key := range compositeKeys {
-		if data, exists := s.data[key]; exists && !seen[data] {
-			seen[data] = true
-			result = append(result, *data)
+		if data, exists := s.data[key]; exists && !seen[key] {
+			seen[key] = true
+			result = append(result, data)
 		}
 	}
 	return result
@@ -427,7 +414,7 @@ func (s *uniStorage) Delete(sectionName string, isStrictPath bool, id string) er
 
 // removeAllCompositeKeysForResource removes all composite keys that reference the same data
 func (s *uniStorage) removeAllCompositeKeysForResource(
-	sectionName string, isStrictPath bool, mockData *model.UniData,
+	sectionName string, isStrictPath bool, mockData model.UniData,
 ) {
 	for _, resourceID := range mockData.IDs {
 		compositeKey := s.buildCompositeKey(sectionName, isStrictPath, mockData.Path, resourceID)
@@ -446,7 +433,7 @@ func (s *uniStorage) ForEach(fn func(id string, data model.UniData) error) error
 	defer s.mu.RUnlock()
 
 	for compositeKey, data := range s.data {
-		if err := fn(compositeKey, *data); err != nil {
+		if err := fn(compositeKey, data); err != nil {
 			return errors.NewStorageError("forEach", err)
 		}
 	}

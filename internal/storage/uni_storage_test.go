@@ -14,7 +14,7 @@ func TestUniStorage_CRUD(t *testing.T) { //nolint:revive
 	testStorage := storage.NewUniStorage()
 
 	// Test data with mixed content types
-	testData := []*model.UniData{
+	testData := []model.UniData{
 		{
 			Path:        "/test/123",
 			ContentType: "application/json",
@@ -37,7 +37,7 @@ func TestUniStorage_CRUD(t *testing.T) { //nolint:revive
 		id := data.Path[strings.LastIndex(data.Path, "/")+1:]
 		// Set IDs in UniData
 		data.IDs = []string{id}
-		err := testStorage.Create("test", false, *data)
+		err := testStorage.Create("test", false, data)
 		if err != nil {
 			t.Errorf("Failed to store data: %v", err)
 		}
@@ -90,12 +90,12 @@ func TestUniStorage_CRUD(t *testing.T) { //nolint:revive
 	}
 
 	// Test Update
-	updatedData := &model.UniData{
+	updatedData := model.UniData{
 		Path:        "/test/123",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123", "updated": true}`),
 	}
-	err = testStorage.Update("test", false, "123", *updatedData)
+	err = testStorage.Update("test", false, "123", updatedData)
 	if err != nil {
 		t.Fatalf("Failed to update data: %v", err)
 	}
@@ -117,13 +117,13 @@ func TestUniStorage_CRUD(t *testing.T) { //nolint:revive
 func createConcurrentTestData(t *testing.T, testStorage storage.UniStorage, i int) {
 	t.Helper()
 	id := fmt.Sprintf("test%d", i)
-	data := &model.UniData{
+	data := model.UniData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(fmt.Sprintf(`{"id": "%d"}`, i)),
 		IDs:         []string{id},
 	}
-	err := testStorage.Create("test", false, *data)
+	err := testStorage.Create("test", false, data)
 	if err != nil {
 		t.Errorf("Failed to store data: %v", err)
 	}
@@ -182,17 +182,17 @@ func TestUniStorage_ErrorCases(t *testing.T) {
 	}
 
 	// Test creating duplicate ID
-	data := &model.UniData{
+	data := model.UniData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123"}`),
 		IDs:         []string{"123"},
 	}
-	err = testStorage.Create("test", false, *data)
+	err = testStorage.Create("test", false, data)
 	if err != nil {
 		t.Fatalf("Failed to create initial data: %v", err)
 	}
-	err = testStorage.Create("test", false, *data)
+	err = testStorage.Create("test", false, data)
 	if err == nil {
 		t.Error("Expected error when creating duplicate ID")
 	}
@@ -212,14 +212,14 @@ func TestUniStorage_ErrorCases(t *testing.T) {
 // Helper function to test create with multiple IDs
 func testCreateWithMultipleIDs(t *testing.T, storageInstance storage.UniStorage) {
 	t.Helper()
-	multiIdData1 := &model.UniData{
+	multiIdData1 := model.UniData{
 		Path:        "/multi/data1",
 		ContentType: "text/plain",
 		Body:        []byte("data for multi-id 1"),
 	}
 	externalIDs1 := []string{"id1_main", "id1_alias1", "id1_alias2"}
 	multiIdData1.IDs = externalIDs1
-	err := storageInstance.Create("multi", false, *multiIdData1)
+	err := storageInstance.Create("multi", false, multiIdData1)
 	if err != nil {
 		t.Fatalf("CreateWithMultipleIDs: failed to create resource: %v", err)
 	}
@@ -241,14 +241,14 @@ func testCreateWithMultipleIDs(t *testing.T, storageInstance storage.UniStorage)
 // Helper function to test delete by one ID removes all mappings
 func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance storage.UniStorage) {
 	t.Helper()
-	multiIdData2 := &model.UniData{
+	multiIdData2 := model.UniData{
 		Path:        "/multi/data2",
 		ContentType: "text/plain",
 		Body:        []byte("data for multi-id 2"),
 	}
 	externalIDs2 := []string{"id2_main", "id2_alias1"}
 	multiIdData2.IDs = externalIDs2
-	err := storageInstance.Create("multi", false, *multiIdData2)
+	err := storageInstance.Create("multi", false, multiIdData2)
 	if err != nil {
 		t.Fatalf("DeleteByOneID: failed to create initial resource: %v", err)
 	}
@@ -269,25 +269,25 @@ func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance storage.U
 // Helper function to test update by one ID affects single resource
 func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storage.UniStorage) { //nolint:revive
 	t.Helper()
-	multiIdData3 := &model.UniData{
+	multiIdData3 := model.UniData{
 		Path:        "/multi/data3",
 		ContentType: "text/plain",
 		Body:        []byte("original data3"),
 	}
 	externalIDs3 := []string{"id3_main", "id3_alias1"}
 	multiIdData3.IDs = externalIDs3
-	err := storageInstance.Create("multi", false, *multiIdData3)
+	err := storageInstance.Create("multi", false, multiIdData3)
 	if err != nil {
 		t.Fatalf("UpdateByOneID: failed to create initial resource: %v", err)
 	}
 
 	updatedData3Body := "updated data3"
-	updatePayload := &model.UniData{
+	updatePayload := model.UniData{
 		Path:        "/multi/data3",
 		ContentType: "text/plain",
 		Body:        []byte(updatedData3Body),
 	}
-	err = storageInstance.Update("multi", false, externalIDs3[1], *updatePayload) // Update using "id3_alias1"
+	err = storageInstance.Update("multi", false, externalIDs3[1], updatePayload) // Update using "id3_alias1"
 	if err != nil {
 		t.Fatalf("UpdateByOneID: Update(%s) failed: %v", externalIDs3[1], err)
 	}
@@ -309,26 +309,26 @@ func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storag
 // Helper function to test conflict on create with existing external ID
 func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance storage.UniStorage) {
 	t.Helper()
-	conflictData1 := &model.UniData{
+	conflictData1 := model.UniData{
 		Path:        "/conflict/data1",
 		ContentType: "text/plain",
 		Body:        []byte("conflict data 1"),
 	}
 	externalIDsConflict1 := []string{"common_id", "unique_c1"}
 	conflictData1.IDs = externalIDsConflict1
-	err := storageInstance.Create("conflict", false, *conflictData1)
+	err := storageInstance.Create("conflict", false, conflictData1)
 	if err != nil {
 		t.Fatalf("ConflictOnCreate: failed to create initial resource for conflict test: %v", err)
 	}
 
-	conflictData2 := &model.UniData{
+	conflictData2 := model.UniData{
 		Path:        "/conflict/data2",
 		ContentType: "text/plain",
 		Body:        []byte("conflict data 2"),
 	}
 	externalIDsConflict2 := []string{"common_id", "unique_c2"} // Attempt to reuse "common_id"
 	conflictData2.IDs = externalIDsConflict2
-	err = storageInstance.Create("conflict", false, *conflictData2)
+	err = storageInstance.Create("conflict", false, conflictData2)
 	if err == nil {
 		t.Errorf("ConflictOnCreate: expected conflict error when creating with duplicate external ID, but got nil")
 	} else {

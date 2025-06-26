@@ -179,7 +179,7 @@ func TestScenarioHandler_List(t *testing.T) {
 	}
 
 	// Check response
-	var response []*model.Scenario
+	var response []model.Scenario
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Could not unmarshal response: %v", err)

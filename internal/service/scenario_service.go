@@ -160,7 +160,7 @@ func (s *ScenarioService) GetScenario(_ context.Context, id string) (model.Scena
 // CreateScenario creates a new scenario
 func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scenario) (model.Scenario, error) {
 	// Validate scenario
-	if err := s.validateScenario(&scenario); err != nil {
+	if err := s.validateScenario(scenario); err != nil {
 		return model.Scenario{}, err
 	}
 
@@ -180,37 +180,34 @@ func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scena
 // UpdateScenario updates an existing scenario
 func (s *ScenarioService) UpdateScenario(_ context.Context, id string, scenario model.Scenario) error {
 	// Validate scenario basic fields first
-	if err := s.validateScenario(&scenario); err != nil {
+	if err := s.validateScenario(scenario); err != nil {
 		return err
 	}
 
 	// Validate and set UUID consistency
-	if err := s.validateUUIDConsistency(id, &scenario); err != nil {
+	updatedScenario, err := s.validateUUIDConsistency(id, scenario)
+	if err != nil {
 		return err
 	}
+	scenario = updatedScenario
 
 	// Perform the storage update
-	if err := s.performStorageUpdate(id, scenario); err != nil {
-		return err
-	}
-
-	// Additional validations after storage update
-	return s.validatePostUpdate(scenario)
+	return s.performStorageUpdate(id, scenario)
 }
 
 // validateUUIDConsistency ensures UUID in path matches UUID in scenario body
-func (*ScenarioService) validateUUIDConsistency(id string, scenario *model.Scenario) error {
+func (*ScenarioService) validateUUIDConsistency(id string, scenario model.Scenario) (model.Scenario, error) {
 	if scenario.UUID == "" {
 		scenario.UUID = id
-		return nil
+		return scenario, nil
 	}
 	if id != scenario.UUID {
-		return fmt.Errorf(
+		return model.Scenario{}, fmt.Errorf(
 			"invalid request: UUID in path (%s) does not match UUID in scenario body (%s)",
 			id, scenario.UUID,
 		)
 	}
-	return nil
+	return scenario, nil
 }
 
 // performStorageUpdate performs the actual storage update operation
@@ -219,13 +216,6 @@ func (s *ScenarioService) performStorageUpdate(id string, scenario model.Scenari
 	if err != nil {
 		return errors.New("resource not found")
 	}
-	return nil
-}
-
-// validatePostUpdate performs additional validations after storage update
-func (*ScenarioService) validatePostUpdate(_ model.Scenario) error {
-	// These validations are already done in validateScenario, so this is just for extra safety
-	// In case there were any modifications during the update process
 	return nil
 }
 
@@ -243,11 +233,7 @@ func (s *ScenarioService) DeleteScenario(_ context.Context, id string) error {
 }
 
 // validateScenario validates a scenario
-func (*ScenarioService) validateScenario(scenario *model.Scenario) error {
-	if scenario == nil {
-		return errors.New("invalid request: scenario cannot be nil")
-	}
-
+func (*ScenarioService) validateScenario(scenario model.Scenario) error {
 	// Validate request path format
 	parts := strings.SplitN(scenario.RequestPath, " ", splitParts)
 	if len(parts) != splitParts {
