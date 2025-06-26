@@ -67,8 +67,8 @@ func (*Router) normalizePath(path string) string {
 
 // handleScenario checks and handles scenario matching
 func (r *Router) handleScenario(w http.ResponseWriter, req *http.Request, requestPath string) bool {
-	scenario := r.scenarioService.GetScenarioByPath(req.Context(), requestPath, req.Method)
-	if scenario == nil {
+	scenario, found := r.scenarioService.GetScenarioByPath(req.Context(), requestPath, req.Method)
+	if !found {
 		return false
 	}
 
@@ -77,7 +77,7 @@ func (r *Router) handleScenario(w http.ResponseWriter, req *http.Request, reques
 		pathLogKey, requestPath,
 		"uuid", scenario.UUID)
 
-	r.writeScenarioResponse(w, req, scenario)
+	r.writeScenarioResponse(w, req, &scenario)
 	return true
 }
 

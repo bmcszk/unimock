@@ -136,7 +136,7 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.CreateScenario(r.Context(), scenario); err != nil {
+	if err := h.service.CreateScenario(r.Context(), *scenario); err != nil {
 		h.handleCreateError(w, err, scenario.UUID)
 		return
 	}
@@ -154,7 +154,7 @@ func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, u
 		return
 	}
 
-	if err := h.service.UpdateScenario(r.Context(), uuid, scenario); err != nil {
+	if err := h.service.UpdateScenario(r.Context(), uuid, *scenario); err != nil {
 		h.handleUpdateError(w, err, uuid)
 		return
 	}

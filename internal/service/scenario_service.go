@@ -36,7 +36,7 @@ func NewScenarioService(scenarioStorage storage.ScenarioStorage) *ScenarioServic
 
 // GetScenarioByPath is a convenience method primarily for testing.
 // It iterates through scenarios to find a match based on method and path (exact or wildcard).
-func (s *ScenarioService) GetScenarioByPath(_ context.Context, path string, method string) *model.Scenario {
+func (s *ScenarioService) GetScenarioByPath(_ context.Context, path string, method string) (model.Scenario, bool) {
 	scenarios := s.storage.List()
 	var exactMatch *model.Scenario
 	var wildcardMatch *model.Scenario
@@ -51,7 +51,10 @@ func (s *ScenarioService) GetScenarioByPath(_ context.Context, path string, meth
 		wildcardMatch = s.checkWildcardMatch(scenario, wildcardMatch, scenarioPath, path)
 	}
 
-	return s.selectBestMatch(exactMatch, wildcardMatch)
+	if match := s.selectBestMatch(exactMatch, wildcardMatch); match != nil {
+		return *match, true
+	}
+	return model.Scenario{}, false
 }
 
 // parseRequestPath extracts method and path from scenario request path
@@ -123,27 +126,32 @@ func (*ScenarioService) selectBestWildcardMatch(
 }
 
 // ListScenarios returns all available scenarios
-func (s *ScenarioService) ListScenarios(_ context.Context) []*model.Scenario {
-	return s.storage.List()
+func (s *ScenarioService) ListScenarios(_ context.Context) []model.Scenario {
+	scenarios := s.storage.List()
+	result := make([]model.Scenario, len(scenarios))
+	for i, scenario := range scenarios {
+		result[i] = *scenario
+	}
+	return result
 }
 
 // GetScenario retrieves a scenario by UUID
-func (s *ScenarioService) GetScenario(_ context.Context, id string) (*model.Scenario, error) {
+func (s *ScenarioService) GetScenario(_ context.Context, id string) (model.Scenario, error) {
 	if id == "" {
-		return nil, errors.New("invalid request: scenario ID cannot be empty")
+		return model.Scenario{}, errors.New("invalid request: scenario ID cannot be empty")
 	}
 	scenario, err := s.storage.Get(id)
 	if err != nil {
 		// Return standardized error message regardless of the specific error from storage
-		return nil, errors.New("resource not found")
+		return model.Scenario{}, errors.New("resource not found")
 	}
-	return scenario, nil
+	return *scenario, nil
 }
 
 // CreateScenario creates a new scenario
-func (s *ScenarioService) CreateScenario(_ context.Context, scenario *model.Scenario) error {
+func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scenario) error {
 	// Validate scenario
-	if err := s.validateScenario(scenario); err != nil {
+	if err := s.validateScenario(&scenario); err != nil {
 		return err
 	}
 
@@ -152,7 +160,7 @@ func (s *ScenarioService) CreateScenario(_ context.Context, scenario *model.Scen
 		scenario.UUID = uuid.New().String()
 	}
 
-	err := s.storage.Create(scenario.UUID, scenario)
+	err := s.storage.Create(scenario.UUID, &scenario)
 	if err != nil {
 		// Standardized error message for already existing resources
 		return errors.New("resource already exists")
@@ -161,24 +169,24 @@ func (s *ScenarioService) CreateScenario(_ context.Context, scenario *model.Scen
 }
 
 // UpdateScenario updates an existing scenario
-func (s *ScenarioService) UpdateScenario(_ context.Context, id string, scenario *model.Scenario) error {
+func (s *ScenarioService) UpdateScenario(_ context.Context, id string, scenario model.Scenario) error {
 	// Validate scenario basic fields first
-	if err := s.validateScenario(scenario); err != nil {
+	if err := s.validateScenario(&scenario); err != nil {
 		return err
 	}
 
 	// Validate and set UUID consistency
-	if err := s.validateUUIDConsistency(id, scenario); err != nil {
+	if err := s.validateUUIDConsistency(id, &scenario); err != nil {
 		return err
 	}
 
 	// Perform the storage update
-	if err := s.performStorageUpdate(id, scenario); err != nil {
+	if err := s.performStorageUpdate(id, &scenario); err != nil {
 		return err
 	}
 
 	// Additional validations after storage update
-	return s.validatePostUpdate(scenario)
+	return s.validatePostUpdate(&scenario)
 }
 
 // validateUUIDConsistency ensures UUID in path matches UUID in scenario body
