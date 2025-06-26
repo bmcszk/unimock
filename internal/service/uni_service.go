@@ -11,22 +11,22 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
-// uniService implements the UniService interface
-type uniService struct {
+// UniService implements the UniService interface
+type UniService struct {
 	storage storage.UniStorage
 	uniCfg *config.UniConfig
 }
 
 // NewUniService creates a new instance of UniService
-func NewUniService(uniStorage storage.UniStorage, cfg *config.UniConfig) UniService {
-	return &uniService{
+func NewUniService(uniStorage storage.UniStorage, cfg *config.UniConfig) *UniService {
+	return &UniService{
 		storage: uniStorage,
 		uniCfg: cfg,
 	}
 }
 
 // GetResource retrieves a resource by section and ID
-func (s *uniService) GetResource(
+func (s *UniService) GetResource(
 	_ context.Context, sectionName string, isStrictPath bool, id string,
 ) (*model.UniData, error) {
 	data, err := s.storage.Get(sectionName, isStrictPath, id)
@@ -43,7 +43,7 @@ func (s *uniService) GetResource(
 }
 
 // GetResourcesByPath retrieves all resources at a given path
-func (s *uniService) GetResourcesByPath(_ context.Context, path string) ([]*model.UniData, error) {
+func (s *UniService) GetResourcesByPath(_ context.Context, path string) ([]*model.UniData, error) {
 	data, err := s.storage.GetByPath(path)
 	if err != nil {
 		if _, ok := err.(*unimockerrors.NotFoundError); ok {
@@ -59,7 +59,7 @@ func (s *uniService) GetResourcesByPath(_ context.Context, path string) ([]*mode
 }
 
 // CreateResource creates a new resource
-func (s *uniService) CreateResource(
+func (s *UniService) CreateResource(
 	_ context.Context, sectionName string, isStrictPath bool, ids []string, data *model.UniData,
 ) error {
 	if len(ids) == 0 {
@@ -81,7 +81,7 @@ func (s *uniService) CreateResource(
 }
 
 // UpdateResource updates an existing resource or creates it if it doesn't exist (upsert).
-func (s *uniService) UpdateResource(
+func (s *UniService) UpdateResource(
 	_ context.Context, sectionName string, isStrictPath bool, id string, data *model.UniData,
 ) error {
 	err := s.storage.Update(sectionName, isStrictPath, id, data)
@@ -92,7 +92,7 @@ func (s *uniService) UpdateResource(
 }
 
 // handleUpdateError handles various update errors including upsert logic
-func (s *uniService) handleUpdateError(
+func (s *UniService) handleUpdateError(
 	err error, sectionName string, isStrictPath bool, id string, data *model.UniData,
 ) error {
 	if _, ok := err.(*unimockerrors.NotFoundError); ok {
@@ -105,7 +105,7 @@ func (s *uniService) handleUpdateError(
 }
 
 // handleNotFoundUpdate handles update when resource is not found (upsert create)
-func (s *uniService) handleNotFoundUpdate(
+func (s *UniService) handleNotFoundUpdate(
 	sectionName string, isStrictPath bool, id string, data *model.UniData,
 ) error {
 	// Ensure UniData has the ID set for upsert create
@@ -118,7 +118,7 @@ func (s *uniService) handleNotFoundUpdate(
 }
 
 // handleCreateConflict handles potential conflicts during upsert create
-func (s *uniService) handleCreateConflict(
+func (s *UniService) handleCreateConflict(
 	createErr error, sectionName string, isStrictPath bool, id string, data *model.UniData,
 ) error {
 	if _, conflictOk := createErr.(*unimockerrors.ConflictError); !conflictOk {
@@ -133,7 +133,7 @@ func (s *uniService) handleCreateConflict(
 }
 
 // DeleteResource removes a resource
-func (s *uniService) DeleteResource(_ context.Context, sectionName string, isStrictPath bool, id string) error {
+func (s *UniService) DeleteResource(_ context.Context, sectionName string, isStrictPath bool, id string) error {
 	err := s.storage.Delete(sectionName, isStrictPath, id)
 	if err != nil {
 		if _, ok := err.(*unimockerrors.NotFoundError); ok {

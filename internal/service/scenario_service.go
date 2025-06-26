@@ -22,22 +22,21 @@ const (
 	splitParts       = 2
 )
 
-// scenarioService implements the ScenarioService interface
-// The ScenarioService interface is defined in service.go
-type scenarioService struct {
+// ScenarioService implements the ScenarioService interface
+type ScenarioService struct {
 	storage storage.ScenarioStorage
 }
 
 // NewScenarioService creates a new instance of ScenarioService
-func NewScenarioService(scenarioStorage storage.ScenarioStorage) ScenarioService {
-	return &scenarioService{
+func NewScenarioService(scenarioStorage storage.ScenarioStorage) *ScenarioService {
+	return &ScenarioService{
 		storage: scenarioStorage,
 	}
 }
 
 // GetScenarioByPath is a convenience method primarily for testing.
 // It iterates through scenarios to find a match based on method and path (exact or wildcard).
-func (s *scenarioService) GetScenarioByPath(_ context.Context, path string, method string) *model.Scenario {
+func (s *ScenarioService) GetScenarioByPath(_ context.Context, path string, method string) *model.Scenario {
 	scenarios := s.storage.List()
 	var exactMatch *model.Scenario
 	var wildcardMatch *model.Scenario
@@ -56,7 +55,7 @@ func (s *scenarioService) GetScenarioByPath(_ context.Context, path string, meth
 }
 
 // parseRequestPath extracts method and path from scenario request path
-func (*scenarioService) parseRequestPath(requestPath string) (method, path string) {
+func (*ScenarioService) parseRequestPath(requestPath string) (method, path string) {
 	parts := strings.SplitN(requestPath, " ", requestPathParts)
 	if len(parts) != requestPathParts {
 		return "", ""
@@ -65,7 +64,7 @@ func (*scenarioService) parseRequestPath(requestPath string) (method, path strin
 }
 
 // checkExactMatch checks if scenario matches exact path and updates exactMatch if needed
-func (*scenarioService) checkExactMatch(
+func (*ScenarioService) checkExactMatch(
 	scenario, exactMatch *model.Scenario, scenarioPath, path string,
 ) *model.Scenario {
 	if scenarioPath == path && exactMatch == nil {
@@ -75,7 +74,7 @@ func (*scenarioService) checkExactMatch(
 }
 
 // checkWildcardMatch checks if scenario matches wildcard path and updates wildcardMatch if needed
-func (s *scenarioService) checkWildcardMatch(
+func (s *ScenarioService) checkWildcardMatch(
 	scenario, wildcardMatch *model.Scenario, scenarioPath, path string,
 ) *model.Scenario {
 	if strings.HasSuffix(scenarioPath, "/*") {
@@ -85,7 +84,7 @@ func (s *scenarioService) checkWildcardMatch(
 }
 
 // selectBestMatch returns the best match, preferring exact over wildcard
-func (*scenarioService) selectBestMatch(exactMatch, wildcardMatch *model.Scenario) *model.Scenario {
+func (*ScenarioService) selectBestMatch(exactMatch, wildcardMatch *model.Scenario) *model.Scenario {
 	if exactMatch != nil {
 		return exactMatch
 	}
@@ -93,7 +92,7 @@ func (*scenarioService) selectBestMatch(exactMatch, wildcardMatch *model.Scenari
 }
 
 // handleWildcardMatch processes wildcard scenario matching
-func (s *scenarioService) handleWildcardMatch(
+func (s *ScenarioService) handleWildcardMatch(
 	scenario, wildcardMatch *model.Scenario, scenarioPath, path string,
 ) *model.Scenario {
 	basePath := strings.TrimSuffix(scenarioPath, "/*")
@@ -113,7 +112,7 @@ func (s *scenarioService) handleWildcardMatch(
 }
 
 // selectBestWildcardMatch chooses the most specific wildcard match
-func (*scenarioService) selectBestWildcardMatch(
+func (*ScenarioService) selectBestWildcardMatch(
 	scenario, wildcardMatch *model.Scenario, newMatchBase string,
 ) *model.Scenario {
 	currentWildcardBase := strings.TrimSuffix(strings.SplitN(wildcardMatch.RequestPath, " ", 2)[1], "/*")
@@ -124,12 +123,12 @@ func (*scenarioService) selectBestWildcardMatch(
 }
 
 // ListScenarios returns all available scenarios
-func (s *scenarioService) ListScenarios(_ context.Context) []*model.Scenario {
+func (s *ScenarioService) ListScenarios(_ context.Context) []*model.Scenario {
 	return s.storage.List()
 }
 
 // GetScenario retrieves a scenario by UUID
-func (s *scenarioService) GetScenario(_ context.Context, id string) (*model.Scenario, error) {
+func (s *ScenarioService) GetScenario(_ context.Context, id string) (*model.Scenario, error) {
 	if id == "" {
 		return nil, errors.New("invalid request: scenario ID cannot be empty")
 	}
@@ -142,7 +141,7 @@ func (s *scenarioService) GetScenario(_ context.Context, id string) (*model.Scen
 }
 
 // CreateScenario creates a new scenario
-func (s *scenarioService) CreateScenario(_ context.Context, scenario *model.Scenario) error {
+func (s *ScenarioService) CreateScenario(_ context.Context, scenario *model.Scenario) error {
 	// Validate scenario
 	if err := s.validateScenario(scenario); err != nil {
 		return err
@@ -162,7 +161,7 @@ func (s *scenarioService) CreateScenario(_ context.Context, scenario *model.Scen
 }
 
 // UpdateScenario updates an existing scenario
-func (s *scenarioService) UpdateScenario(_ context.Context, id string, scenario *model.Scenario) error {
+func (s *ScenarioService) UpdateScenario(_ context.Context, id string, scenario *model.Scenario) error {
 	// Validate scenario basic fields first
 	if err := s.validateScenario(scenario); err != nil {
 		return err
@@ -183,7 +182,7 @@ func (s *scenarioService) UpdateScenario(_ context.Context, id string, scenario 
 }
 
 // validateUUIDConsistency ensures UUID in path matches UUID in scenario body
-func (*scenarioService) validateUUIDConsistency(id string, scenario *model.Scenario) error {
+func (*ScenarioService) validateUUIDConsistency(id string, scenario *model.Scenario) error {
 	if scenario.UUID == "" {
 		scenario.UUID = id
 		return nil
@@ -198,7 +197,7 @@ func (*scenarioService) validateUUIDConsistency(id string, scenario *model.Scena
 }
 
 // performStorageUpdate performs the actual storage update operation
-func (s *scenarioService) performStorageUpdate(id string, scenario *model.Scenario) error {
+func (s *ScenarioService) performStorageUpdate(id string, scenario *model.Scenario) error {
 	err := s.storage.Update(id, scenario)
 	if err != nil {
 		return errors.New("resource not found")
@@ -207,14 +206,14 @@ func (s *scenarioService) performStorageUpdate(id string, scenario *model.Scenar
 }
 
 // validatePostUpdate performs additional validations after storage update
-func (*scenarioService) validatePostUpdate(_ *model.Scenario) error {
+func (*ScenarioService) validatePostUpdate(_ *model.Scenario) error {
 	// These validations are already done in validateScenario, so this is just for extra safety
 	// In case there were any modifications during the update process
 	return nil
 }
 
 // DeleteScenario removes a scenario
-func (s *scenarioService) DeleteScenario(_ context.Context, id string) error {
+func (s *ScenarioService) DeleteScenario(_ context.Context, id string) error {
 	if id == "" {
 		return errors.New("invalid request: scenario ID cannot be empty")
 	}
@@ -227,7 +226,7 @@ func (s *scenarioService) DeleteScenario(_ context.Context, id string) error {
 }
 
 // validateScenario validates a scenario
-func (*scenarioService) validateScenario(scenario *model.Scenario) error {
+func (*ScenarioService) validateScenario(scenario *model.Scenario) error {
 	if scenario == nil {
 		return errors.New("invalid request: scenario cannot be nil")
 	}

@@ -101,7 +101,7 @@ func TestRouter_ScenariosAlwaysReturnUUID(t *testing.T) {
 	assert.NotContains(t, responseBody, `"uuid":"",`)
 }
 
-func setupTestRouterWithReturnBodyFalse(t *testing.T) (*router.Router, service.ScenarioService) {
+func setupTestRouterWithReturnBodyFalse(t *testing.T) (*router.Router, *service.ScenarioService) {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	store := storage.NewUniStorage()

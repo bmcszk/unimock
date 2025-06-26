@@ -11,7 +11,6 @@ import (
 	"strings"
 	"github.com/antchfx/jsonquery"
 	"github.com/antchfx/xmlquery"
-	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/bmcszk/unimock/pkg/model"
 	"github.com/google/uuid"
@@ -22,19 +21,61 @@ const (
 	pathLogKey  = "path"
 	contentTypeHeader = "Content-Type"
 )
+
+// UniService handles the core uni functionality
+type UniService interface {
+	// GetResource retrieves a resource by section and ID
+	GetResource(ctx context.Context, sectionName string, isStrictPath bool, id string) (*model.UniData, error)
+	// GetResourcesByPath retrieves all resources at a given path
+	GetResourcesByPath(ctx context.Context, path string) ([]*model.UniData, error)
+	// CreateResource creates a new resource
+	CreateResource(ctx context.Context, sectionName string, isStrictPath bool, ids []string, data *model.UniData) error
+	// UpdateResource updates an existing resource
+	UpdateResource(ctx context.Context, sectionName string, isStrictPath bool, id string, data *model.UniData) error
+	// DeleteResource removes a resource
+	DeleteResource(ctx context.Context, sectionName string, isStrictPath bool, id string) error
+}
+
+// ScenarioService manages test scenarios
+type ScenarioService interface {
+	// GetScenarioByPath returns a scenario matching the given path and method
+	GetScenarioByPath(ctx context.Context, path string, method string) *model.Scenario
+	// ListScenarios returns all available scenarios
+	ListScenarios(ctx context.Context) []*model.Scenario
+	// GetScenario retrieves a scenario by UUID
+	GetScenario(ctx context.Context, scenarioID string) (*model.Scenario, error)
+	// CreateScenario creates a new scenario
+	CreateScenario(ctx context.Context, scenario *model.Scenario) error
+	// UpdateScenario updates an existing scenario
+	UpdateScenario(ctx context.Context, scenarioID string, scenario *model.Scenario) error
+	// DeleteScenario removes a scenario
+	DeleteScenario(ctx context.Context, scenarioID string) error
+}
+
+// TechService handles technical operations
+type TechService interface {
+	// GetHealthStatus returns the health status of the service
+	GetHealthStatus(ctx context.Context) map[string]any
+	// GetMetrics returns metrics about the service
+	GetMetrics(ctx context.Context) map[string]any
+	// IncrementRequestCount increments the request counter
+	IncrementRequestCount(ctx context.Context, path string)
+	// TrackResponse tracks a response by path and status code
+	TrackResponse(ctx context.Context, path string, statusCode int)
+}
 // UniHandler provides clear, step-by-step HTTP method handlers
 type UniHandler struct {
-	service         service.UniService
-	scenarioService service.ScenarioService
-	techService     service.TechService
+	service         UniService
+	scenarioService ScenarioService
+	techService     TechService
 	logger          *slog.Logger
 	uniCfg         *config.UniConfig
 }
 // NewUniHandler creates a new handler
 func NewUniHandler(
-	uniService service.UniService,
-	scenarioService service.ScenarioService,
-	techService service.TechService,
+	uniService UniService,
+	scenarioService ScenarioService,
+	techService TechService,
 	logger *slog.Logger,
 	cfg *config.UniConfig,
 ) *UniHandler {

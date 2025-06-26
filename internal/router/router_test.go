@@ -38,7 +38,7 @@ type routerTestCase struct {
 	wantBodyContains string
 }
 
-func setupTestRouter(_ *testing.T) (*router.Router, service.ScenarioService) {
+func setupTestRouter(_ *testing.T) (*router.Router, *service.ScenarioService) {
 	// Create a mock logger
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -71,7 +71,7 @@ func setupTestRouter(_ *testing.T) (*router.Router, service.ScenarioService) {
 	return appRouter, scenarioService
 }
 
-func setupTestScenarios(t *testing.T, scenarioService service.ScenarioService) {
+func setupTestScenarios(t *testing.T, scenarioService *service.ScenarioService) {
 	t.Helper()
 	scenarios := []*model.Scenario{
 		{

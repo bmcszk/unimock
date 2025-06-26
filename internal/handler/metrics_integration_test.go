@@ -59,7 +59,7 @@ type metricsTestCase struct {
 	expectedCode int
 }
 
-func setupMetricsTestHandler(t *testing.T) (*handler.UniHandler, service.TechService) {
+func setupMetricsTestHandler(t *testing.T) (*handler.UniHandler, *service.TechService) {
 	t.Helper()
 	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
@@ -88,7 +88,7 @@ func setupMetricsTestHandler(t *testing.T) (*handler.UniHandler, service.TechSer
 	return mockHandler, techService
 }
 
-func setupHTTPMethodsTestHandler(t *testing.T) (*handler.UniHandler, service.TechService) {
+func setupHTTPMethodsTestHandler(t *testing.T) (*handler.UniHandler, *service.TechService) {
 	t.Helper()
 	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
@@ -147,7 +147,9 @@ func executeMetricsTestRequest(
 	}
 }
 
-func verifyMetricsResults(ctx context.Context, t *testing.T, techService service.TechService, tests []metricsTestCase) {
+func verifyMetricsResults(
+	ctx context.Context, t *testing.T, techService *service.TechService, tests []metricsTestCase,
+) {
 	t.Helper()
 	metrics := techService.GetMetrics(ctx)
 
@@ -236,7 +238,7 @@ func testSingleHTTPMethod(ctx context.Context, t *testing.T, mockHandler *handle
 	}
 }
 
-func verifyHTTPMethodsTracking(ctx context.Context, t *testing.T, techService service.TechService) {
+func verifyHTTPMethodsTracking(ctx context.Context, t *testing.T, techService *service.TechService) {
 	t.Helper()
 	metrics := techService.GetMetrics(ctx)
 	apiEndpoints, ok := metrics["api_endpoints"].(map[string]int64)

@@ -1,11 +1,11 @@
 package router
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strings"
 
-	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/bmcszk/unimock/pkg/model"
 )
@@ -14,12 +14,18 @@ const (
 	pathLogKey = "path"
 )
 
+// ScenarioService defines the interface needed by router for scenario operations
+type ScenarioService interface {
+	// GetScenarioByPath returns a scenario matching the given path and method
+	GetScenarioByPath(ctx context.Context, path string, method string) *model.Scenario
+}
+
 // Router is a http.Handler that routes requests to the appropriate handler based on path prefix
 type Router struct {
 	mockHandler     http.Handler
 	techHandler     http.Handler
 	scenarioHandler http.Handler
-	scenarioService service.ScenarioService
+	scenarioService ScenarioService
 	logger          *slog.Logger
 	uniConfig      *config.UniConfig
 }
@@ -27,7 +33,7 @@ type Router struct {
 // NewRouter creates a new Router instance
 func NewRouter(
 	mockHandler, techHandler, scenarioHandler http.Handler, 
-	scenarioService service.ScenarioService, 
+	scenarioService ScenarioService, 
 	logger *slog.Logger, 
 	uniConfig *config.UniConfig,
 ) *Router {

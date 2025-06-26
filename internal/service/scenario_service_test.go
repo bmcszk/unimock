@@ -11,7 +11,7 @@ import (
 )
 
 // Helper function to create test scenarios
-func createTestScenarios(t *testing.T, scenarioSvc service.ScenarioService) {
+func createTestScenarios(t *testing.T, scenarioSvc *service.ScenarioService) {
 	t.Helper()
 	scenarios := []*model.Scenario{
 		{
@@ -179,7 +179,7 @@ func TestScenarioService_GetScenarioByPath(t *testing.T) {
 }
 
 // Helper function to create list test scenarios
-func createListTestScenarios(t *testing.T, scenarioSvc service.ScenarioService) []*model.Scenario {
+func createListTestScenarios(t *testing.T, scenarioSvc *service.ScenarioService) []*model.Scenario {
 	t.Helper()
 	scenarios := []*model.Scenario{
 		{
@@ -267,7 +267,7 @@ func TestScenarioService_ListScenarios(t *testing.T) {
 }
 
 // Helper function to setup GetScenario test data
-func setupGetScenarioTest(t *testing.T, scenarioSvc service.ScenarioService) {
+func setupGetScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService) {
 	t.Helper()
 	scenario := &model.Scenario{
 		UUID:        "test-scenario",
@@ -361,7 +361,7 @@ func TestScenarioService_GetScenario(t *testing.T) {
 }
 
 // Helper function to setup CreateScenario test data
-func setupCreateScenarioTest(t *testing.T, scenarioSvc service.ScenarioService) {
+func setupCreateScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService) {
 	t.Helper()
 	// Create first scenario for duplicate UUID test
 	err := scenarioSvc.CreateScenario(context.Background(), &model.Scenario{
@@ -514,7 +514,7 @@ func validateScenarioData(t *testing.T, scenario *model.Scenario, expectedStatus
 
 // Helper function to validate CreateScenario response
 func validateCreateScenarioResponse( //nolint:revive
-	t *testing.T, scenarioSvc service.ScenarioService, scenario *model.Scenario, err error,
+	t *testing.T, scenarioSvc *service.ScenarioService, scenario *model.Scenario, err error,
 	expectedStatus int, expectedData string, expectError bool, errorContains string,
 ) {
 	t.Helper()
@@ -554,7 +554,7 @@ func TestScenarioService_CreateScenario(t *testing.T) {
 }
 
 // Helper function to setup UpdateScenario test data
-func setupUpdateScenarioTest(t *testing.T, scenarioSvc service.ScenarioService) {
+func setupUpdateScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService) {
 	t.Helper()
 	scenario := &model.Scenario{
 		UUID:        "test-scenario",
@@ -668,7 +668,7 @@ func getUpdateScenarioTestCases() []struct {
 
 // Helper function to validate UpdateScenario response
 func validateUpdateScenarioResponse( //nolint:revive
-	t *testing.T, scenarioSvc service.ScenarioService, scenario *model.Scenario, err error,
+	t *testing.T, scenarioSvc *service.ScenarioService, scenario *model.Scenario, err error,
 	expectedStatus int, expectedData string, expectError bool, errorContains string,
 ) {
 	t.Helper()
@@ -708,7 +708,7 @@ func TestScenarioService_UpdateScenario(t *testing.T) {
 }
 
 // Helper function to setup DeleteScenario test data
-func setupDeleteScenarioTest(t *testing.T, scenarioSvc service.ScenarioService) {
+func setupDeleteScenarioTest(t *testing.T, scenarioSvc *service.ScenarioService) {
 	t.Helper()
 	scenario := &model.Scenario{
 		UUID:        "test-scenario",
@@ -764,7 +764,7 @@ func getDeleteScenarioTestCases() []struct {
 
 // Helper function to validate DeleteScenario response
 func validateDeleteScenarioResponse( //nolint:revive
-	t *testing.T, scenarioSvc service.ScenarioService, uuid string, err error,
+	t *testing.T, scenarioSvc *service.ScenarioService, uuid string, err error,
 	expectError bool, errorContains string,
 ) {
 	t.Helper()

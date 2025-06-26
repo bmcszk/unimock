@@ -5,19 +5,17 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-
-	"github.com/bmcszk/unimock/internal/service"
 )
 
 // TechHandler handles technical endpoints like health checks and metrics
 type TechHandler struct {
 	prefix  string
-	service service.TechService
+	service TechService
 	logger  *slog.Logger
 }
 
 // NewTechHandler creates a new instance of TechHandler
-func NewTechHandler(techSvc service.TechService, logger *slog.Logger) *TechHandler {
+func NewTechHandler(techSvc TechService, logger *slog.Logger) *TechHandler {
 	return &TechHandler{
 		prefix:  "/_uni/",
 		service: techSvc,

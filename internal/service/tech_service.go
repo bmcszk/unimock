@@ -13,8 +13,8 @@ const (
 	incrementValue = 1
 )
 
-// techService implements the TechService interface
-type techService struct {
+// TechService implements the TechService interface
+type TechService struct {
 	startTime      time.Time
 	requestCounter atomic.Int64
 	endpointStats  map[string]*atomic.Int64
@@ -23,8 +23,8 @@ type techService struct {
 }
 
 // NewTechService creates a new instance of TechService
-func NewTechService(startTime time.Time) TechService {
-	return &techService{
+func NewTechService(startTime time.Time) *TechService {
+	return &TechService{
 		startTime:     startTime,
 		endpointStats: make(map[string]*atomic.Int64),
 		statusStats:   make(map[string]map[int]*atomic.Int64),
@@ -32,7 +32,7 @@ func NewTechService(startTime time.Time) TechService {
 }
 
 // GetHealthStatus returns the health status of the service
-func (s *techService) GetHealthStatus(_ context.Context) map[string]any {
+func (s *TechService) GetHealthStatus(_ context.Context) map[string]any {
 	uptime := time.Since(s.startTime).String()
 
 	return map[string]any{
@@ -42,7 +42,7 @@ func (s *techService) GetHealthStatus(_ context.Context) map[string]any {
 }
 
 // GetMetrics returns metrics about the service
-func (s *techService) GetMetrics(_ context.Context) map[string]any {
+func (s *TechService) GetMetrics(_ context.Context) map[string]any {
 	s.statsMutex.RLock()
 	defer s.statsMutex.RUnlock()
 
@@ -72,7 +72,7 @@ func (s *techService) GetMetrics(_ context.Context) map[string]any {
 }
 
 // IncrementRequestCount increments the request counter
-func (s *techService) IncrementRequestCount(_ context.Context, path string) {
+func (s *TechService) IncrementRequestCount(_ context.Context, path string) {
 	s.requestCounter.Add(incrementValue)
 
 	// Track endpoint stats
@@ -99,7 +99,7 @@ func (s *techService) IncrementRequestCount(_ context.Context, path string) {
 }
 
 // TrackResponse tracks a response by path and status code
-func (s *techService) TrackResponse(_ context.Context, path string, statusCode int) {
+func (s *TechService) TrackResponse(_ context.Context, path string, statusCode int) {
 	s.statsMutex.Lock()
 	defer s.statsMutex.Unlock()
 
