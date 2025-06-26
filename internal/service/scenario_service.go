@@ -47,8 +47,8 @@ func (s *ScenarioService) GetScenarioByPath(_ context.Context, path string, meth
 			continue
 		}
 
-		exactMatch = s.checkExactMatch(scenario, exactMatch, scenarioPath, path)
-		wildcardMatch = s.checkWildcardMatch(scenario, wildcardMatch, scenarioPath, path)
+		exactMatch = s.checkExactMatch(&scenario, exactMatch, scenarioPath, path)
+		wildcardMatch = s.checkWildcardMatch(&scenario, wildcardMatch, scenarioPath, path)
 	}
 
 	if match := s.selectBestMatch(exactMatch, wildcardMatch); match != nil {
@@ -127,12 +127,7 @@ func (*ScenarioService) selectBestWildcardMatch(
 
 // ListScenarios returns all available scenarios
 func (s *ScenarioService) ListScenarios(_ context.Context) []model.Scenario {
-	scenarios := s.storage.List()
-	result := make([]model.Scenario, len(scenarios))
-	for i, scenario := range scenarios {
-		result[i] = *scenario
-	}
-	return result
+	return s.storage.List()
 }
 
 // GetScenario retrieves a scenario by UUID
@@ -145,7 +140,7 @@ func (s *ScenarioService) GetScenario(_ context.Context, id string) (model.Scena
 		// Return standardized error message regardless of the specific error from storage
 		return model.Scenario{}, errors.New("resource not found")
 	}
-	return *scenario, nil
+	return scenario, nil
 }
 
 // CreateScenario creates a new scenario
@@ -160,7 +155,7 @@ func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scena
 		scenario.UUID = uuid.New().String()
 	}
 
-	err := s.storage.Create(scenario.UUID, &scenario)
+	err := s.storage.Create(scenario.UUID, scenario)
 	if err != nil {
 		// Standardized error message for already existing resources
 		return errors.New("resource already exists")
@@ -181,12 +176,12 @@ func (s *ScenarioService) UpdateScenario(_ context.Context, id string, scenario 
 	}
 
 	// Perform the storage update
-	if err := s.performStorageUpdate(id, &scenario); err != nil {
+	if err := s.performStorageUpdate(id, scenario); err != nil {
 		return err
 	}
 
 	// Additional validations after storage update
-	return s.validatePostUpdate(&scenario)
+	return s.validatePostUpdate(scenario)
 }
 
 // validateUUIDConsistency ensures UUID in path matches UUID in scenario body
@@ -205,7 +200,7 @@ func (*ScenarioService) validateUUIDConsistency(id string, scenario *model.Scena
 }
 
 // performStorageUpdate performs the actual storage update operation
-func (s *ScenarioService) performStorageUpdate(id string, scenario *model.Scenario) error {
+func (s *ScenarioService) performStorageUpdate(id string, scenario model.Scenario) error {
 	err := s.storage.Update(id, scenario)
 	if err != nil {
 		return errors.New("resource not found")
@@ -214,7 +209,7 @@ func (s *ScenarioService) performStorageUpdate(id string, scenario *model.Scenar
 }
 
 // validatePostUpdate performs additional validations after storage update
-func (*ScenarioService) validatePostUpdate(_ *model.Scenario) error {
+func (*ScenarioService) validatePostUpdate(_ model.Scenario) error {
 	// These validations are already done in validateScenario, so this is just for extra safety
 	// In case there were any modifications during the update process
 	return nil

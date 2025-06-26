@@ -20,12 +20,12 @@ const (
 
 // UniStorage interface defines the operations for storing and retrieving data
 type UniStorage interface {
-	Create(sectionName string, isStrictPath bool, data *model.UniData) error
-	Update(sectionName string, isStrictPath bool, id string, data *model.UniData) error
-	Get(sectionName string, isStrictPath bool, id string) (*model.UniData, error)
-	GetByPath(requestPath string) ([]*model.UniData, error)
+	Create(sectionName string, isStrictPath bool, data model.UniData) error
+	Update(sectionName string, isStrictPath bool, id string, data model.UniData) error
+	Get(sectionName string, isStrictPath bool, id string) (model.UniData, error)
+	GetByPath(requestPath string) ([]model.UniData, error)
 	Delete(sectionName string, isStrictPath bool, id string) error
-	ForEach(fn func(id string, data *model.UniData) error) error
+	ForEach(fn func(id string, data model.UniData) error) error
 }
 
 // uniStorage implements the Storage interface
