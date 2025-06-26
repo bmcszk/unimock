@@ -346,7 +346,7 @@ func TestGetScenarioByPath(t *testing.T) {
 	}
 
 	for i := range testScenarios {
-		err := scenarioService.CreateScenario(context.TODO(), testScenarios[i])
+		_, err := scenarioService.CreateScenario(context.TODO(), testScenarios[i])
 		require.NoError(t, err, "Failed to create scenario %s in TestGetScenarioByPath", testScenarios[i].UUID)
 	}
 

@@ -204,7 +204,8 @@ func loadScenariosFromFile(
 	loadedCount := 0
 
 	for _, scenario := range modelScenarios {
-		if err := scenarioService.CreateScenario(ctx, scenario); err != nil {
+		_, err := scenarioService.CreateScenario(ctx, scenario)
+		if err != nil {
 			logger.Warn("failed to load scenario from file", 
 				"scenario_path", scenario.RequestPath,
 				"scenario_uuid", scenario.UUID,

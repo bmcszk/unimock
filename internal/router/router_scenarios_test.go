@@ -32,7 +32,7 @@ func TestRouter_ScenariosIgnoreReturnBodyConfig(t *testing.T) {
 		Data:        `{"id": "123", "created": true}`,
 	}
 
-	err := scenarioService.CreateScenario(context.TODO(), *scenario)
+	_, err := scenarioService.CreateScenario(context.TODO(), *scenario)
 	require.NoError(t, err)
 
 	// Make request that matches scenario
@@ -59,7 +59,7 @@ func TestRouter_ScenarioVsMockReturnBodyBehavior(t *testing.T) {
 		ContentType: "application/json",
 		Data:        `{"scenario": "response"}`,
 	}
-	err := scenarioService.CreateScenario(context.TODO(), *scenario)
+	_, err := scenarioService.CreateScenario(context.TODO(), *scenario)
 	require.NoError(t, err)
 
 	// Test 1: Request matching scenario - should return body

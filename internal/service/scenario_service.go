@@ -144,10 +144,10 @@ func (s *ScenarioService) GetScenario(_ context.Context, id string) (model.Scena
 }
 
 // CreateScenario creates a new scenario
-func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scenario) error {
+func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scenario) (model.Scenario, error) {
 	// Validate scenario
 	if err := s.validateScenario(&scenario); err != nil {
-		return err
+		return model.Scenario{}, err
 	}
 
 	// Generate UUID if not provided
@@ -158,9 +158,9 @@ func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scena
 	err := s.storage.Create(scenario.UUID, scenario)
 	if err != nil {
 		// Standardized error message for already existing resources
-		return errors.New("resource already exists")
+		return model.Scenario{}, errors.New("resource already exists")
 	}
-	return nil
+	return scenario, nil
 }
 
 // UpdateScenario updates an existing scenario

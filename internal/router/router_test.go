@@ -91,7 +91,7 @@ func setupTestScenarios(t *testing.T, scenarioService *service.ScenarioService) 
 	}
 
 	for _, scenario := range scenarios {
-		err := scenarioService.CreateScenario(context.TODO(), *scenario)
+		_, err := scenarioService.CreateScenario(context.TODO(), *scenario)
 		if err != nil {
 			t.Fatalf("Failed to create test scenario: %v", err)
 		}

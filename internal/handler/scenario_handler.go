@@ -136,12 +136,13 @@ func (h *ScenarioHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.CreateScenario(r.Context(), *scenario); err != nil {
+	createdScenario, err := h.service.CreateScenario(r.Context(), *scenario)
+	if err != nil {
 		h.handleCreateError(w, err, scenario.UUID)
 		return
 	}
 
-	h.writeScenarioResponse(w, scenario, http.StatusCreated)
+	h.writeScenarioResponse(w, &createdScenario, http.StatusCreated)
 }
 
 func (h *ScenarioHandler) handleUpdate(w http.ResponseWriter, r *http.Request, uuid string) {
