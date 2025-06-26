@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
@@ -18,12 +19,12 @@ const (
 // ScenarioHandler handles endpoints for managing scenarios
 type ScenarioHandler struct {
 	prefix  string
-	service ScenarioService
+	service *service.ScenarioService
 	logger  *slog.Logger
 }
 
 // NewScenarioHandler creates a new instance of ScenarioHandler
-func NewScenarioHandler(scenarioSvc ScenarioService, logger *slog.Logger) *ScenarioHandler {
+func NewScenarioHandler(scenarioSvc *service.ScenarioService, logger *slog.Logger) *ScenarioHandler {
 	return &ScenarioHandler{
 		prefix:  "/_uni/scenarios",
 		service: scenarioSvc,

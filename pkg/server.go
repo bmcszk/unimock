@@ -13,7 +13,6 @@ import (
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
-	"github.com/bmcszk/unimock/pkg/model"
 )
 
 const (
@@ -22,11 +21,6 @@ const (
 	idleTimeout  = 120 * time.Second
 )
 
-// ScenarioService defines the minimal interface needed by server for scenario loading
-type ScenarioService interface {
-	// CreateScenario creates a new scenario
-	CreateScenario(ctx context.Context, scenario *model.Scenario) error
-}
 
 // ConfigError represents a configuration error
 type ConfigError struct {
@@ -188,7 +182,7 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 // loadScenariosFromFile loads scenarios from the configured scenarios file
 func loadScenariosFromFile(
 	serverConfig *config.ServerConfig, 
-	scenarioService ScenarioService, 
+	scenarioService *service.ScenarioService, 
 	logger *slog.Logger,
 ) error {
 	if serverConfig.ScenariosFile == "" {
