@@ -7,9 +7,9 @@ import (
 	"github.com/bmcszk/unimock/pkg/config"
 )
 
-func TestMockConfig_ReturnBodyDefault(t *testing.T) {
+func TestUniConfig_ReturnBodyDefault(t *testing.T) {
 	// Test that ReturnBody defaults to false
-	mockConfig := config.NewMockConfig()
+	mockConfig := config.NewUniConfig()
 	
 	// Add a test section
 	mockConfig.Sections["test"] = config.Section{
@@ -23,7 +23,7 @@ func TestMockConfig_ReturnBodyDefault(t *testing.T) {
 	}
 }
 
-func TestMockConfig_LoadFromYAML_ReturnBodyFalse(t *testing.T) {
+func TestUniConfig_LoadFromYAML_ReturnBodyFalse(t *testing.T) {
 	// Create a temporary YAML file with return_body: false
 	yamlContent := `test_section:
   path_pattern: "/api/test/*"
@@ -59,7 +59,7 @@ func TestMockConfig_LoadFromYAML_ReturnBodyFalse(t *testing.T) {
 	}
 }
 
-func TestMockConfig_LoadFromYAML_ReturnBodyTrue(t *testing.T) {
+func TestUniConfig_LoadFromYAML_ReturnBodyTrue(t *testing.T) {
 	// Create a temporary YAML file with return_body: true
 	yamlContent := `test_section:
   path_pattern: "/api/test/*"
@@ -95,7 +95,7 @@ func TestMockConfig_LoadFromYAML_ReturnBodyTrue(t *testing.T) {
 	}
 }
 
-func TestMockConfig_LoadFromYAML_ReturnBodyOmitted(t *testing.T) {
+func TestUniConfig_LoadFromYAML_ReturnBodyOmitted(t *testing.T) {
 	// Create a temporary YAML file without return_body field (should default to false)
 	yamlContent := `test_section:
   path_pattern: "/api/test/*"

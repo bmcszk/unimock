@@ -16,7 +16,7 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
-func TestMockHandler_StrictPathBehavior(t *testing.T) {
+func TestUniHandler_StrictPathBehavior(t *testing.T) {
 	tests := getStrictPathTestCases()
 	
 	for _, tt := range tests {
@@ -75,7 +75,7 @@ type strictPathTestCase struct {
 	path               string
 	body               string
 	contentType        string
-	setupData          func(storage.MockStorage)
+	setupData          func(storage.UniStorage)
 	expectedStatus     int
 	expectedBodyContains string
 	description        string
@@ -175,7 +175,7 @@ func getStrictPathTestCases() []strictPathTestCase {
 	}
 }
 
-func TestMockHandler_WildcardPatternMatching(t *testing.T) {
+func TestUniHandler_WildcardPatternMatching(t *testing.T) {
 	tests := []struct {
 		name           string
 		pathPattern    string
@@ -294,18 +294,18 @@ func validateNoMatch(t *testing.T, w *httptest.ResponseRecorder) {
 // Test helper functions
 
 type strictPathHandlerDeps struct {
-	handler *handler.MockHandler
-	store   storage.MockStorage
-	config  *config.MockConfig
+	handler *handler.UniHandler
+	store   storage.UniStorage
+	config  *config.UniConfig
 	logger  *slog.Logger
 }
 
 func setupStrictPathHandler(t *testing.T, strictPath bool) strictPathHandlerDeps {
 	t.Helper()
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern:   "/users/*",
@@ -317,10 +317,10 @@ func setupStrictPathHandler(t *testing.T, strictPath bool) strictPathHandlerDeps
 		},
 	}
 
-	mockService := service.NewMockService(store, cfg)
+	mockService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
 	
 	return strictPathHandlerDeps{
 		handler: mockHandler,
@@ -332,10 +332,10 @@ func setupStrictPathHandler(t *testing.T, strictPath bool) strictPathHandlerDeps
 
 func setupWildcardHandler(t *testing.T, pathPattern string) strictPathHandlerDeps {
 	t.Helper()
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"test_pattern": {
 				PathPattern:   pathPattern,
@@ -346,10 +346,10 @@ func setupWildcardHandler(t *testing.T, pathPattern string) strictPathHandlerDep
 		},
 	}
 
-	mockService := service.NewMockService(store, cfg)
+	mockService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
 	
 	return strictPathHandlerDeps{
 		handler: mockHandler,
@@ -359,8 +359,8 @@ func setupWildcardHandler(t *testing.T, pathPattern string) strictPathHandlerDep
 	}
 }
 
-func setupUsersCollection(store storage.MockStorage) {
-	testData := &model.MockData{
+func setupUsersCollection(store storage.UniStorage) {
+	testData := &model.UniData{
 		Path:        "/users/123",
 		IDs:         []string{"123"},
 		ContentType: "application/json",

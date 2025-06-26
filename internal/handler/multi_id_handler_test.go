@@ -17,12 +17,12 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
-func setupMultiIDTestHandler() *handler.MockHandler {
-	store := storage.NewMockStorage()
+func setupMultiIDTestHandler() *handler.UniHandler {
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"products": {
 				PathPattern:   "/products/*",
@@ -33,10 +33,10 @@ func setupMultiIDTestHandler() *handler.MockHandler {
 		},
 	}
 
-	mockService := service.NewMockService(store, cfg)
+	mockService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	return handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	return handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
 }
 
 func TestMultiIDPostExtraction(t *testing.T) {
@@ -64,7 +64,7 @@ func TestMultiIDPostExtraction(t *testing.T) {
 	}
 }
 
-func createTestResource(mockHandler *handler.MockHandler) {
+func createTestResource(mockHandler *handler.UniHandler) {
 	jsonBody := `{"id": "prod456", "details": {"upc": "987654321"}, ` +
 		`"internalCode": "INT789", "name": "Test Product"}`
 	postReq := httptest.NewRequest("POST", "/products", bytes.NewBufferString(jsonBody))
@@ -184,11 +184,11 @@ func TestMultiIDUpdateAndDelete(t *testing.T) {
 }
 
 func TestStorageMultiIDSupport(t *testing.T) {
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 
 	// Create resource with multiple IDs
 	ids := []string{"id1", "id2", "id3"}
-	data := &model.MockData{
+	data := &model.UniData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"test": "data"}`),
@@ -215,11 +215,11 @@ func TestStorageMultiIDSupport(t *testing.T) {
 }
 
 func TestStorageIDConflictPrevention(t *testing.T) {
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 
 	// Create first resource
 	ids1 := []string{"conflict1", "shared"}
-	data1 := &model.MockData{
+	data1 := &model.UniData{
 		Path:        "/test1",
 		ContentType: "application/json",
 		Body:        []byte(`{"test": "data1"}`),
@@ -233,7 +233,7 @@ func TestStorageIDConflictPrevention(t *testing.T) {
 
 	// Try to create second resource with conflicting ID
 	ids2 := []string{"conflict2", "shared"} // "shared" conflicts
-	data2 := &model.MockData{
+	data2 := &model.UniData{
 		Path:        "/test2",
 		ContentType: "application/json",
 		Body:        []byte(`{"test": "data2"}`),

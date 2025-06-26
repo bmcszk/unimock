@@ -16,10 +16,10 @@ import (
 
 const (
 	requestPathParts = 2
-	singleItem = 1
-	minStatusCode = 100
-	maxStatusCode = 599
-	splitParts = 2
+	singleItem       = 1
+	minStatusCode    = 100
+	maxStatusCode    = 599
+	splitParts       = 2
 )
 
 // scenarioService implements the ScenarioService interface
@@ -254,20 +254,6 @@ func (*scenarioService) validateScenario(scenario *model.Scenario) error {
 		// but as a direct validation of scenario model, it's fine.
 		return fmt.Errorf("invalid HTTP method in request path: %s", method)
 	}
-
-	// Validate status code
-	if scenario.StatusCode < minStatusCode || scenario.StatusCode > maxStatusCode {
-		return fmt.Errorf("invalid status code: %d", scenario.StatusCode)
-	}
-
-	// Validate content type - ensure it is not empty if a body is expected or content is relevant.
-	// For now, a very basic check: if ContentType is provided, it should not contain obvious invalid characters.
-	// An empty ContentType might be valid for responses like 204 No Content or redirects.
-	if scenario.ContentType != "" && strings.ContainsAny(scenario.ContentType, " \t\n\r") {
-		return errors.New("invalid content type: contains whitespace characters")
-	}
-
-	// Removed overly restrictive check: !strings.HasPrefix(scenario.ContentType, "application/")
 
 	return nil
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMockHandler_MetricsIntegration(t *testing.T) {
+func TestUniHandler_MetricsIntegration(t *testing.T) {
 	mockHandler, techService := setupMetricsTestHandler(t)
 	ctx := context.Background()
 
@@ -35,7 +35,7 @@ func TestMockHandler_MetricsIntegration(t *testing.T) {
 	verifyMetricsResults(ctx, t, techService, tests)
 }
 
-func TestMockHandler_MetricsTracking_AllHTTPMethods(t *testing.T) {
+func TestUniHandler_MetricsTracking_AllHTTPMethods(t *testing.T) {
 	mockHandler, techService := setupHTTPMethodsTestHandler(t)
 	ctx := context.Background()
 
@@ -59,14 +59,14 @@ type metricsTestCase struct {
 	expectedCode int
 }
 
-func setupMetricsTestHandler(t *testing.T) (*handler.MockHandler, service.TechService) {
+func setupMetricsTestHandler(t *testing.T) (*handler.UniHandler, service.TechService) {
 	t.Helper()
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	techService := service.NewTechService(time.Now())
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern: "/api/users/*",
@@ -81,21 +81,21 @@ func setupMetricsTestHandler(t *testing.T) (*handler.MockHandler, service.TechSe
 		},
 	}
 
-	mockService := service.NewMockService(store, cfg)
+	mockService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
 	
 	return mockHandler, techService
 }
 
-func setupHTTPMethodsTestHandler(t *testing.T) (*handler.MockHandler, service.TechService) {
+func setupHTTPMethodsTestHandler(t *testing.T) (*handler.UniHandler, service.TechService) {
 	t.Helper()
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	techService := service.NewTechService(time.Now())
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"test": {
 				PathPattern: "/test/*",
@@ -105,9 +105,9 @@ func setupHTTPMethodsTestHandler(t *testing.T) (*handler.MockHandler, service.Te
 		},
 	}
 
-	mockService := service.NewMockService(store, cfg)
+	mockService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
 	
 	return mockHandler, techService
 }
@@ -127,7 +127,7 @@ func getMetricsTestCases() []metricsTestCase {
 }
 
 func executeMetricsTestRequest(
-	ctx context.Context, t *testing.T, mockHandler *handler.MockHandler, tt metricsTestCase,
+	ctx context.Context, t *testing.T, mockHandler *handler.UniHandler, tt metricsTestCase,
 ) {
 	t.Helper()
 	var req *http.Request
@@ -196,7 +196,7 @@ func verifyMetricsResults(ctx context.Context, t *testing.T, techService service
 	assert.Equal(t, int64(1), invalidPath["404"], "Expected 1 GET request with 404 status")
 }
 
-func createInitialResource(ctx context.Context, t *testing.T, mockHandler *handler.MockHandler) {
+func createInitialResource(ctx context.Context, t *testing.T, mockHandler *handler.UniHandler) {
 	t.Helper()
 	postReq := httptest.NewRequest("POST", "/test", strings.NewReader(`{"id": "123", "data": "test"}`))
 	postReq.Header.Set("Content-Type", "application/json")
@@ -207,7 +207,7 @@ func createInitialResource(ctx context.Context, t *testing.T, mockHandler *handl
 	}
 }
 
-func testAllHTTPMethods(ctx context.Context, t *testing.T, mockHandler *handler.MockHandler, methods []string) {
+func testAllHTTPMethods(ctx context.Context, t *testing.T, mockHandler *handler.UniHandler, methods []string) {
 	t.Helper()
 	path := "/test/123"
 	
@@ -218,7 +218,7 @@ func testAllHTTPMethods(ctx context.Context, t *testing.T, mockHandler *handler.
 	}
 }
 
-func testSingleHTTPMethod(ctx context.Context, t *testing.T, mockHandler *handler.MockHandler, method, path string) {
+func testSingleHTTPMethod(ctx context.Context, t *testing.T, mockHandler *handler.UniHandler, method, path string) {
 	t.Helper()
 	var req *http.Request
 	if method == "PUT" {

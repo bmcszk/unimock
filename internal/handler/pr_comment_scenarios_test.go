@@ -27,7 +27,7 @@ import (
 // Then: Operations succeed (resource accessible via extracted ID)
 func TestPRCommentScenario1_FlexiblePathMatching(t *testing.T) {
 	// Setup
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern:   "/users/**",
@@ -39,13 +39,13 @@ func TestPRCommentScenario1_FlexiblePathMatching(t *testing.T) {
 		},
 	}
 
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	mockService := service.NewMockService(store, cfg)
+	mockService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	h := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	h := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
 
 	// Step 1: POST /users/subpath with body: {"id": 1}
 	postBody := `{"id": 1, "name": "test user"}`
@@ -106,7 +106,7 @@ func TestPRCommentScenario1_FlexiblePathMatching(t *testing.T) {
 // Then: 404 Not Found (strict path validation enforced)
 func TestPRCommentScenario2_StrictPathMatching(t *testing.T) {
 	// Setup
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern:   "/users/**",
@@ -118,13 +118,13 @@ func TestPRCommentScenario2_StrictPathMatching(t *testing.T) {
 		},
 	}
 
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	mockService := service.NewMockService(store, cfg)
+	mockService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	h := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	h := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
 
 	// Step 1: POST /users/subpath with body: {"id": 1}
 	postBody := `{"id": 1, "name": "test user"}`
@@ -179,7 +179,7 @@ func TestPRCommentScenario2_StrictPathMatching(t *testing.T) {
 // TestUpsertBehaviorWithStrictPathFalse verifies upsert works when strict_path=false
 func TestUpsertBehaviorWithStrictPathFalse(t *testing.T) {
 	// Setup
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"products": {
 				PathPattern:   "/products/*",
@@ -191,13 +191,13 @@ func TestUpsertBehaviorWithStrictPathFalse(t *testing.T) {
 		},
 	}
 
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	mockService := service.NewMockService(store, cfg)
+	mockService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	h := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	h := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
 
 	// Step 1: PUT /products/999 (non-existent) - should create resource (upsert)
 	putBody := `{"id": "999", "name": "new product", "price": 100}`
@@ -254,7 +254,7 @@ func TestUpsertBehaviorWithStrictPathFalse(t *testing.T) {
 // TestStrictPathPreventsUpsert verifies strict_path=true prevents upsert
 func TestStrictPathPreventsUpsert(t *testing.T) {
 	// Setup
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"admin": {
 				PathPattern:   "/admin/users/*",
@@ -266,13 +266,13 @@ func TestStrictPathPreventsUpsert(t *testing.T) {
 		},
 	}
 
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	mockService := service.NewMockService(store, cfg)
+	mockService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	h := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	h := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
 
 	// Step 1: PUT /admin/users/999 (non-existent) - should return 404 (no upsert)
 	putBody := `{"id": "999", "name": "admin user", "role": "admin"}`

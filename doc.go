@@ -41,14 +41,14 @@ Basic usage:
 	// Load configuration from environment variables
 	serverConfig := config.FromEnv()
 
-	// Load mock configuration from YAML file
-	mockConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
+	// Load uni configuration from YAML file
+	uniConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Or create mock configuration in code
-	mockConfig := &config.MockConfig{
+	// Or create uni configuration in code
+	uniConfig := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern:  "/users/*",
@@ -59,7 +59,7 @@ Basic usage:
 	}
 
 	// Initialize and start the server
-	srv, err := pkg.NewServer(serverConfig, mockConfig)
+	srv, err := pkg.NewServer(serverConfig, uniConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize server: %v", err)
 	}

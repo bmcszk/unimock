@@ -42,8 +42,8 @@ func TestUniversalClientE2E(t *testing.T) {
 		testJSONOperationsE2E(ctx, t, c)
 	})
 
-	t.Run("MockDataLifecycle", func(t *testing.T) {
-		testMockDataLifecycleE2E(ctx, t, c)
+	t.Run("UniDataLifecycle", func(t *testing.T) {
+		testUniDataLifecycleE2E(ctx, t, c)
 	})
 }
 
@@ -198,7 +198,7 @@ func testDeleteUserE2E(ctx context.Context, t *testing.T, c *client.Client) {
 	}
 }
 
-func testMockDataLifecycleE2E(ctx context.Context, t *testing.T, c *client.Client) {
+func testUniDataLifecycleE2E(ctx context.Context, t *testing.T, c *client.Client) {
 	t.Helper()
 
 	// Test creating multiple resources

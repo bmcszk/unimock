@@ -34,14 +34,14 @@ func main() {
 		"log_level", serverConfig.LogLevel)
 
 	// Load mock configuration from file
-	mockConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
+	uniConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
 	if err != nil {
 		logger.Error("failed to load configuration", "error", err)
 		panic(err)
 	}
 
 	// Start the server
-	srv, err := pkg.NewServer(serverConfig, mockConfig)
+	srv, err := pkg.NewServer(serverConfig, uniConfig)
 	if err != nil {
 		logger.Error("failed to initialize server", "error", err)
 		panic(err)

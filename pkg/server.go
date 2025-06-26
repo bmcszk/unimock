@@ -54,13 +54,13 @@ func setupLogger(level string) *slog.Logger {
 }
 
 // NewServer initializes a new HTTP server with the provided configurations.
-// Both serverConfig and mockConfig parameters are required.
+// Both serverConfig and uniConfig parameters are required.
 //
 // If serverConfig is nil, default values will be used:
 //   - Port: "8080"
 //   - LogLevel: "info"
 //
-// MockConfig must be non-nil and contain at least one section.
+// UniConfig must be non-nil and contain at least one section.
 //
 // Usage examples:
 //
@@ -71,15 +71,15 @@ func setupLogger(level string) *slog.Logger {
 //	serverConfig := config.FromEnv()
 //
 //	// Create mock configuration
-//	mockConfig := config.NewMockConfig()
-//	mockConfig.Sections["users"] = config.Section{
+//	uniConfig := config.NewUniConfig()
+//	uniConfig.Sections["users"] = config.Section{
 //	    PathPattern:  "/users/*",
 //	    BodyIDPaths:  []string{"/id"},
 //	    HeaderIDName: "X-User-ID",
 //	}
 //
 //	// Initialize server
-//	srv, err := pkg.NewServer(serverConfig, mockConfig)
+//	srv, err := pkg.NewServer(serverConfig, uniConfig)
 //
 // 2. Using direct configuration:
 //
@@ -90,7 +90,7 @@ func setupLogger(level string) *slog.Logger {
 //	}
 //
 //	// Create mock configuration
-//	mockConfig := &config.MockConfig{
+//	uniConfig := &config.UniConfig{
 //	    Sections: map[string]config.Section{
 //	        "users": {
 //	            PathPattern:  "/users/*",
@@ -101,11 +101,11 @@ func setupLogger(level string) *slog.Logger {
 //	}
 //
 //	// Initialize server
-//	srv, err := pkg.NewServer(serverConfig, mockConfig)
+//	srv, err := pkg.NewServer(serverConfig, uniConfig)
 //
 // For a complete server setup:
 //
-//	srv, err := pkg.NewServer(serverConfig, mockConfig)
+//	srv, err := pkg.NewServer(serverConfig, uniConfig)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -115,7 +115,7 @@ func setupLogger(level string) *slog.Logger {
 //	if err := srv.ListenAndServe(); err != nil {
 //	    log.Fatal(err)
 //	}
-func NewServer(serverConfig *config.ServerConfig, mockConfig *config.MockConfig) (*http.Server, error) {
+func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (*http.Server, error) {
 	if serverConfig == nil {
 		serverConfig = config.NewDefaultServerConfig()
 	}
@@ -128,25 +128,25 @@ func NewServer(serverConfig *config.ServerConfig, mockConfig *config.MockConfig)
 		"log_level", serverConfig.LogLevel)
 
 	// Validate mock configuration
-	if mockConfig == nil {
+	if uniConfig == nil {
 		err := "mock configuration is nil"
 		logger.Error(err)
 		return nil, &ConfigError{Message: err}
 	}
-	if len(mockConfig.Sections) == 0 {
+	if len(uniConfig.Sections) == 0 {
 		err := "no sections defined in mock configuration"
 		logger.Error(err)
 		return nil, &ConfigError{Message: err}
 	}
 
 	// Create a new storage
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 
 	// Create a new scenario storage
 	scenarioStore := storage.NewScenarioStorage()
 
 	// Create services
-	mockService := service.NewMockService(store, mockConfig)
+	uniService := service.NewUniService(store, uniConfig)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
@@ -157,12 +157,12 @@ func NewServer(serverConfig *config.ServerConfig, mockConfig *config.MockConfig)
 	}
 
 	// Create handlers with services
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, mockConfig)
+	mockHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, uniConfig)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 	techHandler := handler.NewTechHandler(techService, logger)
 
 	// Create a router
-	appRouter := router.NewRouter(mockHandler, techHandler, scenarioHandler, scenarioService, logger, mockConfig)
+	appRouter := router.NewRouter(mockHandler, techHandler, scenarioHandler, scenarioService, logger, uniConfig)
 
 	// Create server
 	srv := &http.Server{

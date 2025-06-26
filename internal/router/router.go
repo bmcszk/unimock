@@ -21,7 +21,7 @@ type Router struct {
 	scenarioHandler http.Handler
 	scenarioService service.ScenarioService
 	logger          *slog.Logger
-	mockConfig      *config.MockConfig
+	uniConfig      *config.UniConfig
 }
 
 // NewRouter creates a new Router instance
@@ -29,7 +29,7 @@ func NewRouter(
 	mockHandler, techHandler, scenarioHandler http.Handler, 
 	scenarioService service.ScenarioService, 
 	logger *slog.Logger, 
-	mockConfig *config.MockConfig,
+	uniConfig *config.UniConfig,
 ) *Router {
 	return &Router{
 		mockHandler:     mockHandler,
@@ -37,7 +37,7 @@ func NewRouter(
 		scenarioHandler: scenarioHandler,
 		scenarioService: scenarioService,
 		logger:          logger,
-		mockConfig:      mockConfig,
+		uniConfig:      uniConfig,
 	}
 }
 
@@ -123,13 +123,13 @@ func (r *Router) routeToSpecialHandlers(w http.ResponseWriter, req *http.Request
 
 // routeToMockHandler routes to the mock handler after validation
 func (r *Router) routeToMockHandler(w http.ResponseWriter, req *http.Request, requestPath string) {
-	if r.mockConfig == nil {
-		r.logger.Error("router's mockConfig is nil", pathLogKey, requestPath)
+	if r.uniConfig == nil {
+		r.logger.Error("router's uniConfig is nil", pathLogKey, requestPath)
 		http.Error(w, "server configuration error", http.StatusInternalServerError)
 		return
 	}
 
-	_, section, err := r.mockConfig.MatchPath(requestPath)
+	_, section, err := r.uniConfig.MatchPath(requestPath)
 	if err != nil {
 		r.logger.Error("error matching path in router", pathLogKey, requestPath, "error", err)
 		http.Error(w, "error processing request path configuration", http.StatusInternalServerError)

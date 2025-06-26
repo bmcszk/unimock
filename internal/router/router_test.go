@@ -43,11 +43,11 @@ func setupTestRouter(_ *testing.T) (*router.Router, service.ScenarioService) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// Create storages
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 
 	// Create test config
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"api": {
 				PathPattern: "/api",
@@ -56,12 +56,12 @@ func setupTestRouter(_ *testing.T) (*router.Router, service.ScenarioService) {
 	}
 
 	// Create services
-	mockService := service.NewMockService(store, cfg)
+	mockService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
 	// Create handlers
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	mockHandler := handler.NewUniHandler(mockService, scenarioService, techService, logger, cfg)
 	techHandler := handler.NewTechHandler(techService, logger)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 

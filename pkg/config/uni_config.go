@@ -19,10 +19,10 @@ const (
 	noMatch = -1
 )
 
-// MockConfig represents the configuration for mock behavior
+// UniConfig represents the configuration for mock behavior
 // It defines how Unimock handles different API endpoints and extracts IDs
 // from various parts of HTTP requests.
-type MockConfig struct {
+type UniConfig struct {
 	// Sections contains configuration for different API endpoint patterns
 	// The map keys are section names (usually API resource names like "users" or "orders")
 	// and the values are Section structs defining how to handle requests to those endpoints.
@@ -99,21 +99,21 @@ type Section struct {
 	Transformations *TransformationConfig `yaml:"-" json:"-"`
 }
 
-// NewMockConfig creates an empty MockConfig with an initialized Sections map
-func NewMockConfig() *MockConfig {
-	return &MockConfig{
+// NewUniConfig creates an empty UniConfig with an initialized Sections map
+func NewUniConfig() *UniConfig {
+	return &UniConfig{
 		Sections: make(map[string]Section),
 	}
 }
 
-// LoadFromYAML loads a MockConfig from a YAML file at the given path
-func LoadFromYAML(path string) (*MockConfig, error) {
+// LoadFromYAML loads a UniConfig from a YAML file at the given path
+func LoadFromYAML(path string) (*UniConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	config := NewMockConfig()
+	config := NewUniConfig()
 
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true) // Enable strict mode
@@ -293,7 +293,7 @@ func (pm pathMatcher) handleExactMatch(
 }
 
 // MatchPath finds the section that matches the given path
-func (c *MockConfig) MatchPath(path string) (string, *Section, error) {
+func (c *UniConfig) MatchPath(path string) (string, *Section, error) {
 	normalizedPath := strings.Trim(path, PathSeparator)
 
 	// First try exact matches (no wildcards)
@@ -310,7 +310,7 @@ func (c *MockConfig) MatchPath(path string) (string, *Section, error) {
 }
 
 // findExactMatch looks for exact pattern matches (no wildcards)
-func (c *MockConfig) findExactMatch(normalizedPath string) (string, *Section) {
+func (c *UniConfig) findExactMatch(normalizedPath string) (string, *Section) {
 	for name, section := range c.Sections {
 		pattern := strings.Trim(section.PathPattern, PathSeparator)
 		if !strings.Contains(pattern, WildcardChar) {
@@ -324,7 +324,7 @@ func (c *MockConfig) findExactMatch(normalizedPath string) (string, *Section) {
 }
 
 // findBestWildcardMatch finds the best wildcard match by prioritizing longer patterns
-func (c *MockConfig) findBestWildcardMatch(normalizedPath string) (string, *Section) {
+func (c *UniConfig) findBestWildcardMatch(normalizedPath string) (string, *Section) {
 	bestMatch := wildcardMatch{name: "", numSegments: noMatch}
 
 	for name, section := range c.Sections {
@@ -355,7 +355,7 @@ func (m wildcardMatch) isBetterThan(other wildcardMatch) bool {
 }
 
 // getResult returns the section for this match
-func (m wildcardMatch) getResult(c *MockConfig) (string, *Section) {
+func (m wildcardMatch) getResult(c *UniConfig) (string, *Section) {
 	if !m.isValid() {
 		return "", nil
 	}
@@ -364,7 +364,7 @@ func (m wildcardMatch) getResult(c *MockConfig) (string, *Section) {
 }
 
 // evaluateWildcardSection checks if a section matches and returns match info
-func (*MockConfig) evaluateWildcardSection(name string, section Section, normalizedPath string) wildcardMatch {
+func (*UniConfig) evaluateWildcardSection(name string, section Section, normalizedPath string) wildcardMatch {
 	pattern := strings.Trim(section.PathPattern, PathSeparator)
 	
 	if !strings.Contains(pattern, WildcardChar) {

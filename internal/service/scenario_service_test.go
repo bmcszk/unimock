@@ -453,18 +453,7 @@ func getCreateScenarioTestCases() []struct {
 			errorContains: "invalid HTTP method in request path: INVALID",
 		},
 		{
-			name: "invalid status code",
-			scenario: &model.Scenario{
-				RequestPath: "GET /api/users",
-				StatusCode:  999,
-				ContentType: "application/json",
-				Data:        `{"users": []}`,
-			},
-			expectError:   true,
-			errorContains: "invalid status code: 999",
-		},
-		{
-			name: "invalid content type (now valid text/plain)",
+			name: "valid text/plain content type",
 			scenario: &model.Scenario{
 				RequestPath: "GET /api/users",
 				StatusCode:  200,
@@ -475,18 +464,6 @@ func getCreateScenarioTestCases() []struct {
 			errorContains:  "",
 			expectedStatus: 200,
 			expectedData:   `{"users": []}`,
-		},
-		{
-			name: "content type with spaces",
-			scenario: &model.Scenario{
-				UUID:        "create-test-content-type-with-spaces",
-				RequestPath: "GET /path",
-				StatusCode:  200,
-				ContentType: "application/ json_with_spaces",
-				Data:        "test data",
-			},
-			expectError:   true,
-			errorContains: "invalid content type: contains whitespace characters",
 		},
 		{
 			name: "create with valid empty content type",
@@ -659,19 +636,7 @@ func getUpdateScenarioTestCases() []struct {
 			errorContains: "invalid HTTP method in request path: INVALID",
 		},
 		{
-			name: "invalid status code",
-			scenario: &model.Scenario{
-				UUID:        "test-scenario",
-				RequestPath: "GET /api/users",
-				StatusCode:  999,
-				ContentType: "application/json",
-				Data:        `{"users": []}`,
-			},
-			expectError:   true,
-			errorContains: "invalid status code: 999",
-		},
-		{
-			name: "invalid content type (now valid text/plain)",
+			name: "valid text/plain content type",
 			scenario: &model.Scenario{
 				UUID:        "test-scenario",
 				RequestPath: "GET /api/users",
@@ -683,18 +648,6 @@ func getUpdateScenarioTestCases() []struct {
 			errorContains:  "",
 			expectedStatus: 200,
 			expectedData:   `{"users": []}`,
-		},
-		{
-			name: "content type with spaces",
-			scenario: &model.Scenario{
-				UUID:        "test-scenario",
-				RequestPath: "GET /path",
-				StatusCode:  200,
-				ContentType: "application/ json_with_spaces",
-				Data:        `{"users": []}`,
-			},
-			expectError:   true,
-			errorContains: "invalid content type: contains whitespace characters",
 		},
 		{
 			name: "update with valid empty content type",

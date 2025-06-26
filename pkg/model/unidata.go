@@ -1,7 +1,7 @@
 package model
 
-// MockData represents the data stored for a mocked HTTP resource
-type MockData struct {
+// UniData represents the data stored for a uni HTTP resource
+type UniData struct {
 	// Path of the resource (e.g., "/users/123")
 	Path string `json:"path"`
 
