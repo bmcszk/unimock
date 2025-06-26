@@ -13,7 +13,7 @@ const (
 	incrementValue = 1
 )
 
-// TechService implements the TechService interface
+// TechService handles technical operations like health checks and metrics
 type TechService struct {
 	startTime      time.Time
 	requestCounter atomic.Int64

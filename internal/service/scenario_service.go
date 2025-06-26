@@ -22,7 +22,7 @@ const (
 	splitParts       = 2
 )
 
-// ScenarioService implements the ScenarioService interface
+// ScenarioService manages test scenarios
 type ScenarioService struct {
 	storage storage.ScenarioStorage
 }

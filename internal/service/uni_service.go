@@ -11,7 +11,7 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
-// UniService implements the UniService interface
+// UniService handles the core uni functionality for CRUD operations
 type UniService struct {
 	storage storage.UniStorage
 	uniCfg *config.UniConfig
