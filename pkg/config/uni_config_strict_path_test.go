@@ -7,7 +7,7 @@ import (
 	"github.com/bmcszk/unimock/pkg/config"
 )
 
-func TestMockConfig_WildcardPatternMatching(t *testing.T) {
+func TestUniConfig_WildcardPatternMatching(t *testing.T) {
 	tests := []struct {
 		name        string
 		pattern     string
@@ -122,7 +122,7 @@ func TestMockConfig_WildcardPatternMatching(t *testing.T) {
 		},
 	}
 
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: make(map[string]config.Section),
 	}
 
@@ -134,7 +134,7 @@ func TestMockConfig_WildcardPatternMatching(t *testing.T) {
 }
 
 // testWildcardPattern helper function to test pattern matching
-func testWildcardPattern(t *testing.T, cfg *config.MockConfig, tt struct {
+func testWildcardPattern(t *testing.T, cfg *config.UniConfig, tt struct {
 	name        string
 	pattern     string
 	path        string
@@ -185,8 +185,8 @@ func validateFailedMatch(t *testing.T, matchedSection *config.Section, pattern, 
 	}
 }
 
-func TestMockConfig_PatternPriority(t *testing.T) {
-	cfg := &config.MockConfig{
+func TestUniConfig_PatternPriority(t *testing.T) {
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"exact": {
 				PathPattern:   "/api/users/123",
@@ -247,7 +247,7 @@ func TestMockConfig_PatternPriority(t *testing.T) {
 }
 
 // testPatternPriority helper function to test pattern priority
-func testPatternPriority(t *testing.T, cfg *config.MockConfig, tt struct {
+func testPatternPriority(t *testing.T, cfg *config.UniConfig, tt struct {
 	name             string
 	path             string
 	expectedSection  string

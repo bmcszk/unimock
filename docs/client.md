@@ -173,9 +173,9 @@ The client provides full CRUD operations for managing scenarios:
 ### Create Scenario
 
 ```go
-import "github.com/bmcszk/unimock/internal/model"
+import "github.com/bmcszk/unimock/pkg/model"
 
-scenario := &model.Scenario{
+scenario := model.Scenario{
     UUID:        "user-not-found", // Optional, auto-generated if empty
     Method:      "GET",
     Path:        "/api/users/999",
@@ -343,7 +343,7 @@ func TestUserNotFoundScenario(t *testing.T) {
     ctx := context.Background()
     
     // Create scenario for user not found
-    scenario := &model.Scenario{
+    scenario := model.Scenario{
         Method:      "GET",
         Path:        "/api/users/999",
         StatusCode:  404,
@@ -376,7 +376,7 @@ func TestUserNotFoundScenario(t *testing.T) {
 ```go
 // Helper function for creating test scenarios
 func createTestScenario(t *testing.T, client *client.Client, method, path string, statusCode int, data string) string {
-    scenario := &model.Scenario{
+    scenario := model.Scenario{
         Method:      method,
         Path:        path,
         StatusCode:  statusCode,

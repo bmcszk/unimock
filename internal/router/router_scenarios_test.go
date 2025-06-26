@@ -24,7 +24,7 @@ func TestRouter_ScenariosIgnoreReturnBodyConfig(t *testing.T) {
 	appRouter, scenarioService := setupTestRouterWithReturnBodyFalse(t)
 
 	// Create a scenario
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		UUID:        "test-body-scenario",
 		RequestPath: "POST /api/resources",
 		StatusCode:  201,
@@ -32,7 +32,7 @@ func TestRouter_ScenariosIgnoreReturnBodyConfig(t *testing.T) {
 		Data:        `{"id": "123", "created": true}`,
 	}
 
-	err := scenarioService.CreateScenario(context.TODO(), scenario)
+	_, err := scenarioService.CreateScenario(context.TODO(), scenario)
 	require.NoError(t, err)
 
 	// Make request that matches scenario
@@ -52,14 +52,14 @@ func TestRouter_ScenarioVsMockReturnBodyBehavior(t *testing.T) {
 	appRouter, scenarioService := setupTestRouterWithReturnBodyFalse(t)
 
 	// Create scenario for /api/test
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		UUID:        "comparison-scenario",
 		RequestPath: "POST /api/test",
 		StatusCode:  201,
 		ContentType: "application/json",
 		Data:        `{"scenario": "response"}`,
 	}
-	err := scenarioService.CreateScenario(context.TODO(), scenario)
+	_, err := scenarioService.CreateScenario(context.TODO(), scenario)
 	require.NoError(t, err)
 
 	// Test 1: Request matching scenario - should return body
@@ -101,14 +101,14 @@ func TestRouter_ScenariosAlwaysReturnUUID(t *testing.T) {
 	assert.NotContains(t, responseBody, `"uuid":"",`)
 }
 
-func setupTestRouterWithReturnBodyFalse(t *testing.T) (*router.Router, service.ScenarioService) {
+func setupTestRouterWithReturnBodyFalse(t *testing.T) (*router.Router, *service.ScenarioService) {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 
 	// Configuration with return_body=false
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"api": {
 				PathPattern: "/api/*",
@@ -118,13 +118,13 @@ func setupTestRouterWithReturnBodyFalse(t *testing.T) (*router.Router, service.S
 		},
 	}
 
-	mockService := service.NewMockService(store, cfg)
+	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
 	techHandler := handler.NewTechHandler(techService, logger)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
-	return router.NewRouter(mockHandler, techHandler, scenarioHandler, scenarioService, logger, cfg), scenarioService
+	return router.NewRouter(uniHandler, techHandler, scenarioHandler, scenarioService, logger, cfg), scenarioService
 }

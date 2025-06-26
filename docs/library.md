@@ -117,9 +117,9 @@ func createUserTransformations() *config.TransformationConfig {
 
     // Add request transformation (applied before storage)
     transformConfig.AddRequestTransform(
-        func(data *model.MockData) (*model.MockData, error) {
+        func(data model.UniData) (model.UniData, error) {
             // Modify request data before storing
-            modifiedData := *data
+            modifiedData := data
             
             // Example: Add timestamp to request body
             var reqBody map[string]interface{}
@@ -130,14 +130,14 @@ func createUserTransformations() *config.TransformationConfig {
                 }
             }
             
-            return &modifiedData, nil
+            return modifiedData, nil
         })
 
     // Add response transformation (applied after retrieval)
     transformConfig.AddResponseTransform(
-        func(data *model.MockData) (*model.MockData, error) {
+        func(data model.UniData) (model.UniData, error) {
             // Modify response data before returning
-            modifiedData := *data
+            modifiedData := data
             
             // Example: Add computed field
             var respBody map[string]interface{}
@@ -148,7 +148,7 @@ func createUserTransformations() *config.TransformationConfig {
                 }
             }
             
-            return &modifiedData, nil
+            return modifiedData, nil
         })
 
     return transformConfig
@@ -182,8 +182,8 @@ func addMetadataTransform() *config.TransformationConfig {
     transformConfig := config.NewTransformationConfig()
     
     transformConfig.AddResponseTransform(
-        func(data *model.MockData) (*model.MockData, error) {
-            modifiedData := *data
+        func(data model.UniData) (model.UniData, error) {
+            modifiedData := data
             
             var body map[string]interface{}
             if err := json.Unmarshal(data.Body, &body); err == nil {
@@ -202,7 +202,7 @@ func addMetadataTransform() *config.TransformationConfig {
                 }
             }
             
-            return &modifiedData, nil
+            return modifiedData, nil
         })
     
     return transformConfig
@@ -216,8 +216,8 @@ func filterSensitiveDataTransform() *config.TransformationConfig {
     transformConfig := config.NewTransformationConfig()
     
     transformConfig.AddResponseTransform(
-        func(data *model.MockData) (*model.MockData, error) {
-            modifiedData := *data
+        func(data model.UniData) (model.UniData, error) {
+            modifiedData := data
             
             var body map[string]interface{}
             if err := json.Unmarshal(data.Body, &body); err == nil {
@@ -231,7 +231,7 @@ func filterSensitiveDataTransform() *config.TransformationConfig {
                 }
             }
             
-            return &modifiedData, nil
+            return modifiedData, nil
         })
     
     return transformConfig
@@ -500,19 +500,19 @@ if err != nil {
 
 // Handle transformation errors (transformations return 500 on error)
 transformConfig.AddRequestTransform(
-    func(data *model.MockData) (*model.MockData, error) {
+    func(data model.UniData) (model.UniData, error) {
         // Safe transformation with error handling
-        modifiedData := *data
+        modifiedData := data
         
         var body map[string]interface{}
         if err := json.Unmarshal(data.Body, &body); err != nil {
             // Return error - will result in HTTP 500
-            return nil, fmt.Errorf("invalid JSON in request: %w", err)
+            return model.UniData{}, fmt.Errorf("invalid JSON in request: %w", err)
         }
         
         // Transform logic here...
         
-        return &modifiedData, nil
+        return modifiedData, nil
     })
 ```
 
@@ -533,20 +533,20 @@ if err != nil {
 ```go
 // Always check transformation errors
 transformConfig.AddRequestTransform(
-    func(data *model.MockData) (*model.MockData, error) {
+    func(data model.UniData) (model.UniData, error) {
         // Safe transformation with error handling
-        modifiedData := *data
+        modifiedData := data
         
         var body map[string]interface{}
         if err := json.Unmarshal(data.Body, &body); err != nil {
             // Log error but don't fail for malformed JSON
             log.Printf("Transform error: %v", err)
-            return &modifiedData, nil
+            return modifiedData, nil
         }
         
         // Transform logic here...
         
-        return &modifiedData, nil
+        return modifiedData, nil
     })
 ```
 

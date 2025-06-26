@@ -11,8 +11,8 @@ import (
 )
 
 // buildPOSTResponse builds response for POST requests
-func (h *MockHandler) buildPOSTResponse(
-	data *model.MockData,
+func (h *UniHandler) buildPOSTResponse(
+	data model.UniData,
 	section *config.Section,
 	sectionName string,
 ) (*http.Response, error) {
@@ -47,7 +47,7 @@ func (h *MockHandler) buildPOSTResponse(
 }
 
 // buildPUTResponse builds response for PUT operations based on configuration
-func (*MockHandler) buildPUTResponse(data *model.MockData, section *config.Section) *http.Response {
+func (*UniHandler) buildPUTResponse(data model.UniData, section *config.Section) *http.Response {
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     make(http.Header),
@@ -71,7 +71,7 @@ func (*MockHandler) buildPUTResponse(data *model.MockData, section *config.Secti
 }
 
 // buildDELETEResponse builds response for DELETE operations based on configuration
-func (*MockHandler) buildDELETEResponse(section *config.Section) *http.Response {
+func (*UniHandler) buildDELETEResponse(section *config.Section) *http.Response {
 	resp := &http.Response{
 		StatusCode: http.StatusNoContent,
 		Header:     make(http.Header),
@@ -91,7 +91,7 @@ func (*MockHandler) buildDELETEResponse(section *config.Section) *http.Response 
 }
 
 // buildSingleResourceResponse builds response for individual resource
-func (*MockHandler) buildSingleResourceResponse(data *model.MockData) *http.Response {
+func (*UniHandler) buildSingleResourceResponse(data model.UniData) *http.Response {
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     make(http.Header),
@@ -110,7 +110,7 @@ func (*MockHandler) buildSingleResourceResponse(data *model.MockData) *http.Resp
 }
 
 // buildCollectionResponse builds response for collection of resources
-func (h *MockHandler) buildCollectionResponse(resources []*model.MockData) *http.Response {
+func (h *UniHandler) buildCollectionResponse(resources []model.UniData) *http.Response {
 	jsonItems := h.extractJSONItems(resources)
 	responseBody := h.buildJSONArrayBody(jsonItems)
 	
@@ -122,7 +122,7 @@ func (h *MockHandler) buildCollectionResponse(resources []*model.MockData) *http
 }
 
 // extractJSONItems filters JSON resources and returns their bodies
-func (*MockHandler) extractJSONItems(resources []*model.MockData) [][]byte {
+func (*UniHandler) extractJSONItems(resources []model.UniData) [][]byte {
 	var jsonItems [][]byte
 	for _, resource := range resources {
 		if strings.Contains(strings.ToLower(resource.ContentType), "json") {
@@ -133,7 +133,7 @@ func (*MockHandler) extractJSONItems(resources []*model.MockData) [][]byte {
 }
 
 // buildJSONArrayBody creates JSON array from items
-func (*MockHandler) buildJSONArrayBody(jsonItems [][]byte) []byte {
+func (*UniHandler) buildJSONArrayBody(jsonItems [][]byte) []byte {
 	if len(jsonItems) == 0 {
 		return []byte("[]")
 	}
@@ -162,7 +162,7 @@ func buildMultiItemArray(jsonItems [][]byte) []byte {
 }
 
 // errorResponse creates an error HTTP response
-func (*MockHandler) errorResponse(statusCode int, message string) *http.Response {
+func (*UniHandler) errorResponse(statusCode int, message string) *http.Response {
 	return &http.Response{
 		StatusCode: statusCode,
 		Header:     make(http.Header),

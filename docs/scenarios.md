@@ -318,7 +318,7 @@ func TestUserNotFound(t *testing.T) {
     client := client.NewClient("http://localhost:8080")
     
     // Create scenario for user not found
-    scenario := &model.Scenario{
+    scenario := model.Scenario{
         Method:      "GET",
         Path:        "/api/users/999",
         StatusCode:  404,

@@ -1,3 +1,4 @@
+// Package client provides an HTTP client for interacting with Unimock APIs and mock endpoints.
 package client
 
 import (
@@ -230,81 +231,81 @@ func (c *Client) buildRequestURL(requestPath string) string {
 // ========================================
 
 // CreateScenario creates a new scenario
-func (c *Client) CreateScenario(ctx context.Context, scenario *model.Scenario) (*model.Scenario, error) {
+func (c *Client) CreateScenario(ctx context.Context, scenario model.Scenario) (model.Scenario, error) {
 	requestURL := c.buildURL(scenarioBasePath)
 
 	// Serialize the scenario to JSON
 	body, err := json.Marshal(scenario)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize scenario: %w", err)
+		return model.Scenario{}, fmt.Errorf("failed to serialize scenario: %w", err)
 	}
 
 	// Create the request
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewBuffer(body))
 	if err != nil {
-		return nil, fmt.Errorf(msgFailedCreateRequest, err)
+		return model.Scenario{}, fmt.Errorf(msgFailedCreateRequest, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf(msgFailedSendRequest, err)
+		return model.Scenario{}, fmt.Errorf(msgFailedSendRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
 	if resp.StatusCode < httpStatusOKMin || resp.StatusCode >= httpStatusOKMax {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
+		return model.Scenario{}, fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
 	}
 
 	// Parse the response
 	var createdScenario model.Scenario
 	if err := json.NewDecoder(resp.Body).Decode(&createdScenario); err != nil {
-		return nil, fmt.Errorf(msgFailedParseResponse, err)
+		return model.Scenario{}, fmt.Errorf(msgFailedParseResponse, err)
 	}
 
-	return &createdScenario, nil
+	return createdScenario, nil
 }
 
 // GetScenario gets a scenario by UUID
-func (c *Client) GetScenario(ctx context.Context, uuid string) (*model.Scenario, error) {
+func (c *Client) GetScenario(ctx context.Context, uuid string) (model.Scenario, error) {
 	requestURL := c.buildURL(path.Join(scenarioBasePath, uuid))
 
 	// Create the request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf(msgFailedCreateRequest, err)
+		return model.Scenario{}, fmt.Errorf(msgFailedCreateRequest, err)
 	}
 
 	// Send the request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf(msgFailedSendRequest, err)
+		return model.Scenario{}, fmt.Errorf(msgFailedSendRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("scenario not found: %s", uuid)
+		return model.Scenario{}, fmt.Errorf("scenario not found: %s", uuid)
 	}
 	if resp.StatusCode < httpStatusOKMin || resp.StatusCode >= httpStatusOKMax {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
+		return model.Scenario{}, fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
 	}
 
 	// Parse the response
 	var scenario model.Scenario
 	if err := json.NewDecoder(resp.Body).Decode(&scenario); err != nil {
-		return nil, fmt.Errorf(msgFailedParseResponse, err)
+		return model.Scenario{}, fmt.Errorf(msgFailedParseResponse, err)
 	}
 
-	return &scenario, nil
+	return scenario, nil
 }
 
 // ListScenarios gets all scenarios
-func (c *Client) ListScenarios(ctx context.Context) ([]*model.Scenario, error) {
+func (c *Client) ListScenarios(ctx context.Context) ([]model.Scenario, error) {
 	requestURL := c.buildURL(scenarioBasePath)
 
 	// Create the request
@@ -327,7 +328,7 @@ func (c *Client) ListScenarios(ctx context.Context) ([]*model.Scenario, error) {
 	}
 
 	// Parse the response
-	var scenarios []*model.Scenario
+	var scenarios []model.Scenario
 	if err := json.NewDecoder(resp.Body).Decode(&scenarios); err != nil {
 		return nil, fmt.Errorf(msgFailedParseResponse, err)
 	}
@@ -336,45 +337,45 @@ func (c *Client) ListScenarios(ctx context.Context) ([]*model.Scenario, error) {
 }
 
 // UpdateScenario updates an existing scenario
-func (c *Client) UpdateScenario(ctx context.Context, uuid string, scenario *model.Scenario) (*model.Scenario, error) {
+func (c *Client) UpdateScenario(ctx context.Context, uuid string, scenario model.Scenario) (model.Scenario, error) {
 	requestURL := c.buildURL(path.Join(scenarioBasePath, uuid))
 
 	// Serialize the scenario to JSON
 	body, err := json.Marshal(scenario)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize scenario: %w", err)
+		return model.Scenario{}, fmt.Errorf("failed to serialize scenario: %w", err)
 	}
 
 	// Create the request
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, requestURL, bytes.NewBuffer(body))
 	if err != nil {
-		return nil, fmt.Errorf(msgFailedCreateRequest, err)
+		return model.Scenario{}, fmt.Errorf(msgFailedCreateRequest, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf(msgFailedSendRequest, err)
+		return model.Scenario{}, fmt.Errorf(msgFailedSendRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	// Handle error responses
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("scenario not found: %s", uuid)
+		return model.Scenario{}, fmt.Errorf("scenario not found: %s", uuid)
 	}
 	if resp.StatusCode < httpStatusOKMin || resp.StatusCode >= httpStatusOKMax {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
+		return model.Scenario{}, fmt.Errorf(msgServerError, resp.StatusCode, string(respBody))
 	}
 
 	// Parse the response
 	var updatedScenario model.Scenario
 	if err := json.NewDecoder(resp.Body).Decode(&updatedScenario); err != nil {
-		return nil, fmt.Errorf(msgFailedParseResponse, err)
+		return model.Scenario{}, fmt.Errorf(msgFailedParseResponse, err)
 	}
 
-	return &updatedScenario, nil
+	return updatedScenario, nil
 }
 
 // DeleteScenario deletes a scenario by UUID

@@ -8,8 +8,8 @@ import (
 )
 
 // Helper function to create test scenario
-func createTestScenario() *model.Scenario {
-	return &model.Scenario{
+func createTestScenario() model.Scenario {
+	return model.Scenario{
 		UUID:        "test-id",
 		RequestPath: "GET /api/test",
 		StatusCode:  200,
@@ -19,8 +19,8 @@ func createTestScenario() *model.Scenario {
 }
 
 // Helper function to create updated test scenario
-func createUpdatedTestScenario() *model.Scenario {
-	return &model.Scenario{
+func createUpdatedTestScenario() model.Scenario {
+	return model.Scenario{
 		UUID:        "test-id",
 		RequestPath: "PUT /api/updated",
 		StatusCode:  201,
@@ -30,7 +30,7 @@ func createUpdatedTestScenario() *model.Scenario {
 }
 
 // Helper function to validate scenario fields
-func validateScenarioFields(t *testing.T, retrieved, expected *model.Scenario) {
+func validateScenarioFields(t *testing.T, retrieved, expected model.Scenario) {
 	t.Helper()
 	if retrieved.UUID != expected.UUID {
 		t.Errorf("Expected UUID %s, got %s", expected.UUID, retrieved.UUID)
@@ -47,7 +47,7 @@ func validateScenarioFields(t *testing.T, retrieved, expected *model.Scenario) {
 }
 
 // Helper function to test create and get operations
-func testCreateAndGet(t *testing.T, storageInstance storage.ScenarioStorage, scenario *model.Scenario) {
+func testCreateAndGet(t *testing.T, storageInstance storage.ScenarioStorage, scenario model.Scenario) {
 	t.Helper()
 	// Create
 	err := storageInstance.Create("test-id", scenario)
@@ -65,7 +65,7 @@ func testCreateAndGet(t *testing.T, storageInstance storage.ScenarioStorage, sce
 }
 
 // Helper function to test update operations
-func testUpdate(t *testing.T, storageInstance storage.ScenarioStorage, updatedScenario *model.Scenario) {
+func testUpdate(t *testing.T, storageInstance storage.ScenarioStorage, updatedScenario model.Scenario) {
 	t.Helper()
 	// Update
 	err := storageInstance.Update("test-id", updatedScenario)
@@ -136,7 +136,7 @@ func TestScenarioStorage_ErrorCases(t *testing.T) {
 	}
 
 	// Update non-existent scenario
-	err = storageInstance.Update("non-existent", &model.Scenario{UUID: "non-existent"})
+	err = storageInstance.Update("non-existent", model.Scenario{UUID: "non-existent"})
 	if err == nil {
 		t.Error("Expected error when updating non-existent scenario, got nil")
 	}
@@ -147,9 +147,9 @@ func TestScenarioStorage_ErrorCases(t *testing.T) {
 		t.Error("Expected error when deleting non-existent scenario, got nil")
 	}
 
-	// Create with nil scenario
-	err = storageInstance.Create("test-id", nil)
+	// Create with empty ID
+	err = storageInstance.Create("", model.Scenario{})
 	if err == nil {
-		t.Error("Expected error when creating nil scenario, got nil")
+		t.Error("Expected error when creating scenario with empty ID, got nil")
 	}
 }

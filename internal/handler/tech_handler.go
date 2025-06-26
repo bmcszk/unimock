@@ -12,12 +12,12 @@ import (
 // TechHandler handles technical endpoints like health checks and metrics
 type TechHandler struct {
 	prefix  string
-	service service.TechService
+	service *service.TechService
 	logger  *slog.Logger
 }
 
 // NewTechHandler creates a new instance of TechHandler
-func NewTechHandler(techSvc service.TechService, logger *slog.Logger) *TechHandler {
+func NewTechHandler(techSvc *service.TechService, logger *slog.Logger) *TechHandler {
 	return &TechHandler{
 		prefix:  "/_uni/",
 		service: techSvc,

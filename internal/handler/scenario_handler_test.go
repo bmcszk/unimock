@@ -179,7 +179,7 @@ func TestScenarioHandler_List(t *testing.T) {
 	}
 
 	// Check response
-	var response []*model.Scenario
+	var response []model.Scenario
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Could not unmarshal response: %v", err)
@@ -346,7 +346,7 @@ func TestGetScenarioByPath(t *testing.T) {
 	}
 
 	for i := range testScenarios {
-		err := scenarioService.CreateScenario(context.TODO(), &testScenarios[i])
+		_, err := scenarioService.CreateScenario(context.TODO(), testScenarios[i])
 		require.NoError(t, err, "Failed to create scenario %s in TestGetScenarioByPath", testScenarios[i].UUID)
 	}
 
@@ -368,11 +368,11 @@ func TestGetScenarioByPath(t *testing.T) {
 	for _, tt := range tests {
 		tc := tt // Capture range variable
 		t.Run(tc.name, func(t *testing.T) {
-			scenario := scenarioService.GetScenarioByPath(context.TODO(), tc.path, tc.method)
+			scenario, found := scenarioService.GetScenarioByPath(context.TODO(), tc.path, tc.method)
 			if tc.expectNil {
-				assert.Nil(t, scenario)
+				assert.False(t, found)
 			} else {
-				require.NotNil(t, scenario)
+				assert.True(t, found)
 				assert.Equal(t, tc.expectUUID, scenario.UUID)
 			}
 		})

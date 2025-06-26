@@ -24,8 +24,8 @@ func main() {
 
 	logger.Info("Starting Unimock with in-code configuration")
 
-	// Step 1: Create a mock configuration with API endpoints
-	mockConfig := &config.MockConfig{
+	// Step 1: Create a uni configuration with API endpoints
+	uniConfig := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"api": {
 				// Match paths like /api/123
@@ -55,7 +55,7 @@ func main() {
 
 	// Step 3: Initialize the server
 	logger.Info("Creating server with configuration")
-	srv, err := pkg.NewServer(serverConfig, mockConfig)
+	srv, err := pkg.NewServer(serverConfig, uniConfig)
 
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)

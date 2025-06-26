@@ -12,7 +12,7 @@ import (
 
 // validateStrictPathAccess checks if request path pattern matches resource's original path pattern
 // when strict_path=true to prevent cross-path access
-func (h *MockHandler) validateStrictPathAccess(requestPath, resourcePath, sectionPattern string) error {
+func (h *UniHandler) validateStrictPathAccess(requestPath, resourcePath, sectionPattern string) error {
 	// For strict path validation, we need to check if the request is trying to access
 	// a resource via a different path structure than where it was created
 	
@@ -39,7 +39,7 @@ func (h *MockHandler) validateStrictPathAccess(requestPath, resourcePath, sectio
 }
 
 // arePathsCompatible checks if two paths are compatible for strict path validation
-func (*MockHandler) arePathsCompatible(requestPath, resourcePath, _ string) bool {
+func (*UniHandler) arePathsCompatible(requestPath, resourcePath, _ string) bool {
 	// Case 1: Exact match (e.g., GET /users/123 where resource was created at /users via POST /users)
 	if requestPath == resourcePath {
 		return true
@@ -57,7 +57,7 @@ func (*MockHandler) arePathsCompatible(requestPath, resourcePath, _ string) bool
 }
 
 // validateStrictPathForOperation validates strict path access for PUT/DELETE operations
-func (h *MockHandler) validateStrictPathForOperation(ctx context.Context, reqPath, id, 
+func (h *UniHandler) validateStrictPathForOperation(ctx context.Context, reqPath, id, 
 	sectionPattern, operation, sectionName string, isStrictPath bool) *http.Response {
 	// Check resource existence first
 	var err error
@@ -73,7 +73,7 @@ func (h *MockHandler) validateStrictPathForOperation(ctx context.Context, reqPat
 	
 	// Additional strict path access validation
 	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
-	if err == nil && existingResource != nil {
+	if err == nil {
 		if err := h.validateStrictPathAccess(reqPath, existingResource.Path, sectionPattern); err != nil {
 			h.logger.Debug("strict path access validation failed for "+operation, 
 				"requestPath", reqPath, "resourcePath", existingResource.Path, "error", err)
@@ -85,7 +85,7 @@ func (h *MockHandler) validateStrictPathForOperation(ctx context.Context, reqPat
 }
 
 // extractLastPathSegment extracts the last segment from a URL path
-func (*MockHandler) extractLastPathSegment(urlPath string) string {
+func (*UniHandler) extractLastPathSegment(urlPath string) string {
 	pathSegments := strings.Split(strings.Trim(urlPath, "/"), "/")
 	if len(pathSegments) == 0 {
 		return ""
@@ -94,7 +94,7 @@ func (*MockHandler) extractLastPathSegment(urlPath string) string {
 }
 
 // buildTransformedResponse applies transformations and builds the response
-func (h *MockHandler) buildTransformedResponse(resource *model.MockData, 
+func (h *UniHandler) buildTransformedResponse(resource model.UniData, 
 	section *config.Section, sectionName string) *http.Response {
 	transformedData, err := h.applyResponseTransformations(resource, section, sectionName)
 	if err != nil {

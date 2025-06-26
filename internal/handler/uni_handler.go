@@ -22,33 +22,34 @@ const (
 	pathLogKey  = "path"
 	contentTypeHeader = "Content-Type"
 )
-// MockHandler provides clear, step-by-step HTTP method handlers
-type MockHandler struct {
-	service         service.MockService
-	scenarioService service.ScenarioService
-	techService     service.TechService
+
+// UniHandler provides clear, step-by-step HTTP method handlers
+type UniHandler struct {
+	service         *service.UniService
+	scenarioService *service.ScenarioService
+	techService     *service.TechService
 	logger          *slog.Logger
-	mockCfg         *config.MockConfig
+	uniCfg         *config.UniConfig
 }
-// NewMockHandler creates a new handler
-func NewMockHandler(
-	mockService service.MockService,
-	scenarioService service.ScenarioService,
-	techService service.TechService,
+// NewUniHandler creates a new handler
+func NewUniHandler(
+	uniService *service.UniService,
+	scenarioService *service.ScenarioService,
+	techService *service.TechService,
 	logger *slog.Logger,
-	cfg *config.MockConfig,
-) *MockHandler {
-	return &MockHandler{
-		service:         mockService,
+	cfg *config.UniConfig,
+) *UniHandler {
+	return &UniHandler{
+		service:         uniService,
 		scenarioService: scenarioService,
 		techService:     techService,
 		logger:          logger,
-		mockCfg:         cfg,
+		uniCfg:         cfg,
 	}
 }
 
 // trackResponse tracks the response metrics for a request
-func (h *MockHandler) trackResponse(ctx context.Context, path string, statusCode int) {
+func (h *UniHandler) trackResponse(ctx context.Context, path string, statusCode int) {
 	// Track request count and response status
 	h.techService.IncrementRequestCount(ctx, path)
 	h.techService.TrackResponse(ctx, path, statusCode)
@@ -56,7 +57,7 @@ func (h *MockHandler) trackResponse(ctx context.Context, path string, statusCode
 
 
 // HandlePOST processes POST requests step by step
-func (h *MockHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (h *UniHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting POST request processing", "path", req.URL.Path)
 
 	// Step 1: Find matching configuration section
@@ -79,21 +80,22 @@ func (h *MockHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.
 	// Step 4: Build and return response
 	return h.buildPOSTResponse(transformedData, section, sectionName)
 }
-// preparePostData extracts IDs and builds initial MockData for POST
-func (h *MockHandler) preparePostData(
+// preparePostData extracts IDs and builds initial UniData for POST
+func (h *UniHandler) preparePostData(
 	ctx context.Context,
 	req *http.Request,
 	section *config.Section,
 	sectionName string,
-) ([]string, *model.MockData, *http.Response) {
+) ([]string, model.UniData, *http.Response) {
 	// Extract IDs from request
 	ids, err := h.extractIDs(ctx, req, section, sectionName)
 	if err != nil {
 		h.logger.Error("failed to extract IDs for POST", "path", req.URL.Path, "error", err)
 		if strings.Contains(err.Error(), "failed to parse JSON body") {
-			return nil, nil, h.errorResponse(http.StatusBadRequest, "invalid request: failed to parse JSON body")
+			return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest, 
+				"invalid request: failed to parse JSON body")
 		}
-		return nil, nil, h.errorResponse(http.StatusBadRequest, "failed to extract IDs")
+		return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest, "failed to extract IDs")
 	}
 
 	// Generate UUID if no IDs found
@@ -103,28 +105,28 @@ func (h *MockHandler) preparePostData(
 		h.logger.Debug("generated UUID for POST", "uuid", generatedID)
 	}
 
-	// Build MockData from request
-	mockData, err := h.buildMockDataFromRequest(req, ids)
+	// Build UniData from request
+	mockData, err := h.buildUniDataFromRequest(req, ids)
 	if err != nil {
-		h.logger.Error("failed to build MockData for POST", "error", err)
-		return nil, nil, h.errorResponse(http.StatusBadRequest, "failed to process request data")
+		h.logger.Error("failed to build UniData for POST", "error", err)
+		return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest, "failed to process request data")
 	}
 
 	return ids, mockData, nil
 }
 // processPostRequest applies transformations and stores the resource
-func (h *MockHandler) processPostRequest(
+func (h *UniHandler) processPostRequest(
 	ctx context.Context,
 	_ *http.Request,
-	mockData *model.MockData,
+	mockData model.UniData,
 	section *config.Section,
 	sectionName string,
-) (*model.MockData, *http.Response) {
+) (model.UniData, *http.Response) {
 	// Apply request transformations
 	transformedData, err := h.applyRequestTransformations(mockData, section, sectionName)
 	if err != nil {
 		h.logger.Error("request transformation failed for POST", "error", err)
-		return nil, h.errorResponse(http.StatusInternalServerError, "request transformation failed")
+		return model.UniData{}, h.errorResponse(http.StatusInternalServerError, "request transformation failed")
 	}
 
 	// Store the resource
@@ -132,27 +134,27 @@ func (h *MockHandler) processPostRequest(
 	if err != nil {
 		h.logger.Error("failed to create resource", "error", err)
 		if strings.Contains(err.Error(), "already exists") {
-			return nil, h.errorResponse(http.StatusConflict, "resource already exists")
+			return model.UniData{}, h.errorResponse(http.StatusConflict, "resource already exists")
 		}
-		return nil, h.errorResponse(http.StatusInternalServerError, "failed to create resource")
+		return model.UniData{}, h.errorResponse(http.StatusInternalServerError, "failed to create resource")
 	}
 
 	return transformedData, nil
 }
 
 // HandleGET processes GET requests step by step
-func (h *MockHandler) HandleGET(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (h *UniHandler) HandleGET(ctx context.Context, req *http.Request) (*http.Response, error) {
 	return h.handleGetOrHead(ctx, req, false)
 }
 
 // HandleHEAD processes HEAD requests (same as GET but no body)
-func (h *MockHandler) HandleHEAD(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (h *UniHandler) HandleHEAD(ctx context.Context, req *http.Request) (*http.Response, error) {
 	return h.handleGetOrHead(ctx, req, true)
 }
 
 // handleGetOrHead processes GET and HEAD requests with optional body suppression
 //nolint:revive // suppressBody flag is appropriate for differentiating GET vs HEAD behavior
-func (h *MockHandler) handleGetOrHead(
+func (h *UniHandler) handleGetOrHead(
 	ctx context.Context, req *http.Request, suppressBody bool,
 ) (*http.Response, error) {
 	methodName := "GET"
@@ -187,7 +189,7 @@ func (h *MockHandler) handleGetOrHead(
 }
 
 // tryGetIndividualResource attempts to get an individual resource
-func (h *MockHandler) tryGetIndividualResource(
+func (h *UniHandler) tryGetIndividualResource(
 	ctx context.Context,
 	req *http.Request,
 	section *config.Section,
@@ -199,7 +201,7 @@ func (h *MockHandler) tryGetIndividualResource(
 	}
 
 	resource, err := h.service.GetResource(ctx, sectionName, section.StrictPath, lastSegment)
-	if err != nil || resource == nil {
+	if err != nil {
 		return h.errorResponse(http.StatusNotFound, "resource not found")
 	}
 
@@ -215,7 +217,7 @@ func (h *MockHandler) tryGetIndividualResource(
 	return h.buildTransformedResponse(resource, section, sectionName)
 }
 // getResourceCollection gets a collection of resources
-func (h *MockHandler) getResourceCollection(
+func (h *UniHandler) getResourceCollection(
 	ctx context.Context,
 	req *http.Request,
 	section *config.Section,
@@ -239,7 +241,7 @@ func (h *MockHandler) getResourceCollection(
 }
 
 // getCollectionBasePath determines the base path for collection queries
-func (h *MockHandler) getCollectionBasePath(pattern, requestPath string) string {
+func (h *UniHandler) getCollectionBasePath(pattern, requestPath string) string {
 	if !strings.Contains(pattern, "*") {
 		return requestPath
 	}
@@ -248,7 +250,7 @@ func (h *MockHandler) getCollectionBasePath(pattern, requestPath string) string 
 }
 
 // extractBasePathFromWildcard extracts base path from wildcard patterns
-func (*MockHandler) extractBasePathFromWildcard(pattern, requestPath string) string {
+func (*UniHandler) extractBasePathFromWildcard(pattern, requestPath string) string {
 	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
 	requestParts := strings.Split(strings.Trim(requestPath, "/"), "/")
 	
@@ -269,12 +271,12 @@ func (*MockHandler) extractBasePathFromWildcard(pattern, requestPath string) str
 }
 
 // transformResourceCollection applies transformations to a collection of resources
-func (h *MockHandler) transformResourceCollection(
-	resources []*model.MockData,
+func (h *UniHandler) transformResourceCollection(
+	resources []model.UniData,
 	section *config.Section,
 	sectionName string,
-) ([]*model.MockData, error) {
-	transformedResources := make([]*model.MockData, len(resources))
+) ([]model.UniData, error) {
+	transformedResources := make([]model.UniData, len(resources))
 	for i, resource := range resources {
 		transformed, err := h.applyResponseTransformations(resource, section, sectionName)
 		if err != nil {
@@ -287,7 +289,7 @@ func (h *MockHandler) transformResourceCollection(
 }
 
 // HandlePUT processes PUT requests step by step
-func (h *MockHandler) HandlePUT(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (h *UniHandler) HandlePUT(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting PUT request processing", "path", req.URL.Path)
 
 	// Step 1: Find matching configuration section
@@ -301,7 +303,7 @@ func (h *MockHandler) HandlePUT(ctx context.Context, req *http.Request) (*http.R
 }
 
 // processPUTRequest handles the main PUT logic after section validation
-func (h *MockHandler) processPUTRequest(
+func (h *UniHandler) processPUTRequest(
 	ctx context.Context, req *http.Request, section *config.Section, sectionName string,
 ) (*http.Response, error) {
 	// Extract ID from path
@@ -312,9 +314,9 @@ func (h *MockHandler) processPUTRequest(
 	}
 
 	// Build and transform data
-	mockData, err := h.buildMockDataFromRequest(req, ids)
+	mockData, err := h.buildUniDataFromRequest(req, ids)
 	if err != nil {
-		h.logger.Error("failed to build MockData for PUT", "error", err)
+		h.logger.Error("failed to build UniData for PUT", "error", err)
 		return h.errorResponse(http.StatusBadRequest, "failed to process request data"), nil
 	}
 
@@ -336,11 +338,11 @@ func (h *MockHandler) processPUTRequest(
 }
 
 // validateStrictPathForPUT checks resource existence for strict path validation
-func (h *MockHandler) validateStrictPathForPUT(
+func (h *UniHandler) validateStrictPathForPUT(
 	ctx context.Context, sectionName string, isStrictPath bool, id string,
 ) error {
-	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
-	if err != nil || existingResource == nil {
+	_, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
+	if err != nil {
 		h.logger.Debug("resource not found for strict PUT", "sectionName", sectionName, "id", id)
 		return errors.New("resource not found")
 	}
@@ -352,8 +354,8 @@ func (h *MockHandler) validateStrictPathForPUT(
 
 
 // executeResourceUpdate performs the actual resource update and response building
-func (h *MockHandler) executeResourceUpdate(
-	ctx context.Context, id string, data *model.MockData, section *config.Section, sectionName string,
+func (h *UniHandler) executeResourceUpdate(
+	ctx context.Context, id string, data model.UniData, section *config.Section, sectionName string,
 ) (*http.Response, error) {
 	err := h.service.UpdateResource(ctx, sectionName, section.StrictPath, id, data)
 	if err != nil {
@@ -371,7 +373,7 @@ func (h *MockHandler) executeResourceUpdate(
 }
 
 // HandleDELETE processes DELETE requests step by step
-func (h *MockHandler) HandleDELETE(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (h *UniHandler) HandleDELETE(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting DELETE request processing", "path", req.URL.Path)
 
 	// Step 1: Find matching configuration section
@@ -385,7 +387,7 @@ func (h *MockHandler) HandleDELETE(ctx context.Context, req *http.Request) (*htt
 }
 
 // processDELETERequest handles the main DELETE logic after section validation
-func (h *MockHandler) processDELETERequest(
+func (h *UniHandler) processDELETERequest(
 	ctx context.Context, req *http.Request, section *config.Section, sectionName string,
 ) (*http.Response, error) {
 	// Extract ID from path
@@ -407,11 +409,11 @@ func (h *MockHandler) processDELETERequest(
 }
 
 // validateStrictPathForDELETE checks resource existence for strict path validation
-func (h *MockHandler) validateStrictPathForDELETE(
+func (h *UniHandler) validateStrictPathForDELETE(
 	ctx context.Context, sectionName string, isStrictPath bool, id string,
 ) error {
-	existingResource, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
-	if err != nil || existingResource == nil {
+	_, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
+	if err != nil {
 		h.logger.Debug("resource not found for strict DELETE", "sectionName", sectionName, "id", id)
 		return errors.New("resource not found")
 	}
@@ -419,7 +421,7 @@ func (h *MockHandler) validateStrictPathForDELETE(
 }
 
 // executeResourceDeletion performs the actual resource deletion
-func (h *MockHandler) executeResourceDeletion(
+func (h *UniHandler) executeResourceDeletion(
 	ctx context.Context, id string, section *config.Section, sectionName string,
 ) (*http.Response, error) {
 	err := h.service.DeleteResource(ctx, sectionName, section.StrictPath, id)
@@ -437,12 +439,12 @@ func (h *MockHandler) executeResourceDeletion(
 // Helper methods for the simplified handlers
 
 // findSection finds the matching configuration section for a request path
-func (h *MockHandler) findSection(reqPath string) (*config.Section, string, error) {
-	if h.mockCfg == nil {
+func (h *UniHandler) findSection(reqPath string) (*config.Section, string, error) {
+	if h.uniCfg == nil {
 		return nil, "", errors.New("service configuration is missing")
 	}
 	
-	sectionName, section, err := h.mockCfg.MatchPath(reqPath)
+	sectionName, section, err := h.uniCfg.MatchPath(reqPath)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to match path pattern: %w", err)
 	}
@@ -454,19 +456,19 @@ func (h *MockHandler) findSection(reqPath string) (*config.Section, string, erro
 	return section, sectionName, nil
 }
 
-// buildMockDataFromRequest creates MockData from HTTP request
-func (*MockHandler) buildMockDataFromRequest(req *http.Request, ids []string) (*model.MockData, error) {
+// buildUniDataFromRequest creates UniData from HTTP request
+func (*UniHandler) buildUniDataFromRequest(req *http.Request, ids []string) (model.UniData, error) {
 	// Read request body
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read request body: %w", err)
+		return model.UniData{}, fmt.Errorf("failed to read request body: %w", err)
 	}
 	
 	// Restore body for potential re-reading
 	req.Body = io.NopCloser(bytes.NewBuffer(body))
 	
-	// Build MockData
-	mockData := &model.MockData{
+	// Build UniData
+	mockData := model.UniData{
 		Path:        strings.TrimSuffix(req.URL.Path, "/"),
 		IDs:         ids,
 		ContentType: req.Header.Get("Content-Type"),
@@ -482,11 +484,11 @@ func (*MockHandler) buildMockDataFromRequest(req *http.Request, ids []string) (*
 }
 
 // applyRequestTransformations applies request transformations if configured
-func (h *MockHandler) applyRequestTransformations(
-	data *model.MockData,
+func (h *UniHandler) applyRequestTransformations(
+	data model.UniData,
 	section *config.Section,
 	sectionName string,
-) (*model.MockData, error) {
+) (model.UniData, error) {
 	if section.Transformations == nil || !section.Transformations.HasRequestTransforms() {
 		return data, nil
 	}
@@ -495,9 +497,9 @@ func (h *MockHandler) applyRequestTransformations(
 	for i, transform := range section.Transformations.RequestTransforms {
 		h.logger.Debug("applying request transformation", "section", sectionName, "index", i)
 		
-		transformedData, err := h.safeExecuteTransform(transform, currentData, "request", sectionName)
+		transformedData, err := transform(currentData)
 		if err != nil {
-			return nil, fmt.Errorf("request transformation %d failed: %w", i, err)
+			return model.UniData{}, fmt.Errorf("request transformation %d failed: %w", i, err)
 		}
 		
 		currentData = transformedData
@@ -507,11 +509,11 @@ func (h *MockHandler) applyRequestTransformations(
 }
 
 // applyResponseTransformations applies response transformations if configured
-func (h *MockHandler) applyResponseTransformations(
-	data *model.MockData,
+func (h *UniHandler) applyResponseTransformations(
+	data model.UniData,
 	section *config.Section,
 	sectionName string,
-) (*model.MockData, error) {
+) (model.UniData, error) {
 	if section.Transformations == nil || !section.Transformations.HasResponseTransforms() {
 		return data, nil
 	}
@@ -520,9 +522,9 @@ func (h *MockHandler) applyResponseTransformations(
 	for i, transform := range section.Transformations.ResponseTransforms {
 		h.logger.Debug("applying response transformation", "section", sectionName, "index", i)
 		
-		transformedData, err := h.safeExecuteTransform(transform, currentData, "response", sectionName)
+		transformedData, err := transform(currentData)
 		if err != nil {
-			return nil, fmt.Errorf("response transformation %d failed: %w", i, err)
+			return model.UniData{}, fmt.Errorf("response transformation %d failed: %w", i, err)
 		}
 		
 		currentData = transformedData
@@ -531,30 +533,9 @@ func (h *MockHandler) applyResponseTransformations(
 	return currentData, nil
 }
 
-// safeExecuteTransform executes a transformation with panic recovery
-func (h *MockHandler) safeExecuteTransform(
-	transform func(*model.MockData) (*model.MockData, error),
-	data *model.MockData,
-	transformType string,
-	sectionName string,
-) (transformedData *model.MockData, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			h.logger.Error("transformation panicked", 
-				"type", transformType, 
-				"section", sectionName, 
-				"panic", r)
-			err = fmt.Errorf("%s transformation panicked: %v", transformType, r)
-			transformedData = nil
-		}
-	}()
-	
-	return transform(data)
-}
-
 
 // extractIDs extracts IDs from the request using configured paths
-func (h *MockHandler) extractIDs(
+func (h *UniHandler) extractIDs(
 	ctx context.Context,
 	req *http.Request,
 	section *config.Section,
@@ -567,13 +548,13 @@ func (h *MockHandler) extractIDs(
 }
 
 // isPathBasedMethod checks if method uses path-based ID extraction
-func (*MockHandler) isPathBasedMethod(method string) bool {
+func (*UniHandler) isPathBasedMethod(method string) bool {
 	return method == http.MethodGet || method == http.MethodHead ||
 		method == http.MethodPut || method == http.MethodDelete
 }
 
 // extractPathBasedIDs extracts IDs from path for GET/HEAD/PUT/DELETE methods
-func (h *MockHandler) extractPathBasedIDs(
+func (h *UniHandler) extractPathBasedIDs(
 	req *http.Request,
 	section *config.Section,
 	sectionName string,
@@ -591,7 +572,7 @@ func (h *MockHandler) extractPathBasedIDs(
 }
 
 // shouldExtractFromPath determines if ID should be extracted from path
-func (*MockHandler) shouldExtractFromPath(pathSegments, patternSegments []string) bool {
+func (*UniHandler) shouldExtractFromPath(pathSegments, patternSegments []string) bool {
 	if len(patternSegments) == 0 || len(pathSegments) == 0 {
 		return false
 	}
@@ -614,7 +595,7 @@ func (*MockHandler) shouldExtractFromPath(pathSegments, patternSegments []string
 }
 
 // extractBodyBasedIDs extracts IDs from headers and body for POST requests
-func (h *MockHandler) extractBodyBasedIDs(
+func (h *UniHandler) extractBodyBasedIDs(
 	ctx context.Context,
 	req *http.Request,
 	section *config.Section,
@@ -634,7 +615,7 @@ func (h *MockHandler) extractBodyBasedIDs(
 }
 
 // extractPostIDs extracts IDs from headers and body for POST requests
-func (h *MockHandler) extractPostIDs(
+func (h *UniHandler) extractPostIDs(
 	ctx context.Context,
 	req *http.Request,
 	section *config.Section,
@@ -664,7 +645,7 @@ func (h *MockHandler) extractPostIDs(
 }
 
 // tryExtractHeaderID attempts to extract ID from request headers
-func (*MockHandler) tryExtractHeaderID(
+func (*UniHandler) tryExtractHeaderID(
 	section *config.Section,
 	req *http.Request,
 	addID func(string),
@@ -681,7 +662,7 @@ func (*MockHandler) tryExtractHeaderID(
 }
 
 // tryExtractPathIDFallback attempts to extract ID from path as fallback
-func (*MockHandler) tryExtractPathIDFallback(
+func (*UniHandler) tryExtractPathIDFallback(
 	req *http.Request,
 	section *config.Section,
 	addID func(string),
@@ -700,7 +681,7 @@ func (*MockHandler) tryExtractPathIDFallback(
 }
 
 // extractBodyIDs extracts IDs from request body
-func (h *MockHandler) extractBodyIDs(
+func (h *UniHandler) extractBodyIDs(
 	ctx context.Context,
 	req *http.Request,
 	section *config.Section,
@@ -724,12 +705,12 @@ func (h *MockHandler) extractBodyIDs(
 }
 
 // isSupportedContentType checks if content type supports ID extraction
-func (*MockHandler) isSupportedContentType(contentType string) bool {
+func (*UniHandler) isSupportedContentType(contentType string) bool {
 	return strings.Contains(contentType, "json") || strings.Contains(contentType, "xml")
 }
 
 // readAndRestoreRequestBody reads and restores request body
-func (*MockHandler) readAndRestoreRequestBody(req *http.Request) ([]byte, error) {
+func (*UniHandler) readAndRestoreRequestBody(req *http.Request) ([]byte, error) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read request body: %w", err)
@@ -739,7 +720,7 @@ func (*MockHandler) readAndRestoreRequestBody(req *http.Request) ([]byte, error)
 }
 
 // parseIDsFromBody parses IDs from body content based on content type
-func (h *MockHandler) parseIDsFromBody(
+func (h *UniHandler) parseIDsFromBody(
 	ctx context.Context,
 	body []byte,
 	contentType string,
@@ -764,7 +745,7 @@ func (h *MockHandler) parseIDsFromBody(
 }
 
 // extractJSONIDs extracts IDs from JSON body
-func (h *MockHandler) extractJSONIDs(body []byte, idPaths []string, seenIDs map[string]bool) ([]string, error) {
+func (h *UniHandler) extractJSONIDs(body []byte, idPaths []string, seenIDs map[string]bool) ([]string, error) {
 	doc, err := jsonquery.Parse(bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON body: %w", err)
@@ -779,7 +760,7 @@ func (h *MockHandler) extractJSONIDs(body []byte, idPaths []string, seenIDs map[
 }
 
 // extractJSONIDsFromPath extracts IDs from a specific JSON path
-func (*MockHandler) extractJSONIDsFromPath(doc *jsonquery.Node, path string, seenIDs map[string]bool) []string {
+func (*UniHandler) extractJSONIDsFromPath(doc *jsonquery.Node, path string, seenIDs map[string]bool) []string {
 	nodes, err := jsonquery.QueryAll(doc, path)
 	if err != nil {
 		return nil
@@ -796,7 +777,7 @@ func (*MockHandler) extractJSONIDsFromPath(doc *jsonquery.Node, path string, see
 }
 
 // extractXMLIDs extracts IDs from XML body
-func (h *MockHandler) extractXMLIDs(body []byte, idPaths []string, seenIDs map[string]bool) ([]string, error) {
+func (h *UniHandler) extractXMLIDs(body []byte, idPaths []string, seenIDs map[string]bool) ([]string, error) {
 	doc, err := xmlquery.Parse(bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse XML body: %w", err)
@@ -811,7 +792,7 @@ func (h *MockHandler) extractXMLIDs(body []byte, idPaths []string, seenIDs map[s
 }
 
 // extractXMLIDsFromPath extracts IDs from a specific XML path
-func (*MockHandler) extractXMLIDsFromPath(doc *xmlquery.Node, path string, seenIDs map[string]bool) []string {
+func (*UniHandler) extractXMLIDsFromPath(doc *xmlquery.Node, path string, seenIDs map[string]bool) []string {
 	nodes, err := xmlquery.QueryAll(doc, path)
 	if err != nil {
 		return nil
@@ -828,7 +809,7 @@ func (*MockHandler) extractXMLIDsFromPath(doc *xmlquery.Node, path string, seenI
 }
 
 // HandleRequest processes the HTTP request and returns appropriate response
-func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
+func (h *UniHandler) HandleRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	req.URL.Path = strings.TrimSuffix(req.URL.Path, "/")
 
 	// Process the request using the appropriate handler
@@ -864,7 +845,7 @@ func (h *MockHandler) HandleRequest(ctx context.Context, req *http.Request) (*ht
 }
 
 // ServeHTTP implements the http.Handler interface
-func (h *MockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *UniHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	resp, err := h.HandleRequest(ctx, r)
 	if err != nil {
@@ -884,14 +865,14 @@ func (h *MockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // copyHeaders copies response headers to the writer
-func (*MockHandler) copyHeaders(w http.ResponseWriter, resp *http.Response) {
+func (*UniHandler) copyHeaders(w http.ResponseWriter, resp *http.Response) {
 	for k, v := range resp.Header {
 		w.Header()[k] = v
 	}
 }
 
 // writeResponse writes the response body and status code
-func (h *MockHandler) writeResponse(w http.ResponseWriter, resp *http.Response) {
+func (h *UniHandler) writeResponse(w http.ResponseWriter, resp *http.Response) {
 	if resp.Body == nil {
 		w.WriteHeader(resp.StatusCode)
 		return
@@ -900,7 +881,7 @@ func (h *MockHandler) writeResponse(w http.ResponseWriter, resp *http.Response) 
 }
 
 // writeResponseBody handles writing response with body
-func (h *MockHandler) writeResponseBody(w http.ResponseWriter, resp *http.Response) {
+func (h *UniHandler) writeResponseBody(w http.ResponseWriter, resp *http.Response) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		h.logger.Error("failed to read response body", "error", err)
@@ -914,7 +895,7 @@ func (h *MockHandler) writeResponseBody(w http.ResponseWriter, resp *http.Respon
 }
 
 // writeBodyContent writes the actual body content
-func (h *MockHandler) writeBodyContent(w http.ResponseWriter, body []byte) {
+func (h *UniHandler) writeBodyContent(w http.ResponseWriter, body []byte) {
 	_, err := w.Write(body)
 	if err != nil {
 		h.logger.Error("failed to write response body", "error", err)
@@ -922,7 +903,7 @@ func (h *MockHandler) writeBodyContent(w http.ResponseWriter, body []byte) {
 }
 
 // suppressResponseBody removes body from response while preserving headers and status
-func (*MockHandler) suppressResponseBody(resp *http.Response) *http.Response {
+func (*UniHandler) suppressResponseBody(resp *http.Response) *http.Response {
 	if resp == nil {
 		return resp
 	}
@@ -951,6 +932,6 @@ func (*MockHandler) suppressResponseBody(resp *http.Response) *http.Response {
 }
 
 // GetConfig returns the mock configuration
-func (h *MockHandler) GetConfig() *config.MockConfig {
-	return h.mockCfg
+func (h *UniHandler) GetConfig() *config.UniConfig {
+	return h.uniCfg
 }

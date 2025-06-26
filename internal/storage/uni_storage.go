@@ -18,42 +18,34 @@ const (
 	keySeparator = ":"
 )
 
-// MockStorage interface defines the operations for storing and retrieving data
-type MockStorage interface {
-	Create(sectionName string, isStrictPath bool, data *model.MockData) error
-	Update(sectionName string, isStrictPath bool, id string, data *model.MockData) error
-	Get(sectionName string, isStrictPath bool, id string) (*model.MockData, error)
-	GetByPath(requestPath string) ([]*model.MockData, error)
+// UniStorage interface defines the operations for storing and retrieving data
+type UniStorage interface {
+	Create(sectionName string, isStrictPath bool, data model.UniData) error
+	Update(sectionName string, isStrictPath bool, id string, data model.UniData) error
+	Get(sectionName string, isStrictPath bool, id string) (model.UniData, error)
+	GetByPath(requestPath string) ([]model.UniData, error)
 	Delete(sectionName string, isStrictPath bool, id string) error
-	ForEach(fn func(id string, data *model.MockData) error) error
+	ForEach(fn func(id string, data model.UniData) error) error
 }
 
-// mockStorage implements the Storage interface
-type mockStorage struct {
+// uniStorage implements the Storage interface
+type uniStorage struct {
 	mu      *sync.RWMutex
-	data    map[string]*model.MockData // compositeKey -> data
-	pathMap map[string][]string        // path -> []compositeKey
+	data    map[string]model.UniData // compositeKey -> data
+	pathMap map[string][]string       // path -> []compositeKey
 }
 
-// NewMockStorage creates a new instance of storage
-func NewMockStorage() MockStorage {
-	return &mockStorage{
+// NewUniStorage creates a new instance of storage
+func NewUniStorage() UniStorage {
+	return &uniStorage{
 		mu:      &sync.RWMutex{},
-		data:    make(map[string]*model.MockData),
+		data:    make(map[string]model.UniData),
 		pathMap: make(map[string][]string),
 	}
 }
 
-// validateData checks if the data is valid
-func (*mockStorage) validateData(data *model.MockData) error {
-	if data == nil {
-		return errors.NewInvalidRequestError("data cannot be nil")
-	}
-	return nil
-}
-
 // validateID checks if the ID is valid
-func (*mockStorage) validateID(id string) error {
+func (*uniStorage) validateID(id string) error {
 	if id == "" {
 		return errors.NewInvalidRequestError("ID cannot be empty")
 	}
@@ -62,7 +54,7 @@ func (*mockStorage) validateID(id string) error {
 
 // buildCompositeKey creates a composite key for storage based on strict_path mode
 //nolint:revive // isStrictPath flag is core to the design requirements
-func (*mockStorage) buildCompositeKey(sectionName string, isStrictPath bool, resourcePath string, id string) string {
+func (*uniStorage) buildCompositeKey(sectionName string, isStrictPath bool, resourcePath string, id string) string {
 	if isStrictPath {
 		// Strict mode: path:id (e.g., "/users/subpath:123")
 		return resourcePath + keySeparator + id
@@ -72,7 +64,7 @@ func (*mockStorage) buildCompositeKey(sectionName string, isStrictPath bool, res
 }
 
 // extractIDFromCompositeKey extracts the ID part from a composite key
-func (*mockStorage) extractIDFromCompositeKey(compositeKey string) string {
+func (*uniStorage) extractIDFromCompositeKey(compositeKey string) string {
 	parts := strings.Split(compositeKey, keySeparator)
 	if len(parts) >= 2 {
 		return parts[len(parts)-1]
@@ -80,12 +72,8 @@ func (*mockStorage) extractIDFromCompositeKey(compositeKey string) string {
 	return compositeKey
 }
 
-// Create stores new data using IDs from MockData.IDs field with section-aware conflict detection
-func (s *mockStorage) Create(sectionName string, isStrictPath bool, data *model.MockData) error {
-	if err := s.validateData(data); err != nil {
-		return err
-	}
-
+// Create stores new data using IDs from UniData.IDs field with section-aware conflict detection
+func (s *uniStorage) Create(sectionName string, isStrictPath bool, data model.UniData) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -96,7 +84,7 @@ func (s *mockStorage) Create(sectionName string, isStrictPath bool, data *model.
 	}
 
 	// Prepare data for storage
-	finalIDs := s.prepareDataForStorage(effectiveIDs, data)
+	finalIDs := s.prepareDataForStorage(effectiveIDs, &data)
 
 	// Store the data with composite keys
 	s.storeDataWithCompositeKeys(sectionName, isStrictPath, finalIDs, data)
@@ -104,11 +92,11 @@ func (s *mockStorage) Create(sectionName string, isStrictPath bool, data *model.
 	return nil
 }
 
-// prepareIDsWithConflictCheck gets IDs from MockData and validates for conflicts based on strict_path mode
-func (s *mockStorage) prepareIDsWithConflictCheck(
-	sectionName string, isStrictPath bool, data *model.MockData,
+// prepareIDsWithConflictCheck gets IDs from UniData and validates for conflicts based on strict_path mode
+func (s *uniStorage) prepareIDsWithConflictCheck(
+	sectionName string, isStrictPath bool, data model.UniData,
 ) ([]string, error) {
-	// Use IDs from MockData
+	// Use IDs from UniData
 	effectiveIDs := data.IDs
 
 	// Check for conflicts using composite keys
@@ -123,7 +111,7 @@ func (s *mockStorage) prepareIDsWithConflictCheck(
 }
 
 // prepareDataForStorage sets up data location and handles ID generation
-func (*mockStorage) prepareDataForStorage(effectiveIDs []string, data *model.MockData) []string {
+func (*uniStorage) prepareDataForStorage(effectiveIDs []string, data *model.UniData) []string {
 	// Ensure path doesn't have trailing slash
 	data.Path = strings.TrimRight(data.Path, pathSeparator)
 
@@ -137,15 +125,15 @@ func (*mockStorage) prepareDataForStorage(effectiveIDs []string, data *model.Moc
 		effectiveIDs = []string{generatedID}
 	}
 
-	// Update the MockData with the effective IDs
+	// Update the UniData with the effective IDs
 	data.IDs = effectiveIDs
 
 	return effectiveIDs
 }
 
 // storeDataWithCompositeKeys stores the data using composite keys and updates path mappings
-func (s *mockStorage) storeDataWithCompositeKeys(
-	sectionName string, isStrictPath bool, effectiveIDs []string, data *model.MockData,
+func (s *uniStorage) storeDataWithCompositeKeys(
+	sectionName string, isStrictPath bool, effectiveIDs []string, data model.UniData,
 ) {
 	// Store data using the primary composite key (first ID)
 	primaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, data.Path, effectiveIDs[0])
@@ -167,10 +155,7 @@ func (s *mockStorage) storeDataWithCompositeKeys(
 }
 
 // Update updates existing data for the given ID using section-aware composite key lookup
-func (s *mockStorage) Update(sectionName string, isStrictPath bool, id string, data *model.MockData) error {
-	if err := s.validateData(data); err != nil {
-		return err
-	}
+func (s *uniStorage) Update(sectionName string, isStrictPath bool, id string, data model.UniData) error {
 	if err := s.validateID(id); err != nil {
 		return err
 	}
@@ -207,9 +192,9 @@ func (s *mockStorage) Update(sectionName string, isStrictPath bool, id string, d
 
 // findExistingResource finds an existing resource by ID within the section scope
 //nolint:revive // isStrictPath flag is core to the design requirements
-func (s *mockStorage) findExistingResource(
+func (s *uniStorage) findExistingResource(
 	sectionName string, isStrictPath bool, id string,
-) (string, *model.MockData, error) {
+) (string, model.UniData, error) {
 	for compositeKey, data := range s.data {
 		keyID := s.extractIDFromCompositeKey(compositeKey)
 		if keyID != id {
@@ -226,20 +211,20 @@ func (s *mockStorage) findExistingResource(
 			return compositeKey, data, nil
 		}
 	}
-	return "", nil, errors.NewNotFoundError(id, "")
+	return "", model.UniData{}, errors.NewNotFoundError(id, "")
 }
 
 // findExistingDataOnly finds existing resource data without returning composite key
-func (s *mockStorage) findExistingDataOnly(
+func (s *uniStorage) findExistingDataOnly(
 	sectionName string, isStrictPath bool, id string,
-) (*model.MockData, error) {
+) (model.UniData, error) {
 	_, data, err := s.findExistingResource(sectionName, isStrictPath, id)
 	return data, err
 }
 
 // updatePathMappingsForUpdate handles path map updates when resource path changes
-func (s *mockStorage) updatePathMappingsForUpdate(
-	oldCompositeKey, newCompositeKey string, oldData, newData *model.MockData, id string,
+func (s *uniStorage) updatePathMappingsForUpdate(
+	oldCompositeKey, newCompositeKey string, oldData, newData model.UniData, id string,
 ) {
 	// Remove from old paths
 	oldIDPath := path.Join(oldData.Path, id)
@@ -254,7 +239,7 @@ func (s *mockStorage) updatePathMappingsForUpdate(
 
 
 // removeCompositeKeyFromPath removes composite key from a specific path mapping
-func (s *mockStorage) removeCompositeKeyFromPath(compositeKey, resourcePath string) {
+func (s *uniStorage) removeCompositeKeyFromPath(compositeKey, resourcePath string) {
 	pathKeys, ok := s.pathMap[resourcePath]
 	if !ok {
 		return
@@ -273,9 +258,9 @@ func (s *mockStorage) removeCompositeKeyFromPath(compositeKey, resourcePath stri
 }
 
 // Get retrieves data by ID using section-aware composite key lookup
-func (s *mockStorage) Get(sectionName string, isStrictPath bool, id string) (*model.MockData, error) {
+func (s *uniStorage) Get(sectionName string, isStrictPath bool, id string) (model.UniData, error) {
 	if err := s.validateID(id); err != nil {
-		return nil, err
+		return model.UniData{}, err
 	}
 
 	s.mu.RLock()
@@ -283,12 +268,16 @@ func (s *mockStorage) Get(sectionName string, isStrictPath bool, id string) (*mo
 
 	// For Get operations, we need to search across all possible paths in the section
 	// since we don't know the exact path when looking up by ID
-	return s.findResourceByID(sectionName, isStrictPath, id)
+	data, err := s.findResourceByID(sectionName, isStrictPath, id)
+	if err != nil {
+		return model.UniData{}, err
+	}
+	return data, nil
 }
 
 // findResourceByID searches for a resource by ID within the given section and strict mode
 //nolint:revive // isStrictPath flag is core to the design requirements
-func (s *mockStorage) findResourceByID(sectionName string, isStrictPath bool, id string) (*model.MockData, error) {
+func (s *uniStorage) findResourceByID(sectionName string, isStrictPath bool, id string) (model.UniData, error) {
 	// Search through all stored data to find matching composite key
 	for compositeKey, data := range s.data {
 		// Extract the ID from the composite key
@@ -303,12 +292,12 @@ func (s *mockStorage) findResourceByID(sectionName string, isStrictPath bool, id
 		}
 	}
 	
-	return nil, errors.NewNotFoundError(id, "")
+	return model.UniData{}, errors.NewNotFoundError(id, "")
 }
 
 // isCompositeKeyInScope checks if a composite key belongs to the specified scope
 //nolint:revive // isStrictPath flag is core to the design requirements
-func (*mockStorage) isCompositeKeyInScope(
+func (*uniStorage) isCompositeKeyInScope(
 	compositeKey, sectionName string, isStrictPath bool, resourcePath string,
 ) bool {
 	parts := strings.Split(compositeKey, keySeparator)
@@ -327,7 +316,7 @@ func (*mockStorage) isCompositeKeyInScope(
 }
 
 // GetByPath retrieves all data stored at the given path
-func (s *mockStorage) GetByPath(requestPath string) ([]*model.MockData, error) {
+func (s *uniStorage) GetByPath(requestPath string) ([]model.UniData, error) {
 	if requestPath == "" {
 		return nil, errors.NewInvalidRequestError("path cannot be empty")
 	}
@@ -352,14 +341,14 @@ func (s *mockStorage) GetByPath(requestPath string) ([]*model.MockData, error) {
 }
 
 // getExactPathMatches finds resources with exact path matches
-func (s *mockStorage) getExactPathMatches(requestPath string) []*model.MockData {
-	var result []*model.MockData
-	seen := make(map[*model.MockData]bool)
+func (s *uniStorage) getExactPathMatches(requestPath string) []model.UniData {
+	var result []model.UniData
+	seen := make(map[string]bool)
 	
 	if compositeKeys, ok := s.pathMap[requestPath]; ok {
 		for _, key := range compositeKeys {
-			if data, exists := s.data[key]; exists && !seen[data] {
-				seen[data] = true
+			if data, exists := s.data[key]; exists && !seen[key] {
+				seen[key] = true
 				result = append(result, data)
 			}
 		}
@@ -368,9 +357,9 @@ func (s *mockStorage) getExactPathMatches(requestPath string) []*model.MockData 
 }
 
 // getPrefixPathMatches finds resources with prefix path matches
-func (s *mockStorage) getPrefixPathMatches(requestPath string) []*model.MockData {
-	var result []*model.MockData
-	seen := make(map[*model.MockData]bool)
+func (s *uniStorage) getPrefixPathMatches(requestPath string) []model.UniData {
+	var result []model.UniData
+	seen := make(map[string]bool)
 	
 	for storedPath, compositeKeys := range s.pathMap {
 		storedPath = strings.TrimSuffix(storedPath, pathSeparator)
@@ -383,12 +372,12 @@ func (s *mockStorage) getPrefixPathMatches(requestPath string) []*model.MockData
 }
 
 // addKeysToResult adds composite keys to result if they exist and haven't been seen
-func (s *mockStorage) addKeysToResult(
-	result []*model.MockData, seen map[*model.MockData]bool, compositeKeys []string,
-) []*model.MockData {
+func (s *uniStorage) addKeysToResult(
+	result []model.UniData, seen map[string]bool, compositeKeys []string,
+) []model.UniData {
 	for _, key := range compositeKeys {
-		if data, exists := s.data[key]; exists && !seen[data] {
-			seen[data] = true
+		if data, exists := s.data[key]; exists && !seen[key] {
+			seen[key] = true
 			result = append(result, data)
 		}
 	}
@@ -396,7 +385,7 @@ func (s *mockStorage) addKeysToResult(
 }
 
 // Delete removes data by ID using section-aware composite key lookup
-func (s *mockStorage) Delete(sectionName string, isStrictPath bool, id string) error {
+func (s *uniStorage) Delete(sectionName string, isStrictPath bool, id string) error {
 	if err := s.validateID(id); err != nil {
 		return err
 	}
@@ -424,8 +413,8 @@ func (s *mockStorage) Delete(sectionName string, isStrictPath bool, id string) e
 }
 
 // removeAllCompositeKeysForResource removes all composite keys that reference the same data
-func (s *mockStorage) removeAllCompositeKeysForResource(
-	sectionName string, isStrictPath bool, mockData *model.MockData,
+func (s *uniStorage) removeAllCompositeKeysForResource(
+	sectionName string, isStrictPath bool, mockData model.UniData,
 ) {
 	for _, resourceID := range mockData.IDs {
 		compositeKey := s.buildCompositeKey(sectionName, isStrictPath, mockData.Path, resourceID)
@@ -435,7 +424,7 @@ func (s *mockStorage) removeAllCompositeKeysForResource(
 
 // ForEach iterates over each stored item
 // The 'id' passed to the callback function is the composite key (section:id or path:id)
-func (s *mockStorage) ForEach(fn func(id string, data *model.MockData) error) error {
+func (s *uniStorage) ForEach(fn func(id string, data model.UniData) error) error {
 	if fn == nil {
 		return errors.NewInvalidRequestError("callback function cannot be nil")
 	}

@@ -16,28 +16,28 @@ const (
 
 // Router is a http.Handler that routes requests to the appropriate handler based on path prefix
 type Router struct {
-	mockHandler     http.Handler
+	uniHandler      http.Handler
 	techHandler     http.Handler
 	scenarioHandler http.Handler
-	scenarioService service.ScenarioService
+	scenarioService *service.ScenarioService
 	logger          *slog.Logger
-	mockConfig      *config.MockConfig
+	uniConfig      *config.UniConfig
 }
 
 // NewRouter creates a new Router instance
 func NewRouter(
-	mockHandler, techHandler, scenarioHandler http.Handler, 
-	scenarioService service.ScenarioService, 
+	uniHandler, techHandler, scenarioHandler http.Handler, 
+	scenarioService *service.ScenarioService, 
 	logger *slog.Logger, 
-	mockConfig *config.MockConfig,
+	uniConfig *config.UniConfig,
 ) *Router {
 	return &Router{
-		mockHandler:     mockHandler,
+		uniHandler:      uniHandler,
 		techHandler:     techHandler,
 		scenarioHandler: scenarioHandler,
 		scenarioService: scenarioService,
 		logger:          logger,
-		mockConfig:      mockConfig,
+		uniConfig:      uniConfig,
 	}
 }
 
@@ -53,7 +53,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	
-	r.routeToMockHandler(w, req, requestPath)
+	r.routeToUniHandler(w, req, requestPath)
 }
 
 // normalizePath normalizes the request path
@@ -67,8 +67,8 @@ func (*Router) normalizePath(path string) string {
 
 // handleScenario checks and handles scenario matching
 func (r *Router) handleScenario(w http.ResponseWriter, req *http.Request, requestPath string) bool {
-	scenario := r.scenarioService.GetScenarioByPath(req.Context(), requestPath, req.Method)
-	if scenario == nil {
+	scenario, found := r.scenarioService.GetScenarioByPath(req.Context(), requestPath, req.Method)
+	if !found {
 		return false
 	}
 
@@ -82,7 +82,7 @@ func (r *Router) handleScenario(w http.ResponseWriter, req *http.Request, reques
 }
 
 // writeScenarioResponse writes the scenario response
-func (r *Router) writeScenarioResponse(w http.ResponseWriter, req *http.Request, scenario *model.Scenario) {
+func (r *Router) writeScenarioResponse(w http.ResponseWriter, req *http.Request, scenario model.Scenario) {
 	w.Header().Set("Content-Type", scenario.ContentType)
 	if scenario.Location != "" {
 		w.Header().Set("Location", scenario.Location)
@@ -121,15 +121,15 @@ func (r *Router) routeToSpecialHandlers(w http.ResponseWriter, req *http.Request
 	return false
 }
 
-// routeToMockHandler routes to the mock handler after validation
-func (r *Router) routeToMockHandler(w http.ResponseWriter, req *http.Request, requestPath string) {
-	if r.mockConfig == nil {
-		r.logger.Error("router's mockConfig is nil", pathLogKey, requestPath)
+// routeToUniHandler routes to the uni handler after validation
+func (r *Router) routeToUniHandler(w http.ResponseWriter, req *http.Request, requestPath string) {
+	if r.uniConfig == nil {
+		r.logger.Error("router's uniConfig is nil", pathLogKey, requestPath)
 		http.Error(w, "server configuration error", http.StatusInternalServerError)
 		return
 	}
 
-	_, section, err := r.mockConfig.MatchPath(requestPath)
+	_, section, err := r.uniConfig.MatchPath(requestPath)
 	if err != nil {
 		r.logger.Error("error matching path in router", pathLogKey, requestPath, "error", err)
 		http.Error(w, "error processing request path configuration", http.StatusInternalServerError)
@@ -142,6 +142,6 @@ func (r *Router) routeToMockHandler(w http.ResponseWriter, req *http.Request, re
 		return
 	}
 
-	r.logger.Debug("routing to mock handler", pathLogKey, requestPath)
-	r.mockHandler.ServeHTTP(w, req)
+	r.logger.Debug("routing to uni handler", pathLogKey, requestPath)
+	r.uniHandler.ServeHTTP(w, req)
 }

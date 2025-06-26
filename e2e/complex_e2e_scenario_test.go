@@ -95,7 +95,7 @@ func runStep5ApplyScenarioOverride(ctx context.Context, t *testing.T, unimockAPI
 	t.Helper()
 	var scenarioID string
 	t.Run("Step5_ApplyScenarioOverride", func(t *testing.T) {
-		scenarioToCreate := &model.Scenario{
+		scenarioToCreate := model.Scenario{
 			RequestPath: "GET /products/" + complexE2EPrimaryID,
 			StatusCode:  http.StatusTeapot,
 			ContentType: "application/json",

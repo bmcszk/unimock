@@ -22,7 +22,7 @@ func Example() {
 	defer cancel()
 
 	// Create a new scenario
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		RequestPath: "GET /api/users",
 		StatusCode:  200,
 		ContentType: "application/json",
@@ -54,7 +54,7 @@ func Example() {
 	fmt.Printf("Retrieved scenario: %s %s\n", retrievedScenario.UUID, retrievedScenario.RequestPath)
 
 	// Update the scenario
-	updatedScenario := &model.Scenario{
+	updatedScenario := model.Scenario{
 		UUID:        createdScenario.UUID,
 		RequestPath: "GET /api/users",
 		StatusCode:  201,
@@ -180,7 +180,7 @@ func ExampleClient_mixed_usage() {
 	defer cancel()
 
 	// First, create a scenario for a specific endpoint
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		RequestPath: "GET /api/special/endpoint",
 		StatusCode:  200,
 		ContentType: "application/json",

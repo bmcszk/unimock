@@ -21,8 +21,8 @@ import (
 )
 
 // Helper function to create test handler with transformations
-func createHandlerWithTransforms(transformConfig *config.TransformationConfig) *handler.MockHandler {
-	store := storage.NewMockStorage()
+func createHandlerWithTransforms(transformConfig *config.TransformationConfig) *handler.UniHandler {
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
@@ -33,36 +33,36 @@ func createHandlerWithTransforms(transformConfig *config.TransformationConfig) *
 		Transformations: transformConfig,
 	}
 
-	mockConfig := &config.MockConfig{
+	mockConfig := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"users": section,
 		},
 	}
 
-	mockService := service.NewMockService(store, mockConfig)
+	uniService := service.NewUniService(store, mockConfig)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	return handler.NewMockHandler(mockService, scenarioService, techService, logger, mockConfig)
+	return handler.NewUniHandler(uniService, scenarioService, techService, logger, mockConfig)
 }
 
 func TestTransformationSimple_ResponseHeaders(t *testing.T) {
 	// Create transformation config that modifies response data
 	transformConfig := config.NewTransformationConfig()
 	transformConfig.AddResponseTransform(
-		func(data *model.MockData) (*model.MockData, error) {
+		func(data model.UniData) (model.UniData, error) {
 			// Add transformation metadata to the response body
-			modifiedData := *data
+			modifiedData := data
 			modifiedData.Body = []byte(`{"id": "123", "name": "test user", ` +
 				`"x-transformed": "true", "x-section": "users"}`)
-			return &modifiedData, nil
+			return modifiedData, nil
 		})
 
 	_ = createHandlerWithTransforms(transformConfig)
 
 	// Create test data
 	ctx := context.Background()
-	store := storage.NewMockStorage()
-	mockService := service.NewMockService(store, &config.MockConfig{
+	store := storage.NewUniStorage()
+	uniService := service.NewUniService(store, &config.UniConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern:   "/users/*",
@@ -72,17 +72,17 @@ func TestTransformationSimple_ResponseHeaders(t *testing.T) {
 		},
 	})
 
-	testData := &model.MockData{
+	testData := model.UniData{
 		Body:        []byte(`{"id": "123", "name": "test user"}`),
 		ContentType: "application/json",
 	}
-	err := mockService.CreateResource(ctx, "users", false, []string{"123"}, testData)
+	err := uniService.CreateResource(ctx, "users", false, []string{"123"}, testData)
 	require.NoError(t, err)
 
 	// Copy test data to the handler's service storage
 	// Note: In a real scenario, we'd have a shared storage instance
-	handlerStore := storage.NewMockStorage()
-	handlerMockService := service.NewMockService(handlerStore, &config.MockConfig{
+	handlerStore := storage.NewUniStorage()
+	handlerUniService := service.NewUniService(handlerStore, &config.UniConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern:   "/users/*",
@@ -91,11 +91,11 @@ func TestTransformationSimple_ResponseHeaders(t *testing.T) {
 			},
 		},
 	})
-	handlerTestData := &model.MockData{
+	handlerTestData := model.UniData{
 		Body:        []byte(`{"id": "123", "name": "test user"}`),
 		ContentType: "application/json",
 	}
-	err = handlerMockService.CreateResource(ctx, "users", false, []string{"123"}, handlerTestData)
+	err = handlerUniService.CreateResource(ctx, "users", false, []string{"123"}, handlerTestData)
 	require.NoError(t, err)
 
 	// Re-create handler with the correct storage
@@ -109,7 +109,7 @@ func TestTransformationSimple_ResponseHeaders(t *testing.T) {
 		Transformations: transformConfig,
 	}
 
-	mockConfig := &config.MockConfig{
+	mockConfig := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"users": section,
 		},
@@ -117,11 +117,11 @@ func TestTransformationSimple_ResponseHeaders(t *testing.T) {
 
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	mockHandler := handler.NewMockHandler(handlerMockService, scenarioService, techService, logger, mockConfig)
+	uniHandler := handler.NewUniHandler(handlerUniService, scenarioService, techService, logger, mockConfig)
 
 	// Test request
 	req := httptest.NewRequest(http.MethodGet, "/users/123", nil)
-	resp, err := mockHandler.HandleRequest(context.Background(), req)
+	resp, err := uniHandler.HandleRequest(context.Background(), req)
 
 	require.NoError(t, err)
 	defer resp.Body.Close()
@@ -137,11 +137,11 @@ func TestTransformationSimple_ResponseHeaders(t *testing.T) {
 
 func TestTransformationSimple_NoTransformations(t *testing.T) {
 	// Create handler without transformations
-	mockHandler := createHandlerWithTransforms(nil)
+	uniHandler := createHandlerWithTransforms(nil)
 
 	// Test that it works normally
 	req := httptest.NewRequest(http.MethodGet, "/users/nonexistent", nil)
-	resp, err := mockHandler.HandleRequest(context.Background(), req)
+	resp, err := uniHandler.HandleRequest(context.Background(), req)
 
 	require.NoError(t, err)
 	defer resp.Body.Close()
@@ -153,17 +153,17 @@ func TestTransformationSimple_ErrorHandling(t *testing.T) {
 	// Create transformation config that always fails
 	transformConfig := config.NewTransformationConfig()
 	transformConfig.AddRequestTransform(
-		func(_ *model.MockData) (*model.MockData, error) {
-			return nil, assert.AnError // Use a known error from testify
+		func(_ model.UniData) (model.UniData, error) {
+			return model.UniData{}, assert.AnError // Use a known error from testify
 		})
 
-	mockHandler := createHandlerWithTransforms(transformConfig)
+	uniHandler := createHandlerWithTransforms(transformConfig)
 
 	// Use POST request to trigger request transformation (which will fail)
 	reqBody := strings.NewReader(`{"id": "123", "name": "test user"}`)
 	req := httptest.NewRequest(http.MethodPost, "/users", reqBody)
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := mockHandler.HandleRequest(context.Background(), req)
+	resp, err := uniHandler.HandleRequest(context.Background(), req)
 
 	require.NoError(t, err) // Handler returns response, not error
 	defer resp.Body.Close()

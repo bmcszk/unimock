@@ -10,11 +10,11 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
-func TestMockStorage_CRUD(t *testing.T) { //nolint:revive
-	testStorage := storage.NewMockStorage()
+func TestUniStorage_CRUD(t *testing.T) { //nolint:revive
+	testStorage := storage.NewUniStorage()
 
 	// Test data with mixed content types
-	testData := []*model.MockData{
+	testData := []model.UniData{
 		{
 			Path:        "/test/123",
 			ContentType: "application/json",
@@ -35,7 +35,7 @@ func TestMockStorage_CRUD(t *testing.T) { //nolint:revive
 	// Test Create
 	for _, data := range testData {
 		id := data.Path[strings.LastIndex(data.Path, "/")+1:]
-		// Set IDs in MockData
+		// Set IDs in UniData
 		data.IDs = []string{id}
 		err := testStorage.Create("test", false, data)
 		if err != nil {
@@ -90,7 +90,7 @@ func TestMockStorage_CRUD(t *testing.T) { //nolint:revive
 	}
 
 	// Test Update
-	updatedData := &model.MockData{
+	updatedData := model.UniData{
 		Path:        "/test/123",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123", "updated": true}`),
@@ -114,10 +114,10 @@ func TestMockStorage_CRUD(t *testing.T) { //nolint:revive
 }
 
 // Helper function to create concurrent test data
-func createConcurrentTestData(t *testing.T, testStorage storage.MockStorage, i int) {
+func createConcurrentTestData(t *testing.T, testStorage storage.UniStorage, i int) {
 	t.Helper()
 	id := fmt.Sprintf("test%d", i)
-	data := &model.MockData{
+	data := model.UniData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(fmt.Sprintf(`{"id": "%d"}`, i)),
@@ -130,7 +130,7 @@ func createConcurrentTestData(t *testing.T, testStorage storage.MockStorage, i i
 }
 
 // Helper function to verify concurrent test data
-func verifyConcurrentTestData(t *testing.T, testStorage storage.MockStorage) {
+func verifyConcurrentTestData(t *testing.T, testStorage storage.UniStorage) {
 	t.Helper()
 	// Verify all data was stored
 	for i := 0; i < 10; i++ { //nolint:mnd
@@ -142,8 +142,8 @@ func verifyConcurrentTestData(t *testing.T, testStorage storage.MockStorage) {
 	}
 }
 
-func TestMockStorage_ConcurrentAccess(t *testing.T) {
-	testStorage := storage.NewMockStorage()
+func TestUniStorage_ConcurrentAccess(t *testing.T) {
+	testStorage := storage.NewUniStorage()
 	var wg sync.WaitGroup
 
 	// Test concurrent writes
@@ -160,11 +160,11 @@ func TestMockStorage_ConcurrentAccess(t *testing.T) {
 	verifyConcurrentTestData(t, testStorage)
 }
 
-func TestMockStorage_ErrorCases(t *testing.T) {
-	testStorage := storage.NewMockStorage()
+func TestUniStorage_ErrorCases(t *testing.T) {
+	testStorage := storage.NewUniStorage()
 
 	// Test updating non-existent ID
-	err := testStorage.Update("test", false, "nonexistent", &model.MockData{})
+	err := testStorage.Update("test", false, "nonexistent", model.UniData{})
 	if err == nil {
 		t.Error("Expected error when updating non-existent ID")
 	}
@@ -182,7 +182,7 @@ func TestMockStorage_ErrorCases(t *testing.T) {
 	}
 
 	// Test creating duplicate ID
-	data := &model.MockData{
+	data := model.UniData{
 		Path:        "/test",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123"}`),
@@ -210,9 +210,9 @@ func TestMockStorage_ErrorCases(t *testing.T) {
 }
 
 // Helper function to test create with multiple IDs
-func testCreateWithMultipleIDs(t *testing.T, storageInstance storage.MockStorage) {
+func testCreateWithMultipleIDs(t *testing.T, storageInstance storage.UniStorage) {
 	t.Helper()
-	multiIdData1 := &model.MockData{
+	multiIdData1 := model.UniData{
 		Path:        "/multi/data1",
 		ContentType: "text/plain",
 		Body:        []byte("data for multi-id 1"),
@@ -229,7 +229,7 @@ func testCreateWithMultipleIDs(t *testing.T, storageInstance storage.MockStorage
 		if errGet != nil {
 			t.Errorf("CreateWithMultipleIDs: Get(%s) failed: %v", id, errGet)
 		}
-		if retrieved == nil || string(retrieved.Body) != string(multiIdData1.Body) {
+		if string(retrieved.Body) != string(multiIdData1.Body) {
 			t.Errorf(
 				"CreateWithMultipleIDs: Get(%s) returned incorrect data. Got %v, Expected %v",
 				id, retrieved, multiIdData1,
@@ -239,9 +239,9 @@ func testCreateWithMultipleIDs(t *testing.T, storageInstance storage.MockStorage
 }
 
 // Helper function to test delete by one ID removes all mappings
-func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance storage.MockStorage) {
+func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance storage.UniStorage) {
 	t.Helper()
-	multiIdData2 := &model.MockData{
+	multiIdData2 := model.UniData{
 		Path:        "/multi/data2",
 		ContentType: "text/plain",
 		Body:        []byte("data for multi-id 2"),
@@ -267,9 +267,9 @@ func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance storage.M
 }
 
 // Helper function to test update by one ID affects single resource
-func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storage.MockStorage) { //nolint:revive
+func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storage.UniStorage) { //nolint:revive
 	t.Helper()
-	multiIdData3 := &model.MockData{
+	multiIdData3 := model.UniData{
 		Path:        "/multi/data3",
 		ContentType: "text/plain",
 		Body:        []byte("original data3"),
@@ -282,7 +282,7 @@ func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storag
 	}
 
 	updatedData3Body := "updated data3"
-	updatePayload := &model.MockData{
+	updatePayload := model.UniData{
 		Path:        "/multi/data3",
 		ContentType: "text/plain",
 		Body:        []byte(updatedData3Body),
@@ -297,7 +297,7 @@ func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storag
 		if errGet != nil {
 			t.Errorf("UpdateByOneID: Get(%s) failed after update: %v", id, errGet)
 		}
-		if retrieved == nil || string(retrieved.Body) != updatedData3Body {
+		if string(retrieved.Body) != updatedData3Body {
 			t.Errorf(
 				"UpdateByOneID: Get(%s) returned incorrect data after update. Got %s, Expected %s",
 				id, string(retrieved.Body), updatedData3Body,
@@ -307,9 +307,9 @@ func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storag
 }
 
 // Helper function to test conflict on create with existing external ID
-func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance storage.MockStorage) {
+func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance storage.UniStorage) {
 	t.Helper()
-	conflictData1 := &model.MockData{
+	conflictData1 := model.UniData{
 		Path:        "/conflict/data1",
 		ContentType: "text/plain",
 		Body:        []byte("conflict data 1"),
@@ -321,7 +321,7 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 		t.Fatalf("ConflictOnCreate: failed to create initial resource for conflict test: %v", err)
 	}
 
-	conflictData2 := &model.MockData{
+	conflictData2 := model.UniData{
 		Path:        "/conflict/data2",
 		ContentType: "text/plain",
 		Body:        []byte("conflict data 2"),
@@ -341,7 +341,7 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 	if errGet != nil {
 		t.Errorf("ConflictOnCreate: Get(\"common_id\") failed after conflict attempt: %v", errGet)
 	}
-	if retrievedConflict == nil || string(retrievedConflict.Body) != string(conflictData1.Body) {
+	if string(retrievedConflict.Body) != string(conflictData1.Body) {
 		t.Errorf(
 			"ConflictOnCreate: Get(\"common_id\") returned incorrect data. Got %v, Expected %v",
 			retrievedConflict, conflictData1,
@@ -354,8 +354,8 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 	}
 }
 
-func TestMockStorage_MultiID(t *testing.T) {
-	storageInstance := storage.NewMockStorage() // Use public API
+func TestUniStorage_MultiID(t *testing.T) {
+	storageInstance := storage.NewUniStorage() // Use public API
 
 	// 1. CreateWithMultipleIDs & Get by any ID
 	testCreateWithMultipleIDs(t, storageInstance)

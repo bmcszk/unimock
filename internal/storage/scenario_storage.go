@@ -14,33 +14,30 @@ const (
 
 // ScenarioStorage manages scenarios
 type ScenarioStorage interface {
-	Create(id string, scenario *model.Scenario) error
-	Get(id string) (*model.Scenario, error)
-	Update(id string, scenario *model.Scenario) error
+	Create(id string, scenario model.Scenario) error
+	Get(id string) (model.Scenario, error)
+	Update(id string, scenario model.Scenario) error
 	Delete(id string) error
-	List() []*model.Scenario
+	List() []model.Scenario
 }
 
 // scenarioStorage implements the ScenarioStorage interface
 type scenarioStorage struct {
 	mu        *sync.RWMutex
-	scenarios map[string]*model.Scenario
+	scenarios map[string]model.Scenario
 }
 
 // NewScenarioStorage creates a new instance of ScenarioStorage
 func NewScenarioStorage() ScenarioStorage {
 	return &scenarioStorage{
 		mu:        &sync.RWMutex{},
-		scenarios: make(map[string]*model.Scenario),
+		scenarios: make(map[string]model.Scenario),
 	}
 }
 
-func (s *scenarioStorage) Create(id string, scenario *model.Scenario) error {
+func (s *scenarioStorage) Create(id string, scenario model.Scenario) error {
 	if id == "" {
 		return errors.NewInvalidRequestError(errScenarioIDEmpty)
-	}
-	if scenario == nil {
-		return errors.NewInvalidRequestError("scenario cannot be nil")
 	}
 
 	s.mu.Lock()
@@ -57,9 +54,9 @@ func (s *scenarioStorage) Create(id string, scenario *model.Scenario) error {
 	return nil
 }
 
-func (s *scenarioStorage) Get(id string) (*model.Scenario, error) {
+func (s *scenarioStorage) Get(id string) (model.Scenario, error) {
 	if id == "" {
-		return nil, errors.NewInvalidRequestError("errScenarioIDEmpty")
+		return model.Scenario{}, errors.NewInvalidRequestError("errScenarioIDEmpty")
 	}
 
 	s.mu.RLock()
@@ -67,18 +64,15 @@ func (s *scenarioStorage) Get(id string) (*model.Scenario, error) {
 
 	scenario, exists := s.scenarios[id]
 	if !exists {
-		return nil, errors.NewNotFoundError(id, "")
+		return model.Scenario{}, errors.NewNotFoundError(id, "")
 	}
 
 	return scenario, nil
 }
 
-func (s *scenarioStorage) Update(id string, scenario *model.Scenario) error {
+func (s *scenarioStorage) Update(id string, scenario model.Scenario) error {
 	if id == "" {
 		return errors.NewInvalidRequestError(errScenarioIDEmpty)
-	}
-	if scenario == nil {
-		return errors.NewInvalidRequestError("scenario cannot be nil")
 	}
 
 	s.mu.Lock()
@@ -114,11 +108,11 @@ func (s *scenarioStorage) Delete(id string) error {
 	return nil
 }
 
-func (s *scenarioStorage) List() []*model.Scenario {
+func (s *scenarioStorage) List() []model.Scenario {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	scenarios := make([]*model.Scenario, 0, len(s.scenarios))
+	scenarios := make([]model.Scenario, 0, len(s.scenarios))
 	for _, scenario := range s.scenarios {
 		scenarios = append(scenarios, scenario)
 	}

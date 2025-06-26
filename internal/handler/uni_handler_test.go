@@ -18,8 +18,8 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestMockHandler_HandleRequest(t *testing.T) {
-	deps := setupMockHandlerFull(t)
+func TestUniHandler_HandleRequest(t *testing.T) {
+	deps := setupUniHandlerFull(t)
 	testData := getTestData()
 	populateTestData(deps.store, testData)
 
@@ -27,8 +27,8 @@ func TestMockHandler_HandleRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockHandler := prepareHandlerForTest(t, tt, deps, testData)
-			executeTestRequest(t, tt, mockHandler)
+			uniHandler := prepareHandlerForTest(t, tt, deps, testData)
+			executeTestRequest(t, tt, uniHandler)
 		})
 	}
 }
@@ -69,21 +69,21 @@ func validateResponseBody(t *testing.T, w *httptest.ResponseRecorder, expectedBo
 	}
 }
 
-// mockHandlerDeps holds the dependencies for mock handler testing
-type mockHandlerDeps struct {
-	handler *handler.MockHandler
-	store   storage.MockStorage
-	config  *config.MockConfig
+// uniHandlerDeps holds the dependencies for uni handler testing
+type uniHandlerDeps struct {
+	handler *handler.UniHandler
+	store   storage.UniStorage
+	config  *config.UniConfig
 	logger  *slog.Logger
 }
 
-// setupMockHandlerFull creates and configures a mock handler with all dependencies for testing
-func setupMockHandlerFull(t *testing.T) mockHandlerDeps {
+// setupUniHandlerFull creates and configures a mock handler with all dependencies for testing
+func setupUniHandlerFull(t *testing.T) uniHandlerDeps {
 	t.Helper()
-	store := storage.NewMockStorage()
+	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	cfg := &config.MockConfig{
+	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"users": {
 				PathPattern:   "/users/*",
@@ -94,13 +94,13 @@ func setupMockHandlerFull(t *testing.T) mockHandlerDeps {
 		},
 	}
 
-	mockService := service.NewMockService(store, cfg)
+	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
-	mockHandler := handler.NewMockHandler(mockService, scenarioService, techService, logger, cfg)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
 	
-	return mockHandlerDeps{
-		handler: mockHandler,
+	return uniHandlerDeps{
+		handler: uniHandler,
 		store:   store,
 		config:  cfg,
 		logger:  logger,
@@ -108,8 +108,8 @@ func setupMockHandlerFull(t *testing.T) mockHandlerDeps {
 }
 
 // getTestData returns the standard test data
-func getTestData() []*model.MockData {
-	return []*model.MockData{
+func getTestData() []model.UniData {
+	return []model.UniData{
 		{
 			Path:        "/users/123",
 			ContentType: "application/json",
@@ -129,7 +129,7 @@ func getTestData() []*model.MockData {
 }
 
 // populateTestData adds test data to the storage
-func populateTestData(store storage.MockStorage, testData []*model.MockData) {
+func populateTestData(store storage.UniStorage, testData []model.UniData) {
 	for _, data := range testData {
 		ids := []string{data.Path[strings.LastIndex(data.Path, "/")+1:]}
 		data.IDs = ids
@@ -265,17 +265,17 @@ func prepareHandlerForTest(t *testing.T, tt struct {
 	body           string
 	expectedStatus int
 	expectedBody   string
-}, deps mockHandlerDeps, testData []*model.MockData) *handler.MockHandler {
+}, deps uniHandlerDeps, testData []model.UniData) *handler.UniHandler {
 	t.Helper()
 
 	if needsCleanHandler(tt.name) {
-		cleanStore := storage.NewMockStorage()
+		cleanStore := storage.NewUniStorage()
 		populateTestData(cleanStore, testData)
-		currentService := service.NewMockService(cleanStore, deps.config)
+		currentService := service.NewUniService(cleanStore, deps.config)
 		currentScenarioStore := storage.NewScenarioStorage()
 		currentScenarioService := service.NewScenarioService(currentScenarioStore)
 		techService := service.NewTechService(time.Now())
-		return handler.NewMockHandler(currentService, currentScenarioService, techService, deps.logger, deps.config)
+		return handler.NewUniHandler(currentService, currentScenarioService, techService, deps.logger, deps.config)
 	}
 
 	return deps.handler
@@ -307,7 +307,7 @@ func executeTestRequest(t *testing.T, tt struct {
 	body           string
 	expectedStatus int
 	expectedBody   string
-}, mockHandler *handler.MockHandler) {
+}, uniHandler *handler.UniHandler) {
 	t.Helper()
 
 	req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
@@ -316,7 +316,7 @@ func executeTestRequest(t *testing.T, tt struct {
 	}
 
 	w := httptest.NewRecorder()
-	mockHandler.ServeHTTP(w, req)
+	uniHandler.ServeHTTP(w, req)
 
 	if w.Code != tt.expectedStatus {
 		t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
@@ -340,23 +340,23 @@ func isErrorMessage(expectedBody string) bool {
 	return false
 }
 
-func TestMockHandler_ReturnBodyFlag_POST(t *testing.T) {
+func TestUniHandler_ReturnBodyFlag_POST(t *testing.T) {
 	t.Run("POST with return_body false", testPOSTReturnBodyFalse)
 	t.Run("POST with return_body true", testPOSTReturnBodyTrue)
 }
 
-func TestMockHandler_ReturnBodyFlag_PUT(t *testing.T) {
+func TestUniHandler_ReturnBodyFlag_PUT(t *testing.T) {
 	t.Run("PUT with return_body false", testPUTReturnBodyFalse)
 	t.Run("PUT with return_body true", testPUTReturnBodyTrue)
 }
 
-func TestMockHandler_ReturnBodyFlag_DELETE(t *testing.T) {
+func TestUniHandler_ReturnBodyFlag_DELETE(t *testing.T) {
 	t.Run("DELETE with return_body false", testDELETEReturnBodyFalse)
 	t.Run("DELETE with return_body true", testDELETEReturnBodyTrue)
 }
 
 func testPOSTReturnBodyFalse(t *testing.T) {
-	deps := setupMockHandlerFull(t)
+	deps := setupUniHandlerFull(t)
 	deps.config.Sections["test"] = config.Section{
 		PathPattern: "/api/test/*",
 		BodyIDPaths: []string{"/id"},
@@ -379,7 +379,7 @@ func testPOSTReturnBodyFalse(t *testing.T) {
 }
 
 func testPOSTReturnBodyTrue(t *testing.T) {
-	deps := setupMockHandlerFull(t)
+	deps := setupUniHandlerFull(t)
 	deps.config.Sections["test"] = config.Section{
 		PathPattern: "/api/test/*",
 		BodyIDPaths: []string{"/id"},
@@ -405,7 +405,7 @@ func testPOSTReturnBodyTrue(t *testing.T) {
 }
 
 func testPUTReturnBodyFalse(t *testing.T) {
-	deps := setupMockHandlerFull(t)
+	deps := setupUniHandlerFull(t)
 	deps.config.Sections["test"] = config.Section{
 		PathPattern: "/api/test/*",
 		BodyIDPaths: []string{"/id"},
@@ -430,7 +430,7 @@ func testPUTReturnBodyFalse(t *testing.T) {
 }
 
 func testPUTReturnBodyTrue(t *testing.T) {
-	deps := setupMockHandlerFull(t)
+	deps := setupUniHandlerFull(t)
 	deps.config.Sections["test"] = config.Section{
 		PathPattern: "/api/test/*",
 		BodyIDPaths: []string{"/id"},
@@ -458,7 +458,7 @@ func testPUTReturnBodyTrue(t *testing.T) {
 }
 
 func testDELETEReturnBodyFalse(t *testing.T) {
-	deps := setupMockHandlerFull(t)
+	deps := setupUniHandlerFull(t)
 	deps.config.Sections["test"] = config.Section{
 		PathPattern: "/api/test/*",
 		BodyIDPaths: []string{"/id"},
@@ -480,7 +480,7 @@ func testDELETEReturnBodyFalse(t *testing.T) {
 }
 
 func testDELETEReturnBodyTrue(t *testing.T) {
-	deps := setupMockHandlerFull(t)
+	deps := setupUniHandlerFull(t)
 	deps.config.Sections["test"] = config.Section{
 		PathPattern: "/api/test/*",
 		BodyIDPaths: []string{"/id"},
@@ -504,7 +504,7 @@ func testDELETEReturnBodyTrue(t *testing.T) {
 	}
 }
 
-func createResource(t *testing.T, deps mockHandlerDeps, id, name string) {
+func createResource(t *testing.T, deps uniHandlerDeps, id, name string) {
 	t.Helper()
 	createBody := `{"id": "` + id + `", "name": "` + name + `"}`
 	createReq := httptest.NewRequest("POST", "/api/test", strings.NewReader(createBody))
@@ -513,8 +513,8 @@ func createResource(t *testing.T, deps mockHandlerDeps, id, name string) {
 	deps.handler.ServeHTTP(createW, createReq)
 }
 
-func TestMockHandler_HEAD_Operation(t *testing.T) {
-	deps := setupMockHandlerFull(t)
+func TestUniHandler_HEAD_Operation(t *testing.T) {
+	deps := setupUniHandlerFull(t)
 	
 	// Create a test resource first
 	createTestResourceForHead(t, deps, "test123", "test resource")
@@ -568,7 +568,7 @@ type headTestCase struct {
 	expectHeaders  map[string]string
 }
 
-func createTestResourceForHead(t *testing.T, deps mockHandlerDeps, id, name string) {
+func createTestResourceForHead(t *testing.T, deps uniHandlerDeps, id, name string) {
 	t.Helper()
 	createBody := `{"id": "` + id + `", "name": "` + name + `"}`
 	createReq := httptest.NewRequest("POST", "/users", strings.NewReader(createBody))
@@ -581,7 +581,7 @@ func createTestResourceForHead(t *testing.T, deps mockHandlerDeps, id, name stri
 	}
 }
 
-func executeHeadTest(t *testing.T, deps mockHandlerDeps, tt headTestCase) {
+func executeHeadTest(t *testing.T, deps uniHandlerDeps, tt headTestCase) {
 	t.Helper()
 	req := httptest.NewRequest(tt.method, tt.path, nil)
 	w := httptest.NewRecorder()
@@ -624,8 +624,8 @@ func checkBodyPresence(t *testing.T, w *httptest.ResponseRecorder, expectBody bo
 	}
 }
 
-func TestMockHandler_HEAD_vs_GET_Consistency(t *testing.T) {
-	deps := setupMockHandlerFull(t)
+func TestUniHandler_HEAD_vs_GET_Consistency(t *testing.T) {
+	deps := setupUniHandlerFull(t)
 	
 	// Create a test resource
 	createTestResourceForHead(t, deps, "consistency123", "consistency test")
@@ -640,7 +640,7 @@ func TestMockHandler_HEAD_vs_GET_Consistency(t *testing.T) {
 	verifyBodyConsistency(t, getW, headW)
 }
 
-func makeRequest(t *testing.T, deps mockHandlerDeps, method, path string) *httptest.ResponseRecorder {
+func makeRequest(t *testing.T, deps uniHandlerDeps, method, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, nil)
 	w := httptest.NewRecorder()

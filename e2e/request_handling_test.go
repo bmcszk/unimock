@@ -52,7 +52,7 @@ func TestSCEN_RH_001_GetExistingResource(t *testing.T) {
 	expectedBody := `{"id": "item123", "data": "sample data"}`
 	expectedContentType := applicationJSONContentType
 
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		RequestPath: getPrefix + targetURLPath,
 		StatusCode:  http.StatusOK,
 		ContentType: expectedContentType,
@@ -93,7 +93,7 @@ func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 	expectedContentType := applicationJSONContentType // For the getPrefixrequest after POST
 
 	// Scenario for the POST request
-	postScenario := &model.Scenario{
+	postScenario := model.Scenario{
 		RequestPath: "POST " + targetCollectionURLPath,
 		StatusCode:  http.StatusCreated,
 		ContentType: applicationJSONContentType,
@@ -108,7 +108,7 @@ func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 	})
 
 	// Scenario for the subsequent getPrefixrequest to verify creation
-	getScenario := &model.Scenario{
+	getScenario := model.Scenario{
 		RequestPath: getPrefix + expectedLocationHeader,
 		StatusCode:  http.StatusOK,
 		ContentType: expectedContentType,
@@ -143,7 +143,7 @@ func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 	expectedContentType := applicationJSONContentType
 
 	// Scenario for the PUT request
-	putScenario := &model.Scenario{
+	putScenario := model.Scenario{
 		RequestPath: "PUT " + targetResourceURLPath,
 		StatusCode:  http.StatusOK,
 		ContentType: expectedContentType,
@@ -154,7 +154,7 @@ func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdPutScenario.UUID) })
 
 	// Scenario for the getPrefixrequest after PUT to verify update
-	getAfterPutScenario := &model.Scenario{
+	getAfterPutScenario := model.Scenario{
 		RequestPath: getPrefix + targetResourceURLPath,
 		StatusCode:  http.StatusOK,
 		ContentType: expectedContentType,
@@ -184,7 +184,7 @@ func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 	targetResourceURLPath := "/test/resource/itemToDelete"
 
 	// Scenario for the DELETE request
-	deleteScenario := &model.Scenario{
+	deleteScenario := model.Scenario{
 		RequestPath: "DELETE " + targetResourceURLPath,
 		StatusCode:  http.StatusNoContent,
 	}
@@ -194,7 +194,7 @@ func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 
 	// Scenario for the getPrefixrequest after DELETE to verify deletion (expects 404)
 	// This scenario in Unimock should produce the body that matches scen_rh_004.hresp for the 404.
-	getAfterDeleteScenario := &model.Scenario{
+	getAfterDeleteScenario := model.Scenario{
 		RequestPath: getPrefix + targetResourceURLPath,
 		StatusCode:  http.StatusNotFound,
 		ContentType: "text/plain",         // Match .hresp, simplified from "text/plain; charset=utf-8"
@@ -226,7 +226,7 @@ func TestSCEN_RH_005_GetIndividualResourceEndpoint(t *testing.T) {
 	expectedMockContentType := applicationJSONContentType
 
 	// Scenario for the specific mock endpoint
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		RequestPath: getPrefix + mockedEndpointPath,
 		StatusCode:  http.StatusOK,
 		ContentType: expectedMockContentType,
@@ -251,7 +251,7 @@ func TestSCEN_RH_006_GetCollectionEndpoint(t *testing.T) {
 	expectedCollectionContentType := applicationJSONContentType
 
 	// Scenario for the collection endpoint
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		RequestPath: getPrefix + mockedCollectionPath,
 		StatusCode:  http.StatusOK,
 		ContentType: expectedCollectionContentType,
@@ -320,7 +320,7 @@ func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
 	contentTypeB := "text/plain" // Simplified from "text/plain; charset=utf-8"
 
 	// Scenario for Path A
-	scenarioA := &model.Scenario{
+	scenarioA := model.Scenario{
 		RequestPath: getPrefix + pathA,
 		StatusCode:  http.StatusOK,
 		ContentType: contentTypeA,
@@ -331,7 +331,7 @@ func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdScenarioA.UUID) })
 
 	// Scenario for Path B
-	scenarioB := &model.Scenario{
+	scenarioB := model.Scenario{
 		RequestPath: getPrefix + pathB,
 		StatusCode:  http.StatusOK,
 		ContentType: contentTypeB,
@@ -363,7 +363,7 @@ func TestSCEN_RH_010_WildcardPathMatching(t *testing.T) {
 	responseContentType := applicationJSONContentType
 
 	// Scenario with wildcard
-	wildcardScenario := &model.Scenario{
+	wildcardScenario := model.Scenario{
 		RequestPath: getPrefix + wildcardPathPattern,
 		StatusCode:  http.StatusOK,
 		ContentType: responseContentType,
@@ -388,7 +388,7 @@ func TestSCEN_SH_001_ExactPathScenarioMatch(t *testing.T) {
 	expectedContentType := applicationJSONContentType
 	expectedBody := `{"message": "exact scenario matched"}`
 
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		RequestPath: targetMethod + " " + targetPath,
 		StatusCode:  expectedStatusCode,
 		ContentType: expectedContentType,
@@ -420,7 +420,7 @@ func TestSCEN_SH_002_WildcardPathScenarioMatch(t *testing.T) {
 	expectedContentType := "text/plain"
 	expectedBody := "wildcard scenario matched"
 
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		RequestPath: scenarioMethod + " " + scenarioPathPattern,
 		StatusCode:  expectedStatusCode,
 		ContentType: expectedContentType,
@@ -457,7 +457,7 @@ func TestSCEN_SH_003_ScenarioSkipsMockHandling(t *testing.T) {
 	scenarioContentType := "application/vnd.custom.teapot"
 	scenarioData := `{"message": "I am a teapot because of the scenario!"}`
 
-	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), &model.Scenario{
+	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), model.Scenario{
 		RequestPath: scenarioRequestPath,
 		StatusCode:  scenarioStatusCode,
 		ContentType: scenarioContentType,
@@ -495,7 +495,7 @@ func TestSCEN_SH_004_ScenarioMethodMismatch(t *testing.T) {
 	getScenarioStatusCode := http.StatusOK
 	getScenarioContentType := "text/plain"
 
-	getScenario := &model.Scenario{
+	getScenario := model.Scenario{
 		RequestPath: fmt.Sprintf("%s %s", getMethod, targetPath),
 		StatusCode:  getScenarioStatusCode,
 		ContentType: getScenarioContentType,
@@ -533,7 +533,7 @@ func TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation(t *testing.T) {
 	expectedData := ""
 	expectedContentType := "" // Scenario ContentType is empty, implying no specific Content-Type header for empty body
 
-	scenario := &model.Scenario{
+	scenario := model.Scenario{
 		RequestPath: fmt.Sprintf("%s %s", requestMethod, targetPath),
 		StatusCode:  expectedStatusCode,
 		ContentType: expectedContentType,

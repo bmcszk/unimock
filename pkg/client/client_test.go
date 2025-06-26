@@ -135,7 +135,7 @@ func createTestServer() *httptest.Server {
 // handleTestServerRequest handles incoming requests to the test server
 func handleTestServerRequest(w http.ResponseWriter, r *http.Request) {
 	testScenario := getTestScenario()
-	testScenarios := []*model.Scenario{testScenario}
+	testScenarios := []model.Scenario{testScenario}
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -157,8 +157,8 @@ func handleTestServerRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 // getTestScenario returns a test scenario for mocking
-func getTestScenario() *model.Scenario {
-	return &model.Scenario{
+func getTestScenario() model.Scenario {
+	return model.Scenario{
 		UUID:        "test-uuid",
 		RequestPath: "GET /api/test",
 		StatusCode:  200,
@@ -192,7 +192,7 @@ func isDeleteScenarioRequest(r *http.Request) bool {
 }
 
 // Request handlers
-func handleGetScenarioRequest(w http.ResponseWriter, r *http.Request, testScenario *model.Scenario) {
+func handleGetScenarioRequest(w http.ResponseWriter, r *http.Request, testScenario model.Scenario) {
 	if r.URL.Path == "/_uni/scenarios/not-found" {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("Not found"))
@@ -263,8 +263,9 @@ func testGetScenario(ctx context.Context, t *testing.T, apiClient *client.Client
 	if err != nil {
 		t.Errorf("Failed to get scenario: %v", err)
 	}
-	if scenario == nil {
-		t.Fatal("Expected scenario, got nil")
+	// Check if scenario is not empty (zero value check)
+	if scenario.UUID == "" {
+		t.Fatal("Expected scenario with UUID, got empty scenario")
 	}
 	if scenario.UUID != "test-uuid" {
 		t.Errorf("Expected UUID test-uuid, got %s", scenario.UUID)
@@ -293,7 +294,7 @@ func testListScenarios(ctx context.Context, t *testing.T, apiClient *client.Clie
 
 func testCreateScenario(ctx context.Context, t *testing.T, apiClient *client.Client) {
 	t.Helper()
-	newScenario := &model.Scenario{
+	newScenario := model.Scenario{
 		RequestPath: "POST /api/test",
 		StatusCode:  201,
 		ContentType: "application/json",
@@ -304,8 +305,8 @@ func testCreateScenario(ctx context.Context, t *testing.T, apiClient *client.Cli
 	if err != nil {
 		t.Errorf("Failed to create scenario: %v", err)
 	}
-	if created == nil {
-		t.Fatal("Expected created scenario, got nil")
+	if created.UUID == "" {
+		t.Fatal("Expected created scenario with UUID, got empty scenario")
 	}
 	if created.UUID != "new-uuid" {
 		t.Errorf("Expected UUID new-uuid, got %s", created.UUID)
@@ -317,7 +318,7 @@ func testCreateScenario(ctx context.Context, t *testing.T, apiClient *client.Cli
 
 func testUpdateScenario(ctx context.Context, t *testing.T, apiClient *client.Client) {
 	t.Helper()
-	updateScenario := &model.Scenario{
+	updateScenario := model.Scenario{
 		UUID:        "test-uuid",
 		RequestPath: "PUT /api/test",
 		StatusCode:  200,
@@ -330,8 +331,8 @@ func testUpdateScenario(ctx context.Context, t *testing.T, apiClient *client.Cli
 	if err != nil {
 		t.Errorf("Failed to update scenario: %v", err)
 	}
-	if updated == nil {
-		t.Fatal("Expected updated scenario, got nil")
+	if updated.UUID == "" {
+		t.Fatal("Expected updated scenario with UUID, got empty scenario")
 	}
 	if updated.RequestPath != updateScenario.RequestPath {
 		t.Errorf("Expected request path %s, got %s", updateScenario.RequestPath, updated.RequestPath)
