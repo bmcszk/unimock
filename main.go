@@ -1,3 +1,5 @@
+// Unimock is a universal HTTP mock server for end-to-end testing.
+// It can mock any HTTP-based service with flexible configuration.
 package main
 
 import (

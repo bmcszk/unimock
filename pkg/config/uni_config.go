@@ -1,3 +1,5 @@
+// Package config provides configuration structures for the Unimock server.
+// It includes ServerConfig for server settings and UniConfig for mock behavior.
 package config
 
 import (

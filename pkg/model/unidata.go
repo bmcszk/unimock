@@ -1,3 +1,4 @@
+// Package model provides data structures for Unimock's HTTP mocking and scenarios.
 package model
 
 // UniData represents the data stored for a uni HTTP resource

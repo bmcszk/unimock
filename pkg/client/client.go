@@ -1,3 +1,4 @@
+// Package client provides an HTTP client for interacting with Unimock APIs and mock endpoints.
 package client
 
 import (
