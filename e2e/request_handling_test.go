@@ -59,7 +59,7 @@ func TestSCEN_RH_001_GetExistingResource(t *testing.T) {
 		Data:        expectedBody,
 	}
 
-	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), scenario)
+	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), *scenario)
 	require.NoError(t, err, "Failed to create scenario")
 	require.NotNil(t, createdScenario, "Created scenario should not be nil")
 	require.NotEmpty(t, createdScenario.UUID, "Created scenario UUID should not be empty")
@@ -100,7 +100,7 @@ func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 		Location:    expectedLocationHeader,
 		Data:        `{"id": "` + newItemID + `", "name": "New Item", "value": 42}`,
 	}
-	createdPostScenario, err := unimockAPIClient.CreateScenario(context.Background(), postScenario)
+	createdPostScenario, err := unimockAPIClient.CreateScenario(context.Background(), *postScenario)
 	require.NoError(t, err, "Failed to create POST scenario")
 	require.NotNil(t, createdPostScenario, "Created POST scenario should not be nil")
 	t.Cleanup(func() {
@@ -114,7 +114,7 @@ func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 		ContentType: expectedContentType,
 		Data:        `{"id": "` + newItemID + `", "name": "New Item", "value": 42}`,
 	}
-	createdGetScenario, err := unimockAPIClient.CreateScenario(context.Background(), getScenario)
+	createdGetScenario, err := unimockAPIClient.CreateScenario(context.Background(), *getScenario)
 	require.NoError(t, err, "Failed to create GET scenario")
 	require.NotNil(t, createdGetScenario, "Created GET scenario should not be nil")
 	t.Cleanup(func() {
@@ -149,7 +149,7 @@ func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 		ContentType: expectedContentType,
 		Data:        updatedData,
 	}
-	createdPutScenario, err := unimockAPIClient.CreateScenario(context.Background(), putScenario)
+	createdPutScenario, err := unimockAPIClient.CreateScenario(context.Background(), *putScenario)
 	require.NoError(t, err, "Failed to create PUT scenario")
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdPutScenario.UUID) })
 
@@ -160,7 +160,7 @@ func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 		ContentType: expectedContentType,
 		Data:        updatedData,
 	}
-	createdGetAfterPutScenario, err := unimockAPIClient.CreateScenario(context.Background(), getAfterPutScenario)
+	createdGetAfterPutScenario, err := unimockAPIClient.CreateScenario(context.Background(), *getAfterPutScenario)
 	require.NoError(t, err, "Failed to create getPrefix(after PUT) scenario")
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdGetAfterPutScenario.UUID) })
 
@@ -188,7 +188,7 @@ func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 		RequestPath: "DELETE " + targetResourceURLPath,
 		StatusCode:  http.StatusNoContent,
 	}
-	createdDeleteScenario, err := unimockAPIClient.CreateScenario(context.Background(), deleteScenario)
+	createdDeleteScenario, err := unimockAPIClient.CreateScenario(context.Background(), *deleteScenario)
 	require.NoError(t, err, "Failed to create DELETE scenario")
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdDeleteScenario.UUID) })
 
@@ -200,7 +200,7 @@ func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 		ContentType: "text/plain",         // Match .hresp, simplified from "text/plain; charset=utf-8"
 		Data:        "Resource not found", // Match .hresp
 	}
-	createdGetAfterDeleteScenario, err := unimockAPIClient.CreateScenario(context.Background(), getAfterDeleteScenario)
+	createdGetAfterDeleteScenario, err := unimockAPIClient.CreateScenario(context.Background(), *getAfterDeleteScenario)
 	require.NoError(t, err, "Failed to create getPrefix(after DELETE) scenario")
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdGetAfterDeleteScenario.UUID) })
 
@@ -232,7 +232,7 @@ func TestSCEN_RH_005_GetIndividualResourceEndpoint(t *testing.T) {
 		ContentType: expectedMockContentType,
 		Data:        expectedMockBody,
 	}
-	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), scenario)
+	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), *scenario)
 	require.NoError(t, err, "Failed to create scenario for specific mock endpoint")
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdScenario.UUID) })
 
@@ -257,7 +257,7 @@ func TestSCEN_RH_006_GetCollectionEndpoint(t *testing.T) {
 		ContentType: expectedCollectionContentType,
 		Data:        expectedCollectionBody,
 	}
-	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), scenario)
+	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), *scenario)
 	require.NoError(t, err, "Failed to create scenario for collection endpoint")
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdScenario.UUID) })
 
@@ -326,7 +326,7 @@ func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
 		ContentType: contentTypeA,
 		Data:        dataA,
 	}
-	createdScenarioA, err := unimockAPIClient.CreateScenario(context.Background(), scenarioA)
+	createdScenarioA, err := unimockAPIClient.CreateScenario(context.Background(), *scenarioA)
 	require.NoError(t, err, "Failed to create scenario for path A")
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdScenarioA.UUID) })
 
@@ -337,7 +337,7 @@ func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
 		ContentType: contentTypeB,
 		Data:        dataB,
 	}
-	createdScenarioB, err := unimockAPIClient.CreateScenario(context.Background(), scenarioB)
+	createdScenarioB, err := unimockAPIClient.CreateScenario(context.Background(), *scenarioB)
 	require.NoError(t, err, "Failed to create scenario for path B")
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdScenarioB.UUID) })
 
@@ -369,7 +369,7 @@ func TestSCEN_RH_010_WildcardPathMatching(t *testing.T) {
 		ContentType: responseContentType,
 		Data:        responseData,
 	}
-	createdWildcardScenario, err := unimockAPIClient.CreateScenario(context.Background(), wildcardScenario)
+	createdWildcardScenario, err := unimockAPIClient.CreateScenario(context.Background(), *wildcardScenario)
 	require.NoError(t, err, "Failed to create wildcard scenario")
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdWildcardScenario.UUID) })
 
@@ -395,7 +395,7 @@ func TestSCEN_SH_001_ExactPathScenarioMatch(t *testing.T) {
 		Data:        expectedBody,
 	}
 
-	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), scenario)
+	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), *scenario)
 	require.NoError(t, err, "Failed to create scenario SCEN-SH-001")
 	require.NotNil(t, createdScenario, "Created scenario SCEN-SH-001 should not be nil")
 	require.NotEmpty(t, createdScenario.UUID, "Created scenario SCEN-SH-001 UUID should not be empty")
@@ -427,7 +427,7 @@ func TestSCEN_SH_002_WildcardPathScenarioMatch(t *testing.T) {
 		Data:        expectedBody,
 	}
 
-	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), scenario)
+	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), *scenario)
 	require.NoError(t, err, "Failed to create scenario SCEN-SH-002")
 	require.NotNil(t, createdScenario, "Created scenario SCEN-SH-002 should not be nil")
 	require.NotEmpty(t, createdScenario.UUID, "Created scenario SCEN-SH-002 UUID should not be empty")
@@ -457,7 +457,7 @@ func TestSCEN_SH_003_ScenarioSkipsMockHandling(t *testing.T) {
 	scenarioContentType := "application/vnd.custom.teapot"
 	scenarioData := `{"message": "I am a teapot because of the scenario!"}`
 
-	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), &model.Scenario{
+	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), model.Scenario{
 		RequestPath: scenarioRequestPath,
 		StatusCode:  scenarioStatusCode,
 		ContentType: scenarioContentType,
@@ -501,7 +501,7 @@ func TestSCEN_SH_004_ScenarioMethodMismatch(t *testing.T) {
 		ContentType: getScenarioContentType,
 		Data:        getScenarioData,
 	}
-	createdGetScenario, err := unimockAPIClient.CreateScenario(context.Background(), getScenario)
+	createdGetScenario, err := unimockAPIClient.CreateScenario(context.Background(), *getScenario)
 	require.NoError(t, err, "Failed to create GET scenario for SCEN-SH-004")
 	require.NotNil(t, createdGetScenario, "Created GET scenario should not be nil for SCEN-SH-004")
 	t.Cleanup(func() {
@@ -540,7 +540,7 @@ func TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation(t *testing.T) {
 		Location:    expectedLocationHeader,
 		Data:        expectedData,
 	}
-	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), scenario)
+	createdScenario, err := unimockAPIClient.CreateScenario(context.Background(), *scenario)
 	require.NoError(t, err, "Failed to create scenario for SCEN-SH-005")
 	require.NotNil(t, createdScenario, "Created scenario should not be nil for SCEN-SH-005")
 	t.Cleanup(func() {

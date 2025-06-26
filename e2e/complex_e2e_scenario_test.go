@@ -104,7 +104,7 @@ func runStep5ApplyScenarioOverride(ctx context.Context, t *testing.T, unimockAPI
 			},
 			Data: `{"message": "I'm a teapot"}`,
 		}
-		createdScenario, err := unimockAPIClient.CreateScenario(ctx, scenarioToCreate)
+		createdScenario, err := unimockAPIClient.CreateScenario(ctx, *scenarioToCreate)
 		require.NoError(t, err, "Failed to create Unimock scenario for override")
 		require.NotNil(t, createdScenario, "Created scenario should not be nil")
 		require.NotEmpty(t, createdScenario.UUID, "Created scenario UUID should not be empty")
