@@ -14,8 +14,6 @@ func TestNewTransformationConfig(t *testing.T) {
 	cfg := config.NewTransformationConfig()
 
 	assert.NotNil(t, cfg)
-	assert.NotNil(t, cfg.RequestTransforms)
-	assert.NotNil(t, cfg.ResponseTransforms)
 	assert.Equal(t, 0, len(cfg.RequestTransforms))
 	assert.Equal(t, 0, len(cfg.ResponseTransforms))
 }

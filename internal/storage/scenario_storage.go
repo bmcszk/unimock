@@ -56,7 +56,7 @@ func (s *scenarioStorage) Create(id string, scenario model.Scenario) error {
 
 func (s *scenarioStorage) Get(id string) (model.Scenario, error) {
 	if id == "" {
-		return model.Scenario{}, errors.NewInvalidRequestError("errScenarioIDEmpty")
+		return model.Scenario{}, errors.NewInvalidRequestError(errScenarioIDEmpty)
 	}
 
 	s.mu.RLock()

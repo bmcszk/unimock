@@ -328,13 +328,14 @@ func (h *UniHandler) processPUTRequest(
 	return h.executeResourceUpdate(ctx, ids[0], transformedData, section, sectionName)
 }
 
-// validateStrictPathForPUT checks resource existence for strict path validation
-func (h *UniHandler) validateStrictPathForPUT(
-	ctx context.Context, sectionName string, isStrictPath bool, id string,
+// validateResourceExists checks if a resource exists for operations requiring existing resources
+func (h *UniHandler) validateResourceExists(
+	ctx context.Context, sectionName string, isStrictPath bool, id string, operation string,
 ) error {
 	_, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
 	if err != nil {
-		h.logger.Debug("resource not found for strict PUT", "sectionName", sectionName, "id", id)
+		h.logger.Debug("resource not found for strict operation", 
+			"sectionName", sectionName, "id", id, "operation", operation)
 		return errors.New("resource not found")
 	}
 	return nil
@@ -399,17 +400,6 @@ func (h *UniHandler) processDELETERequest(
 	return h.executeResourceDeletion(ctx, ids[0], section, sectionName)
 }
 
-// validateStrictPathForDELETE checks resource existence for strict path validation
-func (h *UniHandler) validateStrictPathForDELETE(
-	ctx context.Context, sectionName string, isStrictPath bool, id string,
-) error {
-	_, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
-	if err != nil {
-		h.logger.Debug("resource not found for strict DELETE", "sectionName", sectionName, "id", id)
-		return errors.New("resource not found")
-	}
-	return nil
-}
 
 // executeResourceDeletion performs the actual resource deletion
 func (h *UniHandler) executeResourceDeletion(

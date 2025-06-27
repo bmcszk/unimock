@@ -19,7 +19,6 @@ const (
 	singleItem       = 1
 	minStatusCode    = 100
 	maxStatusCode    = 599
-	splitParts       = 2
 )
 
 // ScenarioService manages test scenarios
@@ -235,8 +234,8 @@ func (s *ScenarioService) DeleteScenario(_ context.Context, id string) error {
 // validateScenario validates a scenario
 func (*ScenarioService) validateScenario(scenario model.Scenario) error {
 	// Validate request path format
-	parts := strings.SplitN(scenario.RequestPath, " ", splitParts)
-	if len(parts) != splitParts {
+	parts := strings.SplitN(scenario.RequestPath, " ", 2)
+	if len(parts) != 2 {
 		return errors.New("invalid request path format")
 	}
 

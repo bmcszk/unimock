@@ -60,13 +60,7 @@ func (*UniHandler) arePathsCompatible(requestPath, resourcePath, _ string) bool 
 func (h *UniHandler) validateStrictPathForOperation(ctx context.Context, reqPath, id, 
 	sectionPattern, operation, sectionName string, isStrictPath bool) *http.Response {
 	// Check resource existence first
-	var err error
-	if operation == "PUT" {
-		err = h.validateStrictPathForPUT(ctx, sectionName, isStrictPath, id)
-	} else {
-		err = h.validateStrictPathForDELETE(ctx, sectionName, isStrictPath, id)
-	}
-	
+	err := h.validateResourceExists(ctx, sectionName, isStrictPath, id, operation)
 	if err != nil {
 		return h.errorResponse(http.StatusNotFound, "resource not found")
 	}

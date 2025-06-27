@@ -8,10 +8,6 @@ import (
 	"time"
 )
 
-const (
-	// incrementValue represents the value to add when incrementing counters
-	incrementValue = 1
-)
 
 // TechService handles technical operations like health checks and metrics
 type TechService struct {
@@ -73,7 +69,7 @@ func (s *TechService) GetMetrics(_ context.Context) map[string]any {
 
 // IncrementRequestCount increments the request counter
 func (s *TechService) IncrementRequestCount(_ context.Context, path string) {
-	s.requestCounter.Add(incrementValue)
+	s.requestCounter.Add(1)
 
 	// Track endpoint stats
 	s.statsMutex.RLock()
@@ -81,17 +77,17 @@ func (s *TechService) IncrementRequestCount(_ context.Context, path string) {
 	s.statsMutex.RUnlock()
 
 	if exists {
-		counter.Add(incrementValue)
+		counter.Add(1)
 	} else {
 		s.statsMutex.Lock()
 		// Re-check after acquiring write lock, in case another goroutine added it
 		counter, exists = s.endpointStats[path]
 		if exists {
 			s.statsMutex.Unlock()
-			counter.Add(incrementValue)
+			counter.Add(1)
 		} else {
 			var newCounter atomic.Int64
-			newCounter.Add(incrementValue)
+			newCounter.Add(1)
 			s.endpointStats[path] = &newCounter
 			s.statsMutex.Unlock()
 		}
@@ -117,5 +113,5 @@ func (s *TechService) TrackResponse(_ context.Context, path string, statusCode i
 		pathStats[statusCode] = counter
 	}
 
-	counter.Add(incrementValue)
+	counter.Add(1)
 }
