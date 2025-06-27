@@ -66,7 +66,7 @@ func setupTestRouter(_ *testing.T) (*router.Router, *service.ScenarioService) {
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create router
-	appRouter := router.NewRouter(uniHandler, techHandler, scenarioHandler, scenarioService, logger, cfg)
+	appRouter := router.NewRouter(uniHandler, techHandler, scenarioHandler, scenarioService, techService, logger, cfg)
 
 	return appRouter, scenarioService
 }

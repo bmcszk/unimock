@@ -126,5 +126,8 @@ func setupTestRouterWithReturnBodyFalse(t *testing.T) (*router.Router, *service.
 	techHandler := handler.NewTechHandler(techService, logger)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
-	return router.NewRouter(uniHandler, techHandler, scenarioHandler, scenarioService, logger, cfg), scenarioService
+	return router.NewRouter(
+		uniHandler, techHandler, scenarioHandler, 
+		scenarioService, techService, logger, cfg,
+	), scenarioService
 }
