@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/bmcszk/unimock/pkg/model"
@@ -14,46 +16,109 @@ const (
 	pathLogKey = "path"
 )
 
-// Router is a http.Handler that routes requests to the appropriate handler based on path prefix
+// Router wraps a Chi router with scenario handling capabilities
 type Router struct {
+	router          chi.Router
 	uniHandler      http.Handler
 	techHandler     http.Handler
 	scenarioHandler http.Handler
 	scenarioService *service.ScenarioService
+	techService     *service.TechService
 	logger          *slog.Logger
 	uniConfig      *config.UniConfig
 }
 
-// NewRouter creates a new Router instance
+// NewRouter creates a new Router instance with Chi
 func NewRouter(
 	uniHandler, techHandler, scenarioHandler http.Handler, 
 	scenarioService *service.ScenarioService, 
+	techService *service.TechService,
 	logger *slog.Logger, 
 	uniConfig *config.UniConfig,
 ) *Router {
-	return &Router{
+	r := &Router{
 		uniHandler:      uniHandler,
 		techHandler:     techHandler,
 		scenarioHandler: scenarioHandler,
 		scenarioService: scenarioService,
+		techService:     techService,
 		logger:          logger,
 		uniConfig:      uniConfig,
 	}
+	
+	r.setupRoutes()
+	return r
+}
+
+// setupRoutes configures the Chi router with all routes and middleware
+func (r *Router) setupRoutes() {
+	r.router = chi.NewRouter()
+	
+	// Add middleware
+	r.router.Use(middleware.RequestID)
+	r.router.Use(middleware.RealIP)
+	r.router.Use(r.loggingMiddleware)
+	r.router.Use(r.metricsMiddleware)
+	r.router.Use(middleware.Recoverer)
+	
+	// Add scenario handling middleware (runs before route matching)
+	r.router.Use(r.scenarioMiddleware)
+	
+	// Technical endpoints (/_uni/*)
+	r.router.Mount("/_uni/scenarios", r.scenarioHandler)
+	r.router.Mount("/_uni", r.techHandler)
+	
+	// Catch-all route for uni handler (must be last)
+	r.router.HandleFunc("/*", r.uniHandlerFunc)
 }
 
 // ServeHTTP implements the http.Handler interface
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	requestPath := r.normalizePath(req.URL.Path)
-	
-	if r.handleScenario(w, req, requestPath) {
-		return
-	}
-	
-	if r.routeToSpecialHandlers(w, req, requestPath) {
-		return
-	}
-	
-	r.routeToUniHandler(w, req, requestPath)
+	r.router.ServeHTTP(w, req)
+}
+
+// loggingMiddleware adds request logging
+func (r *Router) loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		r.logger.Debug("incoming request",
+			"method", req.Method,
+			"path", req.URL.Path,
+			"remote_addr", req.RemoteAddr)
+		next.ServeHTTP(w, req)
+	})
+}
+
+// metricsMiddleware tracks request metrics using TechService
+func (r *Router) metricsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		requestPath := r.normalizePath(req.URL.Path)
+		
+		// Create a response writer wrapper to capture status code
+		ww := &responseWriter{
+			ResponseWriter: w,
+			statusCode:     200, // default status code
+		}
+		
+		// Increment request count before processing
+		r.techService.IncrementRequestCount(req.Context(), requestPath)
+		
+		// Process request
+		next.ServeHTTP(ww, req)
+		
+		// Track response after processing
+		r.techService.TrackResponse(req.Context(), requestPath, ww.statusCode)
+	})
+}
+
+// responseWriter wraps http.ResponseWriter to capture status codes
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }
 
 // normalizePath normalizes the request path
@@ -65,20 +130,30 @@ func (*Router) normalizePath(path string) string {
 	return requestPath
 }
 
-// handleScenario checks and handles scenario matching
-func (r *Router) handleScenario(w http.ResponseWriter, req *http.Request, requestPath string) bool {
-	scenario, found := r.scenarioService.GetScenarioByPath(req.Context(), requestPath, req.Method)
-	if !found {
-		return false
-	}
-
-	r.logger.Info("found matching scenario",
-		"method", req.Method,
-		pathLogKey, requestPath,
-		"uuid", scenario.UUID)
-
-	r.writeScenarioResponse(w, req, scenario)
-	return true
+// scenarioMiddleware checks for scenario matches before route handling
+func (r *Router) scenarioMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		requestPath := r.normalizePath(req.URL.Path)
+		
+		// Skip scenario matching for technical endpoints
+		if strings.HasPrefix(requestPath, "/_uni/") {
+			next.ServeHTTP(w, req)
+			return
+		}
+		
+		scenario, found := r.scenarioService.GetScenarioByPath(req.Context(), requestPath, req.Method)
+		if found {
+			r.logger.Info("found matching scenario",
+				"method", req.Method,
+				pathLogKey, requestPath,
+				"uuid", scenario.UUID)
+			
+			r.writeScenarioResponse(w, req, scenario)
+			return
+		}
+		
+		next.ServeHTTP(w, req)
+	})
 }
 
 // writeScenarioResponse writes the scenario response
@@ -104,25 +179,10 @@ func (r *Router) writeScenarioResponse(w http.ResponseWriter, req *http.Request,
 	}
 }
 
-// routeToSpecialHandlers routes to scenario or tech handlers
-func (r *Router) routeToSpecialHandlers(w http.ResponseWriter, req *http.Request, requestPath string) bool {
-	if strings.HasPrefix(requestPath, "/_uni/scenarios") {
-		r.logger.Debug("routing to scenario handler", pathLogKey, requestPath)
-		r.scenarioHandler.ServeHTTP(w, req)
-		return true
-	}
-
-	if strings.HasPrefix(requestPath, "/_uni/") {
-		r.logger.Debug("routing to technical handler", pathLogKey, requestPath)
-		r.techHandler.ServeHTTP(w, req)
-		return true
-	}
-
-	return false
-}
-
-// routeToUniHandler routes to the uni handler after validation
-func (r *Router) routeToUniHandler(w http.ResponseWriter, req *http.Request, requestPath string) {
+// uniHandlerFunc wraps the uni handler with path validation
+func (r *Router) uniHandlerFunc(w http.ResponseWriter, req *http.Request) {
+	requestPath := r.normalizePath(req.URL.Path)
+	
 	if r.uniConfig == nil {
 		r.logger.Error("router's uniConfig is nil", pathLogKey, requestPath)
 		http.Error(w, "server configuration error", http.StatusInternalServerError)
@@ -145,3 +205,4 @@ func (r *Router) routeToUniHandler(w http.ResponseWriter, req *http.Request, req
 	r.logger.Debug("routing to uni handler", pathLogKey, requestPath)
 	r.uniHandler.ServeHTTP(w, req)
 }
+

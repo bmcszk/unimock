@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/service"
@@ -96,8 +95,7 @@ func setupUniHandlerFull(t *testing.T) uniHandlerDeps {
 
 	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	techService := service.NewTechService(time.Now())
-	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, cfg)
 	
 	return uniHandlerDeps{
 		handler: uniHandler,
@@ -274,8 +272,7 @@ func prepareHandlerForTest(t *testing.T, tt struct {
 		currentService := service.NewUniService(cleanStore, deps.config)
 		currentScenarioStore := storage.NewScenarioStorage()
 		currentScenarioService := service.NewScenarioService(currentScenarioStore)
-		techService := service.NewTechService(time.Now())
-		return handler.NewUniHandler(currentService, currentScenarioService, techService, deps.logger, deps.config)
+		return handler.NewUniHandler(currentService, currentScenarioService, deps.logger, deps.config)
 	}
 
 	return deps.handler

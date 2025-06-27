@@ -158,12 +158,15 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 	}
 
 	// Create handlers with services
-	uniHandler := handler.NewUniHandler(uniService, scenarioService, techService, logger, uniConfig)
+	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, uniConfig)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 	techHandler := handler.NewTechHandler(techService, logger)
 
 	// Create a router
-	appRouter := router.NewRouter(uniHandler, techHandler, scenarioHandler, scenarioService, logger, uniConfig)
+	appRouter := router.NewRouter(
+		uniHandler, techHandler, scenarioHandler, 
+		scenarioService, techService, logger, uniConfig,
+	)
 
 	// Create server
 	srv := &http.Server{

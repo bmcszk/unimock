@@ -32,8 +32,6 @@ func (h *TechHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"method", r.Method,
 		"path", r.URL.Path)
 
-	// Increment request counter
-	h.service.IncrementRequestCount(r.Context(), r.URL.Path)
 
 	// Only allow GET method for technical endpoints
 	if r.Method != http.MethodGet {

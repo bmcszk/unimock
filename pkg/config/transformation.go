@@ -30,24 +30,18 @@ type TransformationConfig struct {
 // NewTransformationConfig creates a new TransformationConfig with default settings
 func NewTransformationConfig() *TransformationConfig {
 	return &TransformationConfig{
-		RequestTransforms:  make([]RequestTransformFunc, 0),
-		ResponseTransforms: make([]ResponseTransformFunc, 0),
+		RequestTransforms:  nil,
+		ResponseTransforms: nil,
 	}
 }
 
 // AddRequestTransform adds a request transformation function to the configuration
 func (tc *TransformationConfig) AddRequestTransform(transform RequestTransformFunc) {
-	if tc.RequestTransforms == nil {
-		tc.RequestTransforms = make([]RequestTransformFunc, 0)
-	}
 	tc.RequestTransforms = append(tc.RequestTransforms, transform)
 }
 
 // AddResponseTransform adds a response transformation function to the configuration
 func (tc *TransformationConfig) AddResponseTransform(transform ResponseTransformFunc) {
-	if tc.ResponseTransforms == nil {
-		tc.ResponseTransforms = make([]ResponseTransformFunc, 0)
-	}
 	tc.ResponseTransforms = append(tc.ResponseTransforms, transform)
 }
 
