@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/service"
@@ -35,8 +34,7 @@ func setupMultiIDTestHandler() *handler.UniHandler {
 
 	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	techService := service.NewTechService(time.Now())
-	return handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
+	return handler.NewUniHandler(uniService, scenarioService, logger, cfg)
 }
 
 func TestMultiIDPostExtraction(t *testing.T) {

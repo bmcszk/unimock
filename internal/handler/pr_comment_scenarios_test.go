@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/bmcszk/unimock/internal/handler"
 	"github.com/bmcszk/unimock/internal/service"
@@ -44,8 +43,7 @@ func TestPRCommentScenario1_FlexiblePathMatching(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	techService := service.NewTechService(time.Now())
-	h := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
+	h := handler.NewUniHandler(uniService, scenarioService, logger, cfg)
 
 	// Step 1: POST /users/subpath with body: {"id": 1}
 	postBody := `{"id": 1, "name": "test user"}`
@@ -123,8 +121,7 @@ func TestPRCommentScenario2_StrictPathMatching(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	techService := service.NewTechService(time.Now())
-	h := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
+	h := handler.NewUniHandler(uniService, scenarioService, logger, cfg)
 
 	// Step 1: POST /users/subpath with body: {"id": 1}
 	postBody := `{"id": 1, "name": "test user"}`
@@ -196,8 +193,7 @@ func TestUpsertBehaviorWithStrictPathFalse(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	techService := service.NewTechService(time.Now())
-	h := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
+	h := handler.NewUniHandler(uniService, scenarioService, logger, cfg)
 
 	// Step 1: PUT /products/999 (non-existent) - should create resource (upsert)
 	putBody := `{"id": "999", "name": "new product", "price": 100}`
@@ -271,8 +267,7 @@ func TestStrictPathPreventsUpsert(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
-	techService := service.NewTechService(time.Now())
-	h := handler.NewUniHandler(uniService, scenarioService, techService, logger, cfg)
+	h := handler.NewUniHandler(uniService, scenarioService, logger, cfg)
 
 	// Step 1: PUT /admin/users/999 (non-existent) - should return 404 (no upsert)
 	putBody := `{"id": "999", "name": "admin user", "role": "admin"}`

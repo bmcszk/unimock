@@ -27,7 +27,6 @@ const (
 type UniHandler struct {
 	service         *service.UniService
 	scenarioService *service.ScenarioService
-	techService     *service.TechService
 	logger          *slog.Logger
 	uniCfg         *config.UniConfig
 }
@@ -35,14 +34,12 @@ type UniHandler struct {
 func NewUniHandler(
 	uniService *service.UniService,
 	scenarioService *service.ScenarioService,
-	techService *service.TechService,
 	logger *slog.Logger,
 	cfg *config.UniConfig,
 ) *UniHandler {
 	return &UniHandler{
 		service:         uniService,
 		scenarioService: scenarioService,
-		techService:     techService,
 		logger:          logger,
 		uniCfg:         cfg,
 	}
