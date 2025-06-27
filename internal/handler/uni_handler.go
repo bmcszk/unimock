@@ -48,12 +48,6 @@ func NewUniHandler(
 	}
 }
 
-// trackResponse tracks the response metrics for a request
-func (h *UniHandler) trackResponse(ctx context.Context, path string, statusCode int) {
-	// Track request count and response status
-	h.techService.IncrementRequestCount(ctx, path)
-	h.techService.TrackResponse(ctx, path, statusCode)
-}
 
 
 // HandlePOST processes POST requests step by step
@@ -836,10 +830,6 @@ func (h *UniHandler) HandleRequest(ctx context.Context, req *http.Request) (*htt
 		err = nil
 	}
 	
-	// Track the response metrics
-	if resp != nil {
-		h.trackResponse(ctx, req.URL.Path, resp.StatusCode)
-	}
 	
 	return resp, err
 }
