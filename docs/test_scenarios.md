@@ -237,7 +237,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Description:** Create a resource with multiple IDs (one from header, one from body JSON path) and verify it can be retrieved by either ID.
 **Preconditions:**
     - Unimock service is running.
-    - Mock config section `products` exists with `path_pattern: "/products/*"`, `header_id_name: "X-Product-Token"`, `body_id_paths: ["/product/sku"]`.
+    - Mock config section `products` exists with `path_pattern: "/products/*"`, `header_id_names: ["X-Product-Token"]`, `body_id_paths: ["/product/sku"]`.
 **Steps:**
 1. Send a POST request to `/products` with header `X-Product-Token: token123` and JSON body `{"product": {"sku": "skuABC"}, "name": "Multi-ID Product"}`.
 2. Expected: HTTP 201 Created. Location header might point to one of the IDs (e.g., `/products/token123` or `/products/skuABC`).
@@ -283,7 +283,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Preconditions:**
     - Unimock service is running.
     - A resource exists and is associated with external ID `existing_token`.
-    - Mock config section `gadgets` exists with `path_pattern: "/gadgets/*"`, `header_id_name: "X-Gadget-Token"`.
+    - Mock config section `gadgets` exists with `path_pattern: "/gadgets/*"`, `header_id_names: ["X-Gadget-Token"]`.
 **Steps:**
 1. Send a POST request to `/gadgets` with header `X-Gadget-Token: existing_token` and JSON body `{"name": "Conflicting Gadget"}`.
 **Expected Result:**

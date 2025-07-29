@@ -1,88 +1,90 @@
+# Unified Configuration Format
 # Configuration for different API endpoints and their ID extraction rules
 
-# Section for user-related endpoints
-users:
-  path_pattern: "/api/users/*"
-  body_id_paths:
-    - "/id"
-    - "/@id"
-    - "/user/id"
-    - "/user/@id"
-  header_id_name: "X-User-ID"
-  return_body: true  # E2E tests validate return_body functionality
+sections:
+  # Section for user-related endpoints
+  users:
+    path_pattern: "/api/users/*"
+    body_id_paths:
+      - "/id"
+      - "/@id"
+      - "/user/id"
+      - "/user/@id"
+    header_id_names: ["X-User-ID"]
+    return_body: true  # E2E tests validate return_body functionality
 
-# Section for order-related endpoints
-orders:
-  path_pattern: "/api/orders/*"
-  body_id_paths:
-    - "/id"
-    - "/@id"
-    - "/order/id"
-    - "/order/@id"
-  header_id_name: "X-Order-ID"
+  # Section for order-related endpoints
+  orders:
+    path_pattern: "/api/orders/*"
+    body_id_paths:
+      - "/id"
+      - "/@id"
+      - "/order/id"
+      - "/order/@id"
+    header_id_names: ["X-Order-ID"]
 
-# Section for product-related endpoints  
-products:
-  path_pattern: "/products/*"
-  body_id_paths:
-    - "/product/sku"
-  header_id_name: "X-Product-Token"
-  return_body: true  # E2E tests validate return_body functionality
+  # Section for product-related endpoints  
+  products:
+    path_pattern: "/products/*"
+    body_id_paths:
+      - "/product/sku"
+    header_id_names: ["X-Product-Token"]
+    return_body: true  # E2E tests validate return_body functionality
 
-# Section for items (new)
-items:
-  path_pattern: "/api/items/*"
-  header_id_name: "X-Item-ID"
-  body_id_paths:
-    - "/itemID"
+  # Section for items (new)
+  items:
+    path_pattern: "/api/items/*"
+    header_id_names: ["X-Item-ID"]
+    body_id_paths:
+      - "/itemID"
 
-# Section for resources (new)
-resources:
-  path_pattern: "/api/resources/*"
-  header_id_name: "X-Res-ID"
-  body_id_paths:
-    - "/mainID"
-    - "/altID"
+  # Section for resources (new)
+  resources:
+    path_pattern: "/api/resources/*"
+    header_id_names: ["X-Res-ID"]
+    body_id_paths:
+      - "/mainID"
+      - "/altID"
 
-# Section for gadgets (new)
-gadgets:
-  path_pattern: "/api/gadgets/*"
-  header_id_name: "X-Gadget-Token"
-  body_id_paths:
-    - "/gadget_id"
+  # Section for gadgets (new)
+  gadgets:
+    path_pattern: "/api/gadgets/*"
+    header_id_names: ["X-Gadget-Token"]
+    body_id_paths:
+      - "/gadget_id"
 
-# Section for documents (new)
-documents:
-  path_pattern: "/api/documents/*"
-  body_id_paths:
-    - "/meta/uuid"
-    - "/alt_id"
+  # Section for documents (new)
+  documents:
+    path_pattern: "/api/documents/*"
+    body_id_paths:
+      - "/meta/uuid"
+      - "/alt_id"
 
-# Section for payment-related endpoints
-payments:
-  path_pattern: "/api/payments/*"
-  body_id_paths:
-    - "/id"
-    - "/@id"
-    - "/payment/id"
-    - "/payment/@id"
-    - "/data/payment/id"
-    - "/data/payment/@id"
-  header_id_name: "X-Payment-ID"
+  # Section for payment-related endpoints
+  payments:
+    path_pattern: "/api/payments/*"
+    body_id_paths:
+      - "/id"
+      - "/@id"
+      - "/payment/id"
+      - "/payment/@id"
+      - "/data/payment/id"
+      - "/data/payment/@id"
+    header_id_names: ["X-Payment-ID"]
 
-# Deep paths section
-user_orders:
-  path_pattern: "/api/users/*/orders/*"
-  body_id_paths:
-    - "/id"
-    - "/@id"
-    - "/order/id"
-    - "/order/@id"
-  header_id_name: "X-Order-ID" 
+  # Deep paths section
+  user_orders:
+    path_pattern: "/api/users/*/orders/*"
+    body_id_paths:
+      - "/id"
+      - "/@id"
+      - "/order/id"
+      - "/order/@id"
+    header_id_names: ["X-Order-ID"] 
 
-# Test resource section (for E2E tests)
-test_resources:
-  path_pattern: "/test/resource/*"
-  body_id_paths:
-    - "/id"
-  return_body: true  # E2E tests validate return_body functionality
+  # Test resource section (for E2E tests)
+  test_resources:
+    path_pattern: "/test/resource/*"
+    body_id_paths:
+      - "/id"
+    return_body: true  # E2E tests validate return_body functionality

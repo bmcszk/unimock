@@ -37,15 +37,15 @@ func validatePostUUIDResponse(t *testing.T, w *httptest.ResponseRecorder, path s
 	t.Helper()
 	location := w.Header().Get("Location")
 	if location == "" {
-		t.Errorf("expected Location header to be set")
+		t.Error("expected Location header to be set")
 		return
 	}
-	
+
 	if !strings.HasPrefix(location, path+"/") {
 		t.Errorf("expected Location header to start with %s/, got %s", path, location)
 		return
 	}
-	
+
 	extractedID := location[len(path)+1:]
 	if _, err := uuid.Parse(extractedID); err != nil {
 		t.Errorf("expected Location header to contain a valid UUID, got %s, error: %v", extractedID, err)
@@ -56,7 +56,7 @@ func validatePostUUIDResponse(t *testing.T, w *httptest.ResponseRecorder, path s
 func validateResponseBody(t *testing.T, w *httptest.ResponseRecorder, expectedBody string) {
 	t.Helper()
 	respBody := strings.TrimSpace(w.Body.String())
-	
+
 	if isErrorMessage(expectedBody) {
 		if !strings.Contains(respBody, expectedBody) {
 			t.Errorf("expected body to contain '%s', got '%s'", expectedBody, respBody)
@@ -96,7 +96,7 @@ func setupUniHandlerFull(t *testing.T) uniHandlerDeps {
 	uniService := service.NewUniService(store, cfg)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, cfg)
-	
+
 	return uniHandlerDeps{
 		handler: uniHandler,
 		store:   store,
@@ -359,14 +359,14 @@ func testPOSTReturnBodyFalse(t *testing.T) {
 		BodyIDPaths: []string{"/id"},
 		ReturnBody:  false,
 	}
-	
+
 	requestBody := `{"id": "123", "name": "test"}`
 	req := httptest.NewRequest("POST", "/api/test", strings.NewReader(requestBody))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	w := httptest.NewRecorder()
 	deps.handler.ServeHTTP(w, req)
-	
+
 	if w.Code != http.StatusCreated {
 		t.Errorf("expected status %d, got %d", http.StatusCreated, w.Code)
 	}
@@ -382,14 +382,14 @@ func testPOSTReturnBodyTrue(t *testing.T) {
 		BodyIDPaths: []string{"/id"},
 		ReturnBody:  true,
 	}
-	
+
 	requestBody := `{"id": "456", "name": "test with body"}`
 	req := httptest.NewRequest("POST", "/api/test", strings.NewReader(requestBody))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	w := httptest.NewRecorder()
 	deps.handler.ServeHTTP(w, req)
-	
+
 	if w.Code != http.StatusCreated {
 		t.Errorf("expected status %d, got %d", http.StatusCreated, w.Code)
 	}
@@ -408,16 +408,16 @@ func testPUTReturnBodyFalse(t *testing.T) {
 		BodyIDPaths: []string{"/id"},
 		ReturnBody:  false,
 	}
-	
+
 	createResource(t, deps, "789", "initial")
-	
+
 	updateBody := `{"id": "789", "name": "updated"}`
 	req := httptest.NewRequest("PUT", "/api/test/789", strings.NewReader(updateBody))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	w := httptest.NewRecorder()
 	deps.handler.ServeHTTP(w, req)
-	
+
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
 	}
@@ -433,16 +433,16 @@ func testPUTReturnBodyTrue(t *testing.T) {
 		BodyIDPaths: []string{"/id"},
 		ReturnBody:  true,
 	}
-	
+
 	createResource(t, deps, "790", "initial")
-	
+
 	updateBody := `{"id": "790", "name": "updated with body"}`
 	req := httptest.NewRequest("PUT", "/api/test/790", strings.NewReader(updateBody))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	w := httptest.NewRecorder()
 	deps.handler.ServeHTTP(w, req)
-	
+
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
 	}
@@ -461,13 +461,13 @@ func testDELETEReturnBodyFalse(t *testing.T) {
 		BodyIDPaths: []string{"/id"},
 		ReturnBody:  false,
 	}
-	
+
 	createResource(t, deps, "delete1", "to delete")
-	
+
 	req := httptest.NewRequest("DELETE", "/api/test/delete1", nil)
 	w := httptest.NewRecorder()
 	deps.handler.ServeHTTP(w, req)
-	
+
 	if w.Code != http.StatusNoContent {
 		t.Errorf("expected status %d, got %d", http.StatusNoContent, w.Code)
 	}
@@ -483,13 +483,13 @@ func testDELETEReturnBodyTrue(t *testing.T) {
 		BodyIDPaths: []string{"/id"},
 		ReturnBody:  true,
 	}
-	
+
 	createResource(t, deps, "delete2", "to delete")
-	
+
 	req := httptest.NewRequest("DELETE", "/api/test/delete2", nil)
 	w := httptest.NewRecorder()
 	deps.handler.ServeHTTP(w, req)
-	
+
 	if w.Code != http.StatusNoContent {
 		t.Errorf("expected status %d, got %d", http.StatusNoContent, w.Code)
 	}
@@ -512,7 +512,7 @@ func createResource(t *testing.T, deps uniHandlerDeps, id, name string) {
 
 func TestUniHandler_HEAD_Operation(t *testing.T) {
 	deps := setupUniHandlerFull(t)
-	
+
 	// Create a test resource first
 	createTestResourceForHead(t, deps, "test123", "test resource")
 
@@ -527,7 +527,7 @@ func TestUniHandler_HEAD_Operation(t *testing.T) {
 		},
 		{
 			name:           "GET existing resource returns headers and body",
-			method:         "GET", 
+			method:         "GET",
 			path:           "/users/test123",
 			expectedStatus: http.StatusOK,
 			expectBody:     true,
@@ -572,7 +572,7 @@ func createTestResourceForHead(t *testing.T, deps uniHandlerDeps, id, name strin
 	createReq.Header.Set("Content-Type", "application/json")
 	createW := httptest.NewRecorder()
 	deps.handler.ServeHTTP(createW, createReq)
-	
+
 	if createW.Code != http.StatusCreated {
 		t.Fatalf("failed to create test resource, status: %d", createW.Code)
 	}
@@ -582,13 +582,13 @@ func executeHeadTest(t *testing.T, deps uniHandlerDeps, tt headTestCase) {
 	t.Helper()
 	req := httptest.NewRequest(tt.method, tt.path, nil)
 	w := httptest.NewRecorder()
-	
+
 	deps.handler.ServeHTTP(w, req)
-	
+
 	if w.Code != tt.expectedStatus {
 		t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
 	}
-	
+
 	checkExpectedHeaders(t, w, tt.expectHeaders)
 	checkBodyPresence(t, w, tt.expectBody)
 }
@@ -609,7 +609,7 @@ func checkBodyPresence(t *testing.T, w *httptest.ResponseRecorder, expectBody bo
 	if err != nil {
 		t.Fatalf("failed to read response body: %v", err)
 	}
-	
+
 	if expectBody {
 		if len(body) == 0 {
 			t.Error("expected response body but got empty body")
@@ -623,14 +623,14 @@ func checkBodyPresence(t *testing.T, w *httptest.ResponseRecorder, expectBody bo
 
 func TestUniHandler_HEAD_vs_GET_Consistency(t *testing.T) {
 	deps := setupUniHandlerFull(t)
-	
+
 	// Create a test resource
 	createTestResourceForHead(t, deps, "consistency123", "consistency test")
 
 	// Make GET and HEAD requests
 	getW := makeRequest(t, deps, "GET", "/users/consistency123")
 	headW := makeRequest(t, deps, "HEAD", "/users/consistency123")
-	
+
 	// Verify consistency
 	verifyStatusCodeConsistency(t, getW, headW)
 	verifyHeaderConsistency(t, getW, headW)
@@ -656,12 +656,12 @@ func verifyHeaderConsistency(t *testing.T, getW, headW *httptest.ResponseRecorde
 	t.Helper()
 	getHeaders := getW.Header()
 	headHeaders := headW.Header()
-	
+
 	for key, getValues := range getHeaders {
 		if key == "Content-Length" {
 			continue // Skip Content-Length as it may differ
 		}
-		
+
 		headValues := headHeaders[key]
 		compareHeaderValues(t, key, getValues, headValues)
 	}
@@ -673,7 +673,7 @@ func compareHeaderValues(t *testing.T, key string, getValues, headValues []strin
 		t.Errorf("header %s value count mismatch: GET=%d, HEAD=%d", key, len(getValues), len(headValues))
 		return
 	}
-	
+
 	for i, getVal := range getValues {
 		if headValues[i] != getVal {
 			t.Errorf("header %s[%d] mismatch: GET=%s, HEAD=%s", key, i, getVal, headValues[i])
@@ -685,11 +685,11 @@ func verifyBodyConsistency(t *testing.T, getW, headW *httptest.ResponseRecorder)
 	t.Helper()
 	getBody, _ := io.ReadAll(getW.Body)
 	headBody, _ := io.ReadAll(headW.Body)
-	
+
 	if len(getBody) == 0 {
 		t.Error("GET request should have body")
 	}
-	
+
 	if len(headBody) != 0 {
 		t.Errorf("HEAD request should have empty body, got: %s", string(headBody))
 	}

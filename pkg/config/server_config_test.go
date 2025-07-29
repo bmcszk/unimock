@@ -18,6 +18,7 @@ func TestFromEnv(t *testing.T) {
 	t.Run("DefaultValues", testDefaultValues)
 	t.Run("CustomValues", testCustomValues)
 	t.Run("InvalidValues", testInvalidValues)
+	t.Run("ScenariosFileIgnored", testScenariosFileIgnored)
 }
 
 func testDefaultValues(t *testing.T) {
@@ -36,9 +37,7 @@ func testDefaultValues(t *testing.T) {
 	if cfg.ConfigPath != defaultConfigPath {
 		t.Errorf("Expected ConfigPath %s, got %s", defaultConfigPath, cfg.ConfigPath)
 	}
-	if cfg.ScenariosFile != "" {
-		t.Errorf("Expected ScenariosFile to be empty, got %s", cfg.ScenariosFile)
-	}
+	// ScenariosFile field should no longer exist
 }
 
 func testCustomValues(t *testing.T) {
@@ -46,28 +45,27 @@ func testCustomValues(t *testing.T) {
 	defer restoreEnv()
 
 	tests := []struct {
-		name string
-		env  map[string]string
+		name     string
+		env      map[string]string
 		expected config.ServerConfig
 	}{
 		{
-			name: "Custom port",
-			env: map[string]string{"UNIMOCK_PORT": "9000"},
-			expected: config.ServerConfig{Port: "9000", LogLevel: "info", ConfigPath: "config.yaml", ScenariosFile: ""},
+			name:     "Custom port",
+			env:      map[string]string{"UNIMOCK_PORT": "9000"},
+			expected: config.ServerConfig{Port: "9000", LogLevel: "info", ConfigPath: "config.yaml"},
 		},
 		{
 			name: "Custom log level",
-			env: map[string]string{"UNIMOCK_LOG_LEVEL": "debug"},
+			env:  map[string]string{"UNIMOCK_LOG_LEVEL": "debug"},
 			expected: config.ServerConfig{
-				Port: "8080", LogLevel: "debug", ConfigPath: "config.yaml", ScenariosFile: "",
+				Port: "8080", LogLevel: "debug", ConfigPath: "config.yaml",
 			},
 		},
 		{
-			name: "Custom scenarios file",
-			env: map[string]string{"UNIMOCK_SCENARIOS_FILE": "test-scenarios.yaml"},
+			name: "Custom config path",
+			env:  map[string]string{"UNIMOCK_CONFIG": "custom-config.yaml"},
 			expected: config.ServerConfig{
-				Port: "8080", LogLevel: "info", ConfigPath: "config.yaml", 
-				ScenariosFile: "test-scenarios.yaml",
+				Port: "8080", LogLevel: "info", ConfigPath: "custom-config.yaml",
 			},
 		},
 	}
@@ -100,7 +98,7 @@ func setupEnvTest(_ *testing.T) func() {
 	originalLogLevel := os.Getenv(envLogLevel)
 	originalConfigPath := os.Getenv("UNIMOCK_CONFIG")
 	originalScenariosFile := os.Getenv("UNIMOCK_SCENARIOS_FILE")
-	
+
 	return func() {
 		_ = os.Setenv("UNIMOCK_PORT", originalPort)
 		_ = os.Setenv(envLogLevel, originalLogLevel)
@@ -133,7 +131,28 @@ func validateConfig(t *testing.T, actual *config.ServerConfig, expected config.S
 	if actual.ConfigPath != expected.ConfigPath {
 		t.Errorf("Expected ConfigPath %s, got %s", expected.ConfigPath, actual.ConfigPath)
 	}
-	if actual.ScenariosFile != expected.ScenariosFile {
-		t.Errorf("Expected ScenariosFile %s, got %s", expected.ScenariosFile, actual.ScenariosFile)
+	// ScenariosFile field should no longer exist (scenarios loaded from unified config)
+}
+
+// testScenariosFileIgnored verifies that UNIMOCK_SCENARIOS_FILE is ignored
+func testScenariosFileIgnored(t *testing.T) {
+	restoreEnv := setupEnvTest(t)
+	defer restoreEnv()
+
+	clearEnvVars()
+	_ = os.Setenv("UNIMOCK_SCENARIOS_FILE", "should-be-ignored.yaml")
+
+	cfg := config.FromEnv()
+
+	// The ServerConfig should not have a ScenariosFile field anymore
+	// Scenarios should be loaded from the unified config file instead
+	if cfg.Port != defaultPort {
+		t.Errorf("Expected Port %s, got %s", defaultPort, cfg.Port)
+	}
+	if cfg.LogLevel != defaultLogLevel {
+		t.Errorf("Expected LogLevel %s, got %s", defaultLogLevel, cfg.LogLevel)
+	}
+	if cfg.ConfigPath != defaultConfigPath {
+		t.Errorf("Expected ConfigPath %s, got %s", defaultConfigPath, cfg.ConfigPath)
 	}
 }

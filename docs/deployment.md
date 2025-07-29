@@ -39,11 +39,9 @@ docker run -p 8080:8080 \
   -v $(pwd)/my-config.yaml:/etc/unimock/config.yaml \
   ghcr.io/bmcszk/unimock:latest
 
-# Run with scenarios
+# Run with unified config (sections + scenarios)
 docker run -p 8080:8080 \
   -v $(pwd)/config.yaml:/etc/unimock/config.yaml \
-  -v $(pwd)/scenarios.yaml:/etc/unimock/scenarios.yaml \
-  -e UNIMOCK_SCENARIOS_FILE=/etc/unimock/scenarios.yaml \
   ghcr.io/bmcszk/unimock:latest
 ```
 
@@ -59,11 +57,9 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./config.yaml:/etc/unimock/config.yaml
-      - ./scenarios.yaml:/etc/unimock/scenarios.yaml
+      - ./config.yaml:/etc/unimock/config.yaml  # Unified config with sections + scenarios
     environment:
       - UNIMOCK_LOG_LEVEL=debug
-      - UNIMOCK_SCENARIOS_FILE=/etc/unimock/scenarios.yaml
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/_uni/health"]
       interval: 30s
@@ -119,24 +115,21 @@ Create `my-values.yaml`:
 image:
   tag: "v1.2.0"
 
-# Enable scenarios
-scenarios:
-  enabled: true
-  data:
-    scenarios:
-      - uuid: "health-check"
-        method: "GET"
-        path: "/_uni/health"
-        status_code: 200
-        data: '{"status": "ok"}'
-
-# Custom configuration
+# Custom configuration with unified format
 config:
-  users:
-    path_pattern: "/api/users/*"
-    body_id_paths:
-      - "/id"
-    return_body: true
+  sections:
+    users:
+      path_pattern: "/api/users/*"
+      body_id_paths:
+        - "/id"
+      return_body: true
+  
+  scenarios:
+    - uuid: "health-check"
+      method: "GET"
+      path: "/_uni/health"
+      status_code: 200
+      data: '{"status": "ok"}'
 
 # Enable ingress
 ingress:
@@ -286,13 +279,14 @@ monitoring:
     enabled: true
     namespace: monitoring
 
-# Production config
+# Production config with unified format
 config:
-  users:
-    path_pattern: "/api/v1/users/*"
-    body_id_paths:
-      - "/id"
-    return_body: true
+  sections:
+    users:
+      path_pattern: "/api/v1/users/*"
+      body_id_paths:
+        - "/id"
+      return_body: true
 
 # Health checks
 probes:
@@ -367,7 +361,6 @@ docker stack deploy -c docker-stack.yml unimock
 | `UNIMOCK_PORT` | Server port | `8080` |
 | `UNIMOCK_CONFIG` | Config file path | `config.yaml` |
 | `UNIMOCK_LOG_LEVEL` | Log level (debug, info, warn, error) | `info` |
-| `UNIMOCK_SCENARIOS_FILE` | Scenarios file path | (disabled) |
 
 ## Security Considerations
 

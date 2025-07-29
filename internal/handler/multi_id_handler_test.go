@@ -20,13 +20,13 @@ func setupMultiIDTestHandler() *handler.UniHandler {
 	store := storage.NewUniStorage()
 	scenarioStore := storage.NewScenarioStorage()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	
+
 	cfg := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"products": {
 				PathPattern:   "/products/*",
 				BodyIDPaths:   []string{"/id", "/details/upc", "/internalCode"},
-				HeaderIDName:  "X-Primary-ID",
+				HeaderIDNames: []string{"X-Primary-ID"},
 				CaseSensitive: true,
 			},
 		},
@@ -79,7 +79,7 @@ func TestMultiIDGetRetrieval(t *testing.T) {
 
 	// Test GET with different IDs extracted from body and header
 	testIDs := []string{"prod456", "primary456", "987654321", "INT789"}
-	
+
 	for _, testID := range testIDs {
 		getReq := httptest.NewRequest("GET", "/products/"+testID, nil)
 		w := httptest.NewRecorder()
@@ -116,7 +116,7 @@ func TestMultiIDConflictPrevention(t *testing.T) {
 
 	// Should get conflict error
 	if w.Code != http.StatusConflict {
-		t.Errorf("expected conflict status %d, got %d, body: %s", 
+		t.Errorf("expected conflict status %d, got %d, body: %s",
 			http.StatusConflict, w.Code, w.Body.String())
 	}
 }

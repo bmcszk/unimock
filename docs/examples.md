@@ -146,11 +146,12 @@ curl -X POST http://localhost:8080/api/orders \
 
 Given this configuration:
 ```yaml
-products:
-  path_pattern: "/products/*"
-  body_id_paths:
-    - "/product/sku"
-    - "/meta/uuid"
+sections:
+  products:
+    path_pattern: "/products/*"
+    body_id_paths:
+      - "/product/sku"
+      - "/meta/uuid"
 ```
 
 Create a resource with multiple IDs:
@@ -182,11 +183,12 @@ curl http://localhost:8080/products/550e8400-e29b-41d4-a716-446655440000
 
 Given this configuration:
 ```yaml
-items:
-  path_pattern: "/api/items/*"
-  header_id_name: "X-Item-Token"
-  body_id_paths:
-    - "/itemID"
+sections:
+  items:
+    path_pattern: "/api/items/*"
+    header_id_names: ["X-Item-Token"]
+    body_id_paths:
+      - "/itemID"
 ```
 
 Create with both header and body IDs:

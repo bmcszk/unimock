@@ -49,7 +49,7 @@ func TestTechHandler_HealthCheck(t *testing.T) {
 	}
 
 	if _, ok := response["uptime"]; !ok {
-		t.Errorf("Expected uptime field to be present")
+		t.Error("Expected uptime field to be present")
 	}
 }
 
@@ -85,11 +85,11 @@ func TestTechHandler_Metrics(t *testing.T) {
 
 	// Verify the response contains expected fields
 	if _, ok := response["request_count"]; !ok {
-		t.Errorf("Expected request_count field to be present")
+		t.Error("Expected request_count field to be present")
 	}
 
 	if _, ok := response["api_endpoints"]; !ok {
-		t.Errorf("Expected api_endpoints field to be present")
+		t.Error("Expected api_endpoints field to be present")
 	}
 }
 

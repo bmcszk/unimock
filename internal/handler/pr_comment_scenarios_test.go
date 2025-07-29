@@ -32,7 +32,7 @@ func TestPRCommentScenario1_FlexiblePathMatching(t *testing.T) {
 				PathPattern:   "/users/**",
 				StrictPath:    false, // Flexible matching
 				BodyIDPaths:   []string{"/id"},
-				HeaderIDName:  "",
+				HeaderIDNames: []string{},
 				CaseSensitive: false,
 			},
 		},
@@ -110,7 +110,7 @@ func TestPRCommentScenario2_StrictPathMatching(t *testing.T) {
 				PathPattern:   "/users/**",
 				StrictPath:    true, // Strict path validation
 				BodyIDPaths:   []string{"/id"},
-				HeaderIDName:  "",
+				HeaderIDNames: []string{},
 				CaseSensitive: false,
 			},
 		},
@@ -182,7 +182,7 @@ func TestUpsertBehaviorWithStrictPathFalse(t *testing.T) {
 				PathPattern:   "/products/*",
 				StrictPath:    false, // Allow upsert
 				BodyIDPaths:   []string{"/id"},
-				HeaderIDName:  "",
+				HeaderIDNames: []string{},
 				CaseSensitive: false,
 			},
 		},
@@ -256,7 +256,7 @@ func TestStrictPathPreventsUpsert(t *testing.T) {
 				PathPattern:   "/admin/users/*",
 				StrictPath:    true, // Prevent upsert
 				BodyIDPaths:   []string{"/id"},
-				HeaderIDName:  "",
+				HeaderIDNames: []string{},
 				CaseSensitive: false,
 			},
 		},

@@ -330,7 +330,7 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 	conflictData2.IDs = externalIDsConflict2
 	err = storageInstance.Create("conflict", false, conflictData2)
 	if err == nil {
-		t.Errorf("ConflictOnCreate: expected conflict error when creating with duplicate external ID, but got nil")
+		t.Error("ConflictOnCreate: expected conflict error when creating with duplicate external ID, but got nil")
 	} else {
 		// Check for specific conflict error type if desired, e.g., errors.IsConflict(err)
 		t.Logf("ConflictOnCreate: correctly received error for duplicate ID: %v", err)
@@ -350,7 +350,7 @@ func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance st
 	// Verify the second resource (that caused conflict) was not created with its unique ID either
 	_, errGet = storageInstance.Get("conflict", false, "unique_c2")
 	if errGet == nil {
-		t.Errorf("ConflictOnCreate: Get(\"unique_c2\") should have failed as creation was aborted, but succeeded.")
+		t.Error("ConflictOnCreate: Get(\"unique_c2\") should have failed as creation was aborted, but succeeded.")
 	}
 }
 

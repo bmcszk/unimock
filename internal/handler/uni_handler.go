@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+
 	"github.com/antchfx/jsonquery"
 	"github.com/antchfx/xmlquery"
 	"github.com/bmcszk/unimock/internal/service"
@@ -16,10 +17,11 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 	"github.com/google/uuid"
 )
+
 const (
 	// Common strings
-	errorLogKey = "error"
-	pathLogKey  = "path"
+	errorLogKey       = "error"
+	pathLogKey        = "path"
 	contentTypeHeader = "Content-Type"
 )
 
@@ -28,8 +30,9 @@ type UniHandler struct {
 	service         *service.UniService
 	scenarioService *service.ScenarioService
 	logger          *slog.Logger
-	uniCfg         *config.UniConfig
+	uniCfg          *config.UniConfig
 }
+
 // NewUniHandler creates a new handler
 func NewUniHandler(
 	uniService *service.UniService,
@@ -41,11 +44,9 @@ func NewUniHandler(
 		service:         uniService,
 		scenarioService: scenarioService,
 		logger:          logger,
-		uniCfg:         cfg,
+		uniCfg:          cfg,
 	}
 }
-
-
 
 // HandlePOST processes POST requests step by step
 func (h *UniHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.Response, error) {
@@ -71,6 +72,7 @@ func (h *UniHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.R
 	// Step 4: Build and return response
 	return h.buildPOSTResponse(transformedData, section, sectionName)
 }
+
 // preparePostData extracts IDs and builds initial UniData for POST
 func (h *UniHandler) preparePostData(
 	ctx context.Context,
@@ -83,7 +85,7 @@ func (h *UniHandler) preparePostData(
 	if err != nil {
 		h.logger.Error("failed to extract IDs for POST", "path", req.URL.Path, "error", err)
 		if strings.Contains(err.Error(), "failed to parse JSON body") {
-			return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest, 
+			return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest,
 				"invalid request: failed to parse JSON body")
 		}
 		return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest, "failed to extract IDs")
@@ -105,6 +107,7 @@ func (h *UniHandler) preparePostData(
 
 	return ids, mockData, nil
 }
+
 // processPostRequest applies transformations and stores the resource
 func (h *UniHandler) processPostRequest(
 	ctx context.Context,
@@ -144,6 +147,7 @@ func (h *UniHandler) HandleHEAD(ctx context.Context, req *http.Request) (*http.R
 }
 
 // handleGetOrHead processes GET and HEAD requests with optional body suppression
+//
 //nolint:revive // suppressBody flag is appropriate for differentiating GET vs HEAD behavior
 func (h *UniHandler) handleGetOrHead(
 	ctx context.Context, req *http.Request, suppressBody bool,
@@ -172,7 +176,7 @@ func (h *UniHandler) handleGetOrHead(
 
 	// Step 3: Get collection of resources
 	resp := h.getResourceCollection(ctx, req, section, sectionName)
-	
+
 	if suppressBody {
 		return h.suppressResponseBody(resp), nil
 	}
@@ -199,7 +203,7 @@ func (h *UniHandler) tryGetIndividualResource(
 	// Apply strict path validation if enabled
 	if section.StrictPath {
 		if err := h.validateStrictPathAccess(req.URL.Path, resource.Path, section.PathPattern); err != nil {
-			h.logger.Debug("strict path validation failed for GET", 
+			h.logger.Debug("strict path validation failed for GET",
 				"requestPath", req.URL.Path, "resourcePath", resource.Path, "error", err)
 			return h.errorResponse(http.StatusNotFound, "resource not found")
 		}
@@ -207,6 +211,7 @@ func (h *UniHandler) tryGetIndividualResource(
 
 	return h.buildTransformedResponse(resource, section, sectionName)
 }
+
 // getResourceCollection gets a collection of resources
 func (h *UniHandler) getResourceCollection(
 	ctx context.Context,
@@ -217,7 +222,7 @@ func (h *UniHandler) getResourceCollection(
 	// For collection requests, use the base path from the pattern
 	// e.g., for pattern "/users/*" and request "/users/nonexistent", look for resources at "/users"
 	basePath := h.getCollectionBasePath(section.PathPattern, req.URL.Path)
-	
+
 	resources, err := h.service.GetResourcesByPath(ctx, basePath)
 	if err != nil || len(resources) == 0 {
 		return h.errorResponse(http.StatusNotFound, "resource not found")
@@ -236,7 +241,7 @@ func (h *UniHandler) getCollectionBasePath(pattern, requestPath string) string {
 	if !strings.Contains(pattern, "*") {
 		return requestPath
 	}
-	
+
 	return h.extractBasePathFromWildcard(pattern, requestPath)
 }
 
@@ -244,7 +249,7 @@ func (h *UniHandler) getCollectionBasePath(pattern, requestPath string) string {
 func (*UniHandler) extractBasePathFromWildcard(pattern, requestPath string) string {
 	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
 	requestParts := strings.Split(strings.Trim(requestPath, "/"), "/")
-	
+
 	baseParts := make([]string, 0, len(patternParts))
 	for i, part := range patternParts {
 		if part == "*" || part == "**" {
@@ -254,7 +259,7 @@ func (*UniHandler) extractBasePathFromWildcard(pattern, requestPath string) stri
 			baseParts = append(baseParts, requestParts[i])
 		}
 	}
-	
+
 	if len(baseParts) == 0 {
 		return "/"
 	}
@@ -319,12 +324,12 @@ func (h *UniHandler) processPUTRequest(
 
 	// Validate strict path if enabled
 	if section.StrictPath {
-		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0], 
+		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
 			section.PathPattern, "PUT", sectionName, section.StrictPath); resp != nil {
 			return resp, nil
 		}
 	}
-	
+
 	return h.executeResourceUpdate(ctx, ids[0], transformedData, section, sectionName)
 }
 
@@ -334,16 +339,12 @@ func (h *UniHandler) validateResourceExists(
 ) error {
 	_, err := h.service.GetResource(ctx, sectionName, isStrictPath, id)
 	if err != nil {
-		h.logger.Debug("resource not found for strict operation", 
+		h.logger.Debug("resource not found for strict operation",
 			"sectionName", sectionName, "id", id, "operation", operation)
 		return errors.New("resource not found")
 	}
 	return nil
 }
-
-
-
-
 
 // executeResourceUpdate performs the actual resource update and response building
 func (h *UniHandler) executeResourceUpdate(
@@ -391,15 +392,14 @@ func (h *UniHandler) processDELETERequest(
 
 	// Validate strict path if enabled
 	if section.StrictPath {
-		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0], 
+		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
 			section.PathPattern, "DELETE", sectionName, section.StrictPath); resp != nil {
 			return resp, nil
 		}
 	}
-	
+
 	return h.executeResourceDeletion(ctx, ids[0], section, sectionName)
 }
-
 
 // executeResourceDeletion performs the actual resource deletion
 func (h *UniHandler) executeResourceDeletion(
@@ -424,16 +424,16 @@ func (h *UniHandler) findSection(reqPath string) (*config.Section, string, error
 	if h.uniCfg == nil {
 		return nil, "", errors.New("service configuration is missing")
 	}
-	
+
 	sectionName, section, err := h.uniCfg.MatchPath(reqPath)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to match path pattern: %w", err)
 	}
-	
+
 	if section == nil {
 		return nil, "", fmt.Errorf("no matching section found for path: %s", reqPath)
 	}
-	
+
 	return section, sectionName, nil
 }
 
@@ -444,10 +444,10 @@ func (*UniHandler) buildUniDataFromRequest(req *http.Request, ids []string) (mod
 	if err != nil {
 		return model.UniData{}, fmt.Errorf("failed to read request body: %w", err)
 	}
-	
+
 	// Restore body for potential re-reading
 	req.Body = io.NopCloser(bytes.NewBuffer(body))
-	
+
 	// Build UniData
 	mockData := model.UniData{
 		Path:        strings.TrimSuffix(req.URL.Path, "/"),
@@ -455,12 +455,12 @@ func (*UniHandler) buildUniDataFromRequest(req *http.Request, ids []string) (mod
 		ContentType: req.Header.Get("Content-Type"),
 		Body:        body,
 	}
-	
+
 	// Set location for the resource
 	if len(ids) > 0 {
 		mockData.Location = mockData.Path + "/" + ids[0]
 	}
-	
+
 	return mockData, nil
 }
 
@@ -473,19 +473,19 @@ func (h *UniHandler) applyRequestTransformations(
 	if section.Transformations == nil || !section.Transformations.HasRequestTransforms() {
 		return data, nil
 	}
-	
+
 	currentData := data
 	for i, transform := range section.Transformations.RequestTransforms {
 		h.logger.Debug("applying request transformation", "section", sectionName, "index", i)
-		
+
 		transformedData, err := transform(currentData)
 		if err != nil {
 			return model.UniData{}, fmt.Errorf("request transformation %d failed: %w", i, err)
 		}
-		
+
 		currentData = transformedData
 	}
-	
+
 	return currentData, nil
 }
 
@@ -498,22 +498,21 @@ func (h *UniHandler) applyResponseTransformations(
 	if section.Transformations == nil || !section.Transformations.HasResponseTransforms() {
 		return data, nil
 	}
-	
+
 	currentData := data
 	for i, transform := range section.Transformations.ResponseTransforms {
 		h.logger.Debug("applying response transformation", "section", sectionName, "index", i)
-		
+
 		transformedData, err := transform(currentData)
 		if err != nil {
 			return model.UniData{}, fmt.Errorf("response transformation %d failed: %w", i, err)
 		}
-		
+
 		currentData = transformedData
 	}
-	
+
 	return currentData, nil
 }
-
 
 // extractIDs extracts IDs from the request using configured paths
 func (h *UniHandler) extractIDs(
@@ -557,20 +556,20 @@ func (*UniHandler) shouldExtractFromPath(pathSegments, patternSegments []string)
 	if len(patternSegments) == 0 || len(pathSegments) == 0 {
 		return false
 	}
-	
+
 	lastPattern := patternSegments[len(patternSegments)-1]
-	
+
 	// Handle recursive wildcard **
 	if lastPattern == "**" {
 		// For pattern /users/**, any path like /users/123 should extract 123
 		return len(pathSegments) > len(patternSegments)-1
 	}
-	
+
 	// Handle single wildcard *
 	if lastPattern == "*" {
 		return len(pathSegments) == len(patternSegments)
 	}
-	
+
 	// For exact patterns, only extract if path is longer
 	return len(pathSegments) > len(patternSegments)
 }
@@ -632,11 +631,13 @@ func (*UniHandler) tryExtractHeaderID(
 	addID func(string),
 	collectedIDs []string,
 ) []string {
-	if section.HeaderIDName != "" {
-		headerID := req.Header.Get(section.HeaderIDName)
-		if headerID != "" {
-			addID(headerID)
-			collectedIDs = append(collectedIDs, headerID)
+	for _, headerName := range section.HeaderIDNames {
+		if headerName != "" {
+			headerID := req.Header.Get(headerName)
+			if headerID != "" {
+				addID(headerID)
+				collectedIDs = append(collectedIDs, headerID)
+			}
 		}
 	}
 	return collectedIDs
@@ -796,7 +797,7 @@ func (h *UniHandler) HandleRequest(ctx context.Context, req *http.Request) (*htt
 	// Process the request using the appropriate handler
 	var resp *http.Response
 	var err error
-	
+
 	switch req.Method {
 	case http.MethodGet:
 		resp, err = h.HandleGET(ctx, req)
@@ -816,8 +817,7 @@ func (h *UniHandler) HandleRequest(ctx context.Context, req *http.Request) (*htt
 		}
 		err = nil
 	}
-	
-	
+
 	return resp, err
 }
 
@@ -884,7 +884,7 @@ func (*UniHandler) suppressResponseBody(resp *http.Response) *http.Response {
 	if resp == nil {
 		return resp
 	}
-	
+
 	// Create new response with same headers and status but empty body
 	newResp := &http.Response{
 		StatusCode: resp.StatusCode,
@@ -894,17 +894,17 @@ func (*UniHandler) suppressResponseBody(resp *http.Response) *http.Response {
 		ProtoMajor: resp.ProtoMajor,
 		ProtoMinor: resp.ProtoMinor,
 	}
-	
+
 	// Copy all headers
 	for k, v := range resp.Header {
 		newResp.Header[k] = v
 	}
-	
+
 	// Close original body if it exists
 	if resp.Body != nil {
 		_ = resp.Body.Close()
 	}
-	
+
 	return newResp
 }
 

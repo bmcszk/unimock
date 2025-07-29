@@ -251,13 +251,15 @@ monitoring:
 
 config:
   sections:
-    - path: "/api/v1/users/*"
-      id_path: "/id"
+    users:
+      path_pattern: "/api/v1/users/*"
+      body_id_paths: ["/id"]
       return_body: true
       strict_path: false
-    - path: "/api/v1/orders/*"
-      id_path: "/order_id"
-      header_id_name: "X-Order-ID"
+    orders:
+      path_pattern: "/api/v1/orders/*"
+      body_id_paths: ["/order_id"]
+      header_id_names: ["X-Order-ID"]
       return_body: true
       strict_path: false
 

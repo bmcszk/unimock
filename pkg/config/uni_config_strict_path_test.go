@@ -142,7 +142,7 @@ func testWildcardPattern(t *testing.T, cfg *config.UniConfig, tt struct {
 	description string
 }) {
 	t.Helper()
-	
+
 	// Create a test section with the pattern
 	section := config.Section{
 		PathPattern:   tt.pattern,
@@ -180,7 +180,7 @@ func validateSuccessfulMatch(
 func validateFailedMatch(t *testing.T, matchedSection *config.Section, pattern, path, sectionName string) {
 	t.Helper()
 	if matchedSection != nil {
-		t.Errorf("expected no match for pattern %s and path %s, but got section %s", 
+		t.Errorf("expected no match for pattern %s and path %s, but got section %s",
 			pattern, path, sectionName)
 	}
 }
@@ -208,10 +208,10 @@ func TestUniConfig_PatternPriority(t *testing.T) {
 	}
 
 	tests := []struct {
-		name             string
-		path             string
-		expectedSection  string
-		description      string
+		name            string
+		path            string
+		expectedSection string
+		description     string
 	}{
 		{
 			name:            "exact match should have highest priority",
@@ -248,10 +248,10 @@ func TestUniConfig_PatternPriority(t *testing.T) {
 
 // testPatternPriority helper function to test pattern priority
 func testPatternPriority(t *testing.T, cfg *config.UniConfig, tt struct {
-	name             string
-	path             string
-	expectedSection  string
-	description      string
+	name            string
+	path            string
+	expectedSection string
+	description     string
 }) {
 	t.Helper()
 	sectionName, matchedSection, err := cfg.MatchPath(tt.path)
@@ -269,10 +269,10 @@ func testPatternPriority(t *testing.T, cfg *config.UniConfig, tt struct {
 
 func TestSection_StrictPathConfiguration(t *testing.T) {
 	tests := []struct {
-		name         string
-		yamlContent  string
+		name               string
+		yamlContent        string
 		expectedStrictPath bool
-		description  string
+		description        string
 	}{
 		{
 			name: "strict_path true",
@@ -282,7 +282,7 @@ test_section:
   strict_path: true
   body_id_paths: ["/id"]`,
 			expectedStrictPath: true,
-			description: "strict_path should be parsed correctly when true",
+			description:        "strict_path should be parsed correctly when true",
 		},
 		{
 			name: "strict_path false",
@@ -292,7 +292,7 @@ test_section:
   strict_path: false
   body_id_paths: ["/id"]`,
 			expectedStrictPath: false,
-			description: "strict_path should be parsed correctly when false",
+			description:        "strict_path should be parsed correctly when false",
 		},
 		{
 			name: "strict_path omitted defaults to false",
@@ -301,7 +301,7 @@ test_section:
   path_pattern: "/users/*"
   body_id_paths: ["/id"]`,
 			expectedStrictPath: false,
-			description: "strict_path should default to false when omitted",
+			description:        "strict_path should default to false when omitted",
 		},
 	}
 
@@ -314,13 +314,13 @@ test_section:
 
 // testStrictPathConfig helper function to test strict path configuration
 func testStrictPathConfig(t *testing.T, tt struct {
-	name         string
-	yamlContent  string
+	name               string
+	yamlContent        string
 	expectedStrictPath bool
-	description  string
+	description        string
 }) {
 	t.Helper()
-	
+
 	// Create a temporary file with YAML content
 	tmpfile, err := createTempYAMLFile(tt.yamlContent)
 	if err != nil {
@@ -337,7 +337,7 @@ func testStrictPathConfig(t *testing.T, tt struct {
 	// Check the strict_path value
 	section, exists := cfg.Sections["test_section"]
 	if !exists {
-		t.Fatalf("test_section not found in config")
+		t.Fatal("test_section not found in config")
 	}
 
 	if section.StrictPath != tt.expectedStrictPath {
@@ -351,18 +351,18 @@ func createTempYAMLFile(content string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	if _, err := tmpfile.Write([]byte(content)); err != nil {
 		tmpfile.Close()
 		os.Remove(tmpfile.Name())
 		return "", err
 	}
-	
+
 	if err := tmpfile.Close(); err != nil {
 		os.Remove(tmpfile.Name())
 		return "", err
 	}
-	
+
 	return tmpfile.Name(), nil
 }
 

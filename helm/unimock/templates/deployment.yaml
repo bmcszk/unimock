@@ -48,10 +48,6 @@ spec:
             {{- end }}
             - name: UNIMOCK_CONFIG
               value: "/etc/unimock/config.yaml"
-            {{- if .Values.scenarios.enabled }}
-            - name: UNIMOCK_SCENARIOS_FILE
-              value: "/etc/unimock/scenarios.yaml"
-            {{- end }}
             - name: GOMAXPROCS
               valueFrom:
                 resourceFieldRef:

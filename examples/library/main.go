@@ -33,7 +33,7 @@ func main() {
 				// Extract IDs from these paths in JSON body
 				BodyIDPaths: []string{"/id", "/data/id"},
 				// Extract ID from this header if present
-				HeaderIDName: "X-API-ID",
+				HeaderIDNames: []string{"X-API-ID"},
 			},
 			"users": {
 				// Match paths like /users/456
@@ -41,7 +41,7 @@ func main() {
 				// Extract IDs from these paths in JSON body
 				BodyIDPaths: []string{"/id", "/userId", "/user/id"},
 				// Extract ID from this header if present
-				HeaderIDName: "X-User-ID",
+				HeaderIDNames: []string{"X-User-ID"},
 			},
 		},
 	}

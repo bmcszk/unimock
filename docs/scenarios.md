@@ -44,12 +44,17 @@ Response:
 }
 ```
 
-### Via YAML Configuration (Startup)
+### Via Unified Configuration (Startup)
 
-Load scenarios from a YAML file when starting Unimock:
+Load scenarios using the unified configuration format:
 
-**scenarios.yaml:**
+**config.yaml:**
 ```yaml
+sections:
+  users:
+    path_pattern: "/api/users/*"
+    body_id_paths: ["/id"]
+
 scenarios:
   # GET scenario for a specific user
   - uuid: "example-user-001"
@@ -96,15 +101,37 @@ scenarios:
       }
 ```
 
-**Load scenarios at startup:**
-```bash
-# Using environment variable
-UNIMOCK_SCENARIOS_FILE=scenarios.yaml unimock
+**Load scenarios at startup using unified configuration:**
 
-# Using Docker
+**config.yaml:**
+```yaml
+sections:
+  users:
+    path_pattern: "/api/users/*"
+    body_id_paths: ["/id"]
+
+scenarios:
+  - uuid: "example-user-001"
+    method: "GET"
+    path: "/api/users/123"
+    status_code: 200
+    content_type: "application/json"
+    data: |
+      {
+        "id": "123",
+        "name": "John Doe",
+        "email": "john.doe@example.com"
+      }
+```
+
+**Start with unified config:**
+```bash
+# Using unified config file
+unimock
+
+# Using Docker with unified config
 docker run -p 8080:8080 \
-  -v $(pwd)/scenarios.yaml:/etc/unimock/scenarios.yaml \
-  -e UNIMOCK_SCENARIOS_FILE=/etc/unimock/scenarios.yaml \
+  -v $(pwd)/config.yaml:/etc/unimock/config.yaml \
   ghcr.io/bmcszk/unimock:latest
 ```
 
