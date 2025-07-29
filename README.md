@@ -1,148 +1,122 @@
-# Unimock
+# Unimock - Universal HTTP Mock Server
 
-A universal HTTP mock server for end-to-end testing. Mock any REST API, GraphQL service, or XML endpoint with flexible configuration and scenario-based responses.
+**Mock any HTTP service for testing. Works with REST, GraphQL, XML, or any HTTP API.**
 
 ## Quick Start
 
-### 1. Run with Docker
-
 ```bash
+# 1. Run with Docker
 docker run -p 8080:8080 ghcr.io/bmcszk/unimock:latest
-```
 
-### 2. Run with Helm
-
-```bash
-# Install from GitHub Container Registry
-helm install unimock oci://ghcr.io/bmcszk/charts/unimock
-
-# Or install from local chart
-helm install unimock ./helm/unimock
-```
-
-### 3. Test the mock server
-
-```bash
-# Add test data
+# 2. Test it
 curl -X POST http://localhost:8080/api/users \
   -H "Content-Type: application/json" \
-  -d '{"id": "1", "name": "John Doe", "email": "john@example.com"}'
+  -d '{"id": "123", "name": "John Doe"}'
 
-# Get the data back  
-curl http://localhost:8080/api/users/1
+curl http://localhost:8080/api/users/123
 ```
-
-### 4. Check health
-
-```bash
-curl http://localhost:8080/_uni/health
-```
-
-## What is Unimock?
-
-Unimock is a testing tool that creates fake HTTP services. Instead of calling real APIs during testing, your application calls Unimock, which responds with test data you control.
-
-**Use cases:**
-- Test your app without depending on external services
-- Create predictable test scenarios
-- Simulate API errors and edge cases
-- Speed up integration tests
-
-## Key Features
-
-- **Universal**: Works with REST, GraphQL, XML, or any HTTP service
-- **Smart ID extraction**: Finds IDs in URLs, JSON, XML, or headers automatically
-- **Scenarios**: Pre-defined responses for specific test cases
-- **Thread-safe**: Handle multiple requests simultaneously
-- **Easy configuration**: Simple YAML setup
 
 ## Configuration
 
-Create a `config.yaml` file to define which endpoints to mock:
+Create `config.yaml` with endpoint sections:
 
 ```yaml
-sections:
-  - path: "/api/users/*"     # Match /api/users/123
-    id_path: "/id"           # Extract ID from JSON body (XPath-like syntax)
-    return_body: true        # Return the posted data
-  - path: "/api/orders/*"
-    id_path: "/order_id"     # Extract order_id field
-    header_id_name: "X-Order-ID"  # Get ID from header
+users:
+  path_pattern: "/api/users/*"
+  body_id_paths: ["/id"]
+  header_id_names: ["X-User-ID", "Authorization"]  # Multiple headers supported
+  return_body: true
+
+orders:
+  path_pattern: "/api/orders/*"
+  body_id_paths: ["/order_id"]
+  header_id_names: ["X-Order-ID"]
 ```
 
-**[📖 Full Configuration Guide](docs/configuration.md)**
+**➜ [Copy-paste examples](examples/configs/) | [Full config guide](docs/configuration.md)**
 
 ## Scenarios
 
-Pre-define specific responses for testing:
+Pre-define responses for testing:
 
 ```yaml
 scenarios:
   - uuid: "user-not-found"
     method: "GET"
     path: "/api/users/999"
-    status_code: 404
-    data: '{"error": "User not found"}'
+    response:
+      status_code: 404
+      body: '{"error": "User not found"}'
 ```
 
-**[📖 Scenarios Guide](docs/scenarios.md)**
+**➜ [Scenario examples](docs/scenarios.md)**
 
-## Installation Methods
+## Installation
 
 | Method | Command | Use Case |
 |--------|---------|----------|
 | **Docker** | `docker run -p 8080:8080 ghcr.io/bmcszk/unimock` | Quick testing |
-| **Helm (Local)** | `helm install unimock ./helm/unimock` | Local Kubernetes testing |
-| **Helm (Registry)** | `helm install unimock oci://ghcr.io/bmcszk/charts/unimock` | Production deployment |
-| **Local Development** | `make tilt-run` | Development with auto-reload |
-| **Go Library** | `import "github.com/bmcszk/unimock/pkg"` | Embed in Go applications |
+| **Helm (Registry)** | `helm install unimock oci://ghcr.io/bmcszk/charts/unimock` | Production |  
+| **Local Build** | `make build && ./unimock` | Development |
+| **Go Library** | `import "github.com/bmcszk/unimock/pkg"` | Embed in apps |
 
-**[📖 Deployment Guide](docs/deployment.md)**
+## Key Features
 
-**[📖 Usage Examples](docs/examples.md)**
+✅ **Universal** - Works with any HTTP service (REST, XML, GraphQL)  
+✅ **Smart ID extraction** - From URLs, JSON, XML, or multiple headers  
+✅ **Scenarios** - Fixed responses for testing edge cases  
+✅ **Thread-safe** - Handles concurrent requests  
+✅ **Simple config** - Single YAML file  
 
-## Advanced Features
+## Quick Reference
 
-- **[Go Library](docs/library.md)** - Embed Unimock in Go applications with transformations
-- **[Go Client Library](docs/client.md)** - Complete Go client with scenario management
-- **[ID Extraction](docs/id_extraction.md)** - Flexible ID extraction from headers, JSON, and XML
-- **[Technical Endpoints](docs/technical_endpoints.md)** - Health checks, metrics, and scenario management
+| Task | Command/Config |
+|------|---------------|
+| **Run** | `docker run -p 8080:8080 ghcr.io/bmcszk/unimock` |
+| **Configure** | Edit `config.yaml` with sections and scenarios |
+| **Health** | `GET /_uni/health` |
+| **Metrics** | `GET /_uni/metrics` |
+| **POST test** | `curl -X POST :8080/api/users -d '{"id":"1"}'` |
+| **GET test** | `curl :8080/api/users/1` |
 
-## API Reference
+## Examples
 
-### Technical Endpoints
-- `GET /_uni/health` - Health check
-- `GET /_uni/metrics` - Prometheus metrics
-- `GET /_uni/scenarios` - List active scenarios
+- **[Simple Examples](examples/configs/config-simple.yaml)** - Copy-paste configurations
+- **[Unified Format](examples/configs/config-unified.yaml)** - Sections + scenarios in one file
+- **[Library Usage](examples/library/)** - Go library integration example
+- **[Legacy Format](config.yaml)** - Traditional format (still supported)
 
-### Mock Operations
-- `POST /your/path` - Add mock data
-- `GET /your/path/{id}` - Retrieve mock data
-- `PUT /your/path/{id}` - Update mock data
-- `DELETE /your/path/{id}` - Delete mock data
+## Environment Variables
+
+- `UNIMOCK_PORT` - Server port (default: 8080)
+- `UNIMOCK_LOG_LEVEL` - Log level (default: info)  
+- `UNIMOCK_CONFIG` - Config file path (default: config.yaml)
+
+## Common Use Cases
+
+- **API Testing** - Mock external services in integration tests
+- **Development** - Work offline without real API dependencies  
+- **Error Testing** - Simulate API failures and edge cases
+- **Load Testing** - Fast, predictable responses
+
+## Documentation
+
+📖 **[Configuration Guide](docs/configuration.md)** - Complete config reference  
+📖 **[Scenarios Guide](docs/scenarios.md)** - Pre-defined responses  
+📖 **[Examples](docs/examples.md)** - Usage examples  
+📖 **[Go Library](docs/library.md)** - Embed in applications  
+📖 **[Deployment](docs/deployment.md)** - Production deployment  
 
 ## Development
 
 ```bash
-# Clone and build
 git clone https://github.com/bmcszk/unimock.git
 cd unimock
-make build
-
-# Run tests
-make test
-
-# Start with auto-reload
-make tilt-run
+make build      # Build binary
+make test       # Run tests  
+make check      # Full validation
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Run `make check` to validate changes
-4. Submit a pull request
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE)

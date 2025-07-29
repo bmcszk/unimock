@@ -27,31 +27,36 @@ env:
 # Add development-specific configuration
 config:
   yaml: |
+    # Unified Configuration Format
     # Configuration for different API endpoints and their ID extraction rules
     
-    # Section for user-related endpoints
-    users:
-      path_pattern: "/api/users/*"
-      body_id_paths:
-        - "//id"
-        - "//@id"
-        - "//user/id"
-        - "//user/@id"
-      header_id_name: "X-User-ID"
-    
-    # Section for order-related endpoints
-    orders:
-      path_pattern: "/api/orders/*"
-      body_id_paths:
-        - "//id"
-        - "//@id"
-        - "//order/id"
-        - "//order/@id"
-      header_id_name: "X-Order-ID"
-    
-    # Development test endpoints
-    test:
-      path_pattern: "/api/test/*"
-      body_id_paths:
-        - "//id"
-      header_id_name: "X-Test-ID" 
+    sections:
+      # Section for user-related endpoints
+      users:
+        path_pattern: "/api/users/*"
+        body_id_paths:
+          - "/id"
+          - "/@id"
+          - "/user/id"
+          - "/user/@id"
+        header_id_names:
+          - "X-User-ID"
+      
+      # Section for order-related endpoints
+      orders:
+        path_pattern: "/api/orders/*"
+        body_id_paths:
+          - "/id"
+          - "/@id"
+          - "/order/id"
+          - "/order/@id"
+        header_id_names:
+          - "X-Order-ID"
+      
+      # Development test endpoints
+      test:
+        path_pattern: "/api/test/*"
+        body_id_paths:
+          - "/id"
+        header_id_names:
+          - "X-Test-ID" 

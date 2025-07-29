@@ -22,23 +22,25 @@ import (
 func main() {
     // Create server configuration
     serverConfig := &config.ServerConfig{
-        Port:     "8080",
-        LogLevel: "info",
+        Port:       "8080",
+        LogLevel:   "info",
+        ConfigPath: "config.yaml",
     }
 
     // Create mock configuration
-    mockConfig := &config.MockConfig{
+    uniConfig := &config.UniConfig{
         Sections: map[string]config.Section{
             "users": {
-                PathPattern: "/api/users/*",
-                BodyIDPaths: []string{"/id"},  // XPath-like syntax for JSON/XML
-                ReturnBody:  true,
+                PathPattern:   "/api/users/*",
+                BodyIDPaths:   []string{"/id"},  // XPath-like syntax for JSON/XML
+                HeaderIDNames: []string{"X-User-ID"},
+                ReturnBody:    true,
             },
         },
     }
 
     // Create server
-    server, err := pkg.NewServer(serverConfig, mockConfig)
+    server, err := pkg.NewServer(serverConfig, uniConfig)
     if err != nil {
         log.Fatal(err)
     }
@@ -61,30 +63,30 @@ import (
 
 func main() {
     // Load server config from environment variables
-    // UNIMOCK_PORT, UNIMOCK_LOG_LEVEL, UNIMOCK_CONFIG, UNIMOCK_SCENARIOS_FILE
+    // UNIMOCK_PORT, UNIMOCK_LOG_LEVEL, UNIMOCK_CONFIG
     serverConfig := config.FromEnv()
 
     // Create comprehensive mock configuration
-    mockConfig := &config.MockConfig{
+    uniConfig := &config.UniConfig{
         Sections: map[string]config.Section{
             "users": {
                 PathPattern:     "/api/users/*",
                 BodyIDPaths:     []string{"/id", "/user/id"},
-                HeaderIDName:    "X-User-ID", 
+                HeaderIDNames:   []string{"X-User-ID"}, 
                 ReturnBody:      true,
                 Transformations: createUserTransformations(), // Library-only
             },
             "orders": {
-                PathPattern:  "/api/orders/*",
-                BodyIDPaths:  []string{"/order_id"},
-                HeaderIDName: "X-Order-ID",
-                ReturnBody:   false,
+                PathPattern:   "/api/orders/*",
+                BodyIDPaths:   []string{"/order_id"},
+                HeaderIDNames: []string{"X-Order-ID"},
+                ReturnBody:    false,
             },
         },
     }
 
     // Create server with configuration
-    server, err := pkg.NewServer(serverConfig, mockConfig)
+    server, err := pkg.NewServer(serverConfig, uniConfig)
     if err != nil {
         log.Fatal(err)
     }
@@ -166,7 +168,7 @@ section := config.Section{
     Transformations: createUserTransformations(),
 }
 
-mockConfig := &config.MockConfig{
+uniConfig := &config.UniConfig{
     Sections: map[string]config.Section{
         "users": section,
     },
@@ -247,14 +249,14 @@ import (
     "github.com/bmcszk/unimock/pkg/config"
 )
 
-func loadFromYAML() (*config.MockConfig, error) {
+func loadFromYAML() (*config.UniConfig, error) {
     // Load mock configuration from YAML file
     return config.LoadFromYAML("config.yaml")
 }
 
-func loadScenariosFromYAML() (*config.ScenariosConfig, error) {
-    // Load scenarios configuration from YAML file  
-    return config.LoadScenariosFromYAML("scenarios.yaml")
+func loadUnifiedFromYAML() (*config.UnifiedConfig, error) {
+    // Load unified configuration (sections + scenarios) from YAML file  
+    return config.LoadUnifiedFromYAML("config.yaml")
 }
 ```
 
@@ -268,7 +270,6 @@ serverConfig := config.FromEnv()
 // UNIMOCK_PORT - Server port (default: "8080")
 // UNIMOCK_LOG_LEVEL - Log level (default: "info")
 // UNIMOCK_CONFIG - Config file path (default: "config.yaml")
-// UNIMOCK_SCENARIOS_FILE - Scenarios file path (optional)
 ```
 
 ## Testing Integration
@@ -293,22 +294,24 @@ import (
 func TestWithEmbeddedUnimock(t *testing.T) {
     // Create test configuration
     serverConfig := &config.ServerConfig{
-        Port:     "0", // Use random available port
-        LogLevel: "error", // Reduce noise in tests
+        Port:       "0", // Use random available port
+        LogLevel:   "error", // Reduce noise in tests
+        ConfigPath: "config.yaml",
     }
     
-    mockConfig := &config.MockConfig{
+    uniConfig := &config.UniConfig{
         Sections: map[string]config.Section{
             "users": {
-                PathPattern: "/api/users/*",
-                BodyIDPaths: []string{"/id"},
-                ReturnBody:  true,
+                PathPattern:   "/api/users/*",
+                BodyIDPaths:   []string{"/id"},
+                HeaderIDNames: []string{"X-User-ID"},
+                ReturnBody:    true,
             },
         },
     }
     
     // Start embedded server
-    server, err := pkg.NewServer(serverConfig, mockConfig)
+    server, err := pkg.NewServer(serverConfig, uniConfig)
     require.NoError(t, err)
     
     // Start server in background
@@ -372,11 +375,11 @@ sections:
     }
     
     // Load mock config from file
-    mockConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
+    uniConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
     require.NoError(t, err)
     
     // Create and test server
-    server, err := pkg.NewServer(serverConfig, mockConfig)
+    server, err := pkg.NewServer(serverConfig, uniConfig)
     require.NoError(t, err)
     
     // ... test operations
@@ -403,19 +406,18 @@ func createTempConfig(t *testing.T, content string) string {
 ```go
 // Server configuration
 serverConfig := &config.ServerConfig{
-    Port:          "8080",           // Server port
-    LogLevel:      "info",           // Log level: debug, info, warn, error
-    ConfigPath:    "config.yaml",    // Path to mock config file
-    ScenariosFile: "scenarios.yaml", // Path to scenarios file (optional)
+    Port:       "8080",        // Server port
+    LogLevel:   "info",        // Log level: debug, info, warn, error
+    ConfigPath: "config.yaml", // Path to mock config file
 }
 
 // Mock configuration  
-mockConfig := &config.MockConfig{
+uniConfig := &config.UniConfig{
     Sections: map[string]config.Section{
         "section_name": {
             PathPattern:     "/api/path/*",           // URL pattern
             BodyIDPaths:     []string{"/id"},         // JSON/XML ID paths
-            HeaderIDName:    "X-Resource-ID",        // Header ID name
+            HeaderIDNames:   []string{"X-Resource-ID"}, // Header ID names
             ReturnBody:      true,                   // Return request body on GET
             StrictPath:      false,                  // Strict path matching
             Transformations: transformationConfig,    // Library-only transformations
@@ -433,7 +435,7 @@ serverConfig := config.NewDefaultServerConfig()
 
 // Load from environment variables
 serverConfig := config.FromEnv()
-// Reads: UNIMOCK_PORT, UNIMOCK_LOG_LEVEL, UNIMOCK_CONFIG, UNIMOCK_SCENARIOS_FILE
+// Reads: UNIMOCK_PORT, UNIMOCK_LOG_LEVEL, UNIMOCK_CONFIG
 ```
 
 ## Production Usage
@@ -451,7 +453,7 @@ import (
 )
 
 func main() {
-    server, err := pkg.NewServer(serverConfig, mockConfig)
+    server, err := pkg.NewServer(serverConfig, uniConfig)
     if err != nil {
         log.Fatal(err)
     }
@@ -522,7 +524,7 @@ transformConfig.AddRequestTransform(
 
 ```go
 // Load from file instead of hardcoding
-mockConfig, err := config.LoadFromYAML("config.yaml")
+uniConfig, err := config.LoadFromYAML("config.yaml")
 if err != nil {
     log.Fatal(err)
 }
@@ -560,7 +562,6 @@ serverConfig := config.FromEnv()
 // UNIMOCK_PORT=8080
 // UNIMOCK_LOG_LEVEL=info
 // UNIMOCK_CONFIG=/etc/unimock/config.yaml
-// UNIMOCK_SCENARIOS_FILE=/etc/unimock/scenarios.yaml
 ```
 
 ### 4. Test Isolation
@@ -568,7 +569,7 @@ serverConfig := config.FromEnv()
 ```go
 func TestUserOperations(t *testing.T) {
     // Each test gets fresh server
-    server, baseURL := createTestServer(t, mockConfig)
+    server, baseURL := createTestServer(t, uniConfig)
     defer shutdownServer(server)
     
     t.Run("CreateUser", func(t *testing.T) {
@@ -580,9 +581,13 @@ func TestUserOperations(t *testing.T) {
     })
 }
 
-func createTestServer(t *testing.T, mockConfig *config.MockConfig) (*http.Server, string) {
-    serverConfig := &config.ServerConfig{Port: "0", LogLevel: "error"}
-    server, err := pkg.NewServer(serverConfig, mockConfig)
+func createTestServer(t *testing.T, uniConfig *config.UniConfig) (*http.Server, string) {
+    serverConfig := &config.ServerConfig{
+        Port:       "0", 
+        LogLevel:   "error",
+        ConfigPath: "config.yaml",
+    }
+    server, err := pkg.NewServer(serverConfig, uniConfig)
     require.NoError(t, err)
     
     go server.ListenAndServe()

@@ -49,22 +49,23 @@ Each endpoint is configured with:
 
 ## Custom Configuration
 
-To customize the configuration, modify the `mockConfig` and `serverConfig` objects in `main.go`:
+To customize the configuration, modify the `uniConfig` and `serverConfig` objects in `main.go`:
 
 ```go
 // Server configuration
 serverConfig := &config.ServerConfig{
-    Port:     "8081",    // Change the port
-    LogLevel: "debug",   // Change log level: debug, info, warn, error
+    Port:       "8081",    // Change the port
+    LogLevel:   "debug",   // Change log level: debug, info, warn, error
+    ConfigPath: "config.yaml", // Required but not used for in-code config
 }
 
 // Mock configuration
-mockConfig := &config.MockConfig{
+uniConfig := &config.UniConfig{
     Sections: map[string]config.Section{
         "custom": {
-            PathPattern:  "/custom/*",             // Custom path pattern
-            BodyIDPaths:  []string{"/customId"},   // Custom ID paths
-            HeaderIDName: "X-Custom-ID",           // Custom header
+            PathPattern:   "/custom/*",               // Custom path pattern
+            BodyIDPaths:   []string{"/customId"},     // Custom ID paths
+            HeaderIDNames: []string{"X-Custom-ID"},   // Custom headers (multiple supported)
         },
     },
 }

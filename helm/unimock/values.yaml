@@ -95,24 +95,27 @@ resources:
 env:
   UNIMOCK_PORT: "8080"
   UNIMOCK_LOG_LEVEL: "info"
-  # UNIMOCK_SCENARIOS_FILE: "/etc/unimock/scenarios.yaml"  # Uncomment to enable scenarios
+  # UNIMOCK_CONFIG: "/etc/unimock/config.yaml"  # Config file path
 
 # Unimock configuration
 # Can be either a YAML object or a string
 config:
   # YAML object format (recommended)
   sections:
-    - path: "/api/users/*"
-      id_path: "/id"
+    users:
+      path_pattern: "/api/users/*"
+      body_id_paths: ["/id"]
       return_body: true
       strict_path: false
-    - path: "/api/products/*" 
-      id_path: "/id"
+    products:
+      path_pattern: "/api/products/*" 
+      body_id_paths: ["/id"]
       return_body: true
       strict_path: false
-    - path: "/api/orders/*"
-      id_path: "/order_id"
-      header_id_name: "X-Order-ID"
+    orders:
+      path_pattern: "/api/orders/*"
+      body_id_paths: ["/order_id"]
+      header_id_names: ["X-Order-ID"]
       return_body: true
       strict_path: false
 

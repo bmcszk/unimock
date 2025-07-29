@@ -123,21 +123,25 @@ scenarios:
 # Enhanced configuration for more realistic API endpoints
 config:
   sections:
-    - path: "/api/users/*"
-      id_path: "/id"
+    users:
+      path_pattern: "/api/users/*"
+      body_id_paths: ["/id"]
       return_body: true
       strict_path: false
-    - path: "/api/products/*"
-      id_path: "/id"
+    products:
+      path_pattern: "/api/products/*"
+      body_id_paths: ["/id"]
       return_body: true
       strict_path: false
-    - path: "/api/orders/*"
-      id_path: "/order_id"
-      header_id_name: "X-Order-ID"
+    orders:
+      path_pattern: "/api/orders/*"
+      body_id_paths: ["/order_id"]
+      header_id_names: ["X-Order-ID"]
       return_body: true
       strict_path: false
-    - path: "/api/legacy/**"
-      id_path: "//id"
+    legacy:
+      path_pattern: "/api/legacy/**"
+      body_id_paths: ["//id"]
       return_body: true
       strict_path: false
 

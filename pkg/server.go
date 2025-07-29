@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
+	"github.com/bmcszk/unimock/pkg/model"
 )
 
 const (
@@ -20,7 +20,6 @@ const (
 	writeTimeout = 10 * time.Second
 	idleTimeout  = 120 * time.Second
 )
-
 
 // ConfigError represents a configuration error
 type ConfigError struct {
@@ -151,11 +150,8 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
-	// Load scenarios from file if specified
-	if err := loadScenariosFromFile(serverConfig, scenarioService, logger); err != nil {
-		logger.Error("failed to load scenarios from file", "error", err)
-		return nil, &ConfigError{Message: err.Error()}
-	}
+	// Load scenarios from unified config if available
+	loadScenariosFromFile(serverConfig, scenarioService, logger)
 
 	// Create handlers with services
 	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, uniConfig)
@@ -164,7 +160,7 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 
 	// Create a router
 	appRouter := router.NewRouter(
-		uniHandler, techHandler, scenarioHandler, 
+		uniHandler, techHandler, scenarioHandler,
 		scenarioService, techService, logger, uniConfig,
 	)
 
@@ -182,34 +178,42 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 	return srv, nil
 }
 
-// loadScenariosFromFile loads scenarios from the configured scenarios file
+// loadScenariosFromFile loads scenarios from the unified configuration file
 func loadScenariosFromFile(
-	serverConfig *config.ServerConfig, 
-	scenarioService *service.ScenarioService, 
+	serverConfig *config.ServerConfig,
+	scenarioService *service.ScenarioService,
 	logger *slog.Logger,
-) error {
-	if serverConfig.ScenariosFile == "" {
-		logger.Debug("no scenarios file configured, skipping file-based scenarios loading")
-		return nil
-	}
+) {
+	logger.Debug("loading scenarios from unified config", "file", serverConfig.ConfigPath)
 
-	logger.Info("loading scenarios from file", "file", serverConfig.ScenariosFile)
-
-	// Load scenarios configuration from file
-	scenariosConfig, err := config.LoadScenariosFromYAML(serverConfig.ScenariosFile)
+	// Try to load unified config first
+	unifiedConfig, err := config.LoadUnifiedFromYAML(serverConfig.ConfigPath)
 	if err != nil {
-		return fmt.Errorf("failed to load scenarios from file %s: %w", serverConfig.ScenariosFile, err)
+		logger.Debug("failed to load unified config, no scenarios to load", "error", err)
+		return
 	}
+
+	// Check if unified config has scenarios
+	if len(unifiedConfig.Scenarios) == 0 {
+		logger.Debug("no scenarios found in unified config")
+		return
+	}
+
+	logger.Info("loading scenarios from unified config",
+		"file", serverConfig.ConfigPath, "count", len(unifiedConfig.Scenarios))
 
 	// Convert to model scenarios and load them
-	modelScenarios := scenariosConfig.ToModelScenarios()
+	modelScenarios := make([]model.Scenario, 0, len(unifiedConfig.Scenarios))
+	for _, sf := range unifiedConfig.Scenarios {
+		modelScenarios = append(modelScenarios, sf.ToModelScenario())
+	}
 	ctx := context.Background()
 	loadedCount := 0
 
 	for _, scenario := range modelScenarios {
 		_, err := scenarioService.CreateScenario(ctx, scenario)
 		if err != nil {
-			logger.Warn("failed to load scenario from file", 
+			logger.Warn("failed to load scenario from unified config",
 				"scenario_path", scenario.RequestPath,
 				"scenario_uuid", scenario.UUID,
 				"error", err)
@@ -219,11 +223,9 @@ func loadScenariosFromFile(
 		loadedCount++
 	}
 
-	logger.Info("scenarios loaded from file", 
-		"file", serverConfig.ScenariosFile,
+	logger.Info("scenarios loaded from unified config",
+		"file", serverConfig.ConfigPath,
 		"total_scenarios", len(modelScenarios),
 		"loaded_scenarios", loadedCount,
 		"failed_scenarios", len(modelScenarios)-loadedCount)
-
-	return nil
 }

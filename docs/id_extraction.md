@@ -17,14 +17,15 @@ Each section in `config.yaml` defines how to extract IDs for a specific API endp
 
 ```yaml
 # Example configuration showing all ID extraction methods
-users:
-  path_pattern: "/api/users/*"  # URL pattern to match
-  header_id_name: "X-User-ID"   # Optional: HTTP header to extract ID from
-  body_id_paths:                # Optional: XPath-like paths to extract IDs from request body
-    - "/id"                     # Root level ID
-    - "/user/id"                # Nested ID
-    - "//id"                    # Any ID anywhere in document
-  return_body: true             # Optional: return POST body on GET requests
+sections:
+  users:
+    path_pattern: "/api/users/*"  # URL pattern to match
+    header_id_names: ["X-User-ID"]   # Optional: HTTP headers to extract ID from
+    body_id_paths:                # Optional: XPath-like paths to extract IDs from request body
+      - "/id"                     # Root level ID
+      - "/user/id"                # Nested ID
+      - "//id"                    # Any ID anywhere in document
+    return_body: true             # Optional: return POST body on GET requests
 ```
 
 ### Path Pattern
@@ -37,7 +38,7 @@ The `path_pattern` defines which URLs this section applies to:
 
 ### Header ID Extraction
 
-If `header_id_name` is specified, Unimock will try to extract the ID from the named HTTP header:
+If `header_id_names` is specified, Unimock will try to extract IDs from the named HTTP headers:
 - Example: `X-Resource-ID: 123` will extract `123` as the ID
 - If the header is not present or empty, this extraction method is skipped
 
@@ -128,7 +129,7 @@ Examples:
 sections:
   users:
     path_pattern: "/users/*"
-    header_id_name: "X-Resource-ID"
+    header_id_names: ["X-Resource-ID"]
     body_id_paths:
       - "/id"
       - "/data/id"
@@ -137,7 +138,7 @@ sections:
   
   orders:
     path_pattern: "/orders/*"
-    header_id_name: "X-Order-ID"
+    header_id_names: ["X-Order-ID"]
     body_id_paths:
       - "/order/id"
       - "//id"

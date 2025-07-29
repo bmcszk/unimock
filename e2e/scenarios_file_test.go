@@ -18,9 +18,17 @@ import (
 	"github.com/bmcszk/unimock/pkg/config"
 )
 
-func createTestScenariosFile(t *testing.T) string {
+func createTestUnifiedConfigFile(t *testing.T) string {
 	t.Helper()
-	scenariosYAML := `
+	unifiedConfigYAML := `
+sections:
+  test_scenarios:
+    path_pattern: "/test-scenarios/**"
+    body_id_paths:
+      - "/id"
+    header_id_names: ["X-User-ID"]
+    return_body: true
+
 scenarios:
   - uuid: "e2e-test-scenario-001"
     method: "GET"
@@ -60,29 +68,28 @@ scenarios:
 `
 
 	tempDir := t.TempDir()
-	scenariosFile := filepath.Join(tempDir, "test-scenarios.yaml")
-	err := os.WriteFile(scenariosFile, []byte(scenariosYAML), 0644)
+	configFile := filepath.Join(tempDir, "test-unified-config.yaml")
+	err := os.WriteFile(configFile, []byte(unifiedConfigYAML), 0644)
 	if err != nil {
-		t.Fatalf("Failed to create scenarios file: %v", err)
+		t.Fatalf("Failed to create unified config file: %v", err)
 	}
-	return scenariosFile
+	return configFile
 }
 
-func setupScenarioTestServer(t *testing.T, scenariosFile string) (*http.Server, string) {
+func setupScenarioTestServer(t *testing.T, configFile string) (*http.Server, string) {
 	t.Helper()
 	serverConfig := &config.ServerConfig{
-		Port:          "0",
-		LogLevel:      "info",
-		ConfigPath:    "../config.yaml",
-		ScenariosFile: scenariosFile,
+		Port:       "0",
+		LogLevel:   "info",
+		ConfigPath: configFile,
 	}
 
-	mockConfig, err := config.LoadFromYAML("../config.yaml")
+	uniConfig, err := config.LoadFromYAML(configFile)
 	if err != nil {
-		t.Fatalf("Failed to load mock config: %v", err)
+		t.Fatalf("Failed to load unified config: %v", err)
 	}
 
-	srv, err := pkg.NewServer(serverConfig, mockConfig)
+	srv, err := pkg.NewServer(serverConfig, uniConfig)
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
@@ -91,7 +98,7 @@ func setupScenarioTestServer(t *testing.T, scenariosFile string) (*http.Server, 
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
-	
+
 	go func() {
 		if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
 			t.Logf("Server error: %v", err)
@@ -110,9 +117,17 @@ func cleanupTestServer(t *testing.T, srv *http.Server) {
 	}
 }
 
-func createIntegrationScenariosFile(t *testing.T) string {
+func createIntegrationUnifiedConfigFile(t *testing.T) string {
 	t.Helper()
-	scenariosYAML := `
+	unifiedConfigYAML := `
+sections:
+  integration_test:
+    path_pattern: "/integration-test/**"
+    body_id_paths:
+      - "/id"
+    header_id_names: ["X-Resource-ID"]
+    return_body: true
+
 scenarios:
   - uuid: "file-scenario-001"
     method: "GET"
@@ -127,18 +142,18 @@ scenarios:
 `
 
 	tempDir := t.TempDir()
-	scenariosFile := filepath.Join(tempDir, "integration-scenarios.yaml")
-	err := os.WriteFile(scenariosFile, []byte(scenariosYAML), 0644)
+	configFile := filepath.Join(tempDir, "integration-unified-config.yaml")
+	err := os.WriteFile(configFile, []byte(unifiedConfigYAML), 0644)
 	if err != nil {
-		t.Fatalf("Failed to create scenarios file: %v", err)
+		t.Fatalf("Failed to create unified config file: %v", err)
 	}
-	return scenariosFile
+	return configFile
 }
 
-// TestScenarioFileLoading tests that scenarios can be loaded from a YAML file
+// TestScenarioFileLoading tests that scenarios can be loaded from a unified config file
 func TestScenarioFileLoading(t *testing.T) {
-	scenariosFile := createTestScenariosFile(t)
-	srv, baseURL := setupScenarioTestServer(t, scenariosFile)
+	configFile := createTestUnifiedConfigFile(t)
+	srv, baseURL := setupScenarioTestServer(t, configFile)
 	defer cleanupTestServer(t, srv)
 
 	t.Run("GET scenario from file", func(t *testing.T) {
@@ -289,8 +304,8 @@ func validateScenarioResponse(
 
 // TestScenarioFileAndRuntimeAPIIntegration tests that file-based and runtime scenarios work together
 func TestScenarioFileAndRuntimeAPIIntegration(t *testing.T) {
-	scenariosFile := createIntegrationScenariosFile(t)
-	srv, baseURL := setupScenarioTestServer(t, scenariosFile)
+	configFile := createIntegrationUnifiedConfigFile(t)
+	srv, baseURL := setupScenarioTestServer(t, configFile)
 	defer cleanupTestServer(t, srv)
 
 	t.Run("File scenario works", func(t *testing.T) {
@@ -351,7 +366,7 @@ func createRuntimeScenario(t *testing.T, baseURL string) {
 		"data": "{\"source\": \"runtime\", \"type\": \"runtime-scenario\"}"
 	}`
 
-	resp, err := http.Post(baseURL+"/_uni/scenarios", "application/json", 
+	resp, err := http.Post(baseURL+"/_uni/scenarios", "application/json",
 		strings.NewReader(runtimeScenarioJSON))
 	if err != nil {
 		t.Fatalf("Failed to create runtime scenario: %v", err)

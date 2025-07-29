@@ -1,0 +1,121 @@
+# Unified Configuration Example
+# This shows the new unified format with sections and scenarios in one file
+# Server settings (port, log_level) are configured via environment variables:
+# - UNIMOCK_PORT (default: 8080)
+# - UNIMOCK_LOG_LEVEL (default: info)
+
+# Endpoint configuration sections
+sections:
+  # User management endpoints
+  users:
+    path_pattern: "/api/users/*"
+    body_id_paths:
+      - "/id"
+      - "/@id"
+      - "/user/id"
+      - "/user/@id" 
+    # Extract IDs from multiple HTTP headers
+    header_id_names:
+      - "X-User-ID"
+      - "Authorization"
+    return_body: true
+
+  # Order management endpoints  
+  orders:
+    path_pattern: "/api/orders/*"
+    body_id_paths:
+      - "/id"
+      - "/@id"
+      - "/order/id"
+      - "/order/@id"
+    header_id_names:
+      - "X-Order-ID"
+
+  # Product catalog endpoints
+  products:
+    path_pattern: "/products/*"
+    body_id_paths:
+      - "/product/sku"
+      - "/sku"
+    header_id_names:
+      - "X-Product-Token"
+    return_body: true
+
+  # Nested user orders
+  user_orders:
+    path_pattern: "/api/users/*/orders/*"
+    body_id_paths:
+      - "/id"
+      - "/order/id"
+    header_id_names:
+      - "X-Order-ID"
+
+# Predefined scenarios that override normal mock behavior
+scenarios:
+  # Successful user creation
+  - uuid: "user-create-success"
+    method: "POST"
+    path: "/api/users"
+    status_code: 201
+    content_type: "application/json"
+    location: "/api/users/123"
+    headers:
+      X-User-ID: "123"
+    data: |
+      {
+        "id": "123",
+        "name": "John Doe",
+        "email": "john.doe@example.com",
+        "status": "active"
+      }
+
+  # User not found error
+  - uuid: "user-not-found"
+    method: "GET"
+    path: "/api/users/999"
+    status_code: 404
+    content_type: "application/json"
+    data: |
+      {
+        "error": "User not found",
+        "code": "USER_NOT_FOUND",
+        "message": "User with ID 999 does not exist"
+      }
+
+  # Server error scenario
+  - uuid: "server-error"
+    method: "GET"
+    path: "/api/users/error"
+    status_code: 500
+    content_type: "application/json"
+    data: |
+      {
+        "error": "Internal server error",
+        "code": "SERVER_ERROR",
+        "message": "Something went wrong on our end"
+      }
+
+  # XML product response
+  - uuid: "product-xml"
+    method: "GET"
+    path: "/products/xml123"
+    status_code: 200
+    content_type: "application/xml"
+    data: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <product>
+        <sku>xml123</sku>
+        <name>XML Product</name>
+        <price>99.99</price>
+        <category>Electronics</category>
+      </product>
+
+  # Head request for checking resource existence
+  - uuid: "user-exists-check"
+    method: "HEAD"
+    path: "/api/users/456"
+    status_code: 200
+    content_type: "application/json"
+    headers:
+      X-User-ID: "456"
+      Last-Modified: "Wed, 21 Oct 2015 07:28:00 GMT"
