@@ -30,6 +30,54 @@ func (e *ConfigError) Error() string {
 	return e.Message
 }
 
+// validateConfiguration validates that we have either sections or scenarios configured
+func validateConfiguration(
+	serverConfig *config.ServerConfig,
+	uniConfig *config.UniConfig,
+	logger *slog.Logger,
+) *ConfigError {
+	if uniConfig == nil {
+		err := "uni configuration is nil"
+		logger.Error(err)
+		return &ConfigError{Message: err}
+	}
+
+	scenarioCount := getScenariosCount(serverConfig, logger)
+
+	if len(uniConfig.Sections) == 0 && scenarioCount == 0 {
+		err := "no sections or scenarios defined in configuration"
+		logger.Error(err)
+		return &ConfigError{Message: err}
+	}
+
+	if len(uniConfig.Sections) == 0 {
+		logger.Info("running in scenarios-only mode - no sections configured")
+	}
+
+	return nil
+}
+
+// getScenariosCount returns the number of scenarios found in the config file
+func getScenariosCount(serverConfig *config.ServerConfig, logger *slog.Logger) int {
+	if serverConfig.ConfigPath == "" {
+		return 0
+	}
+
+	unifiedConfig, err := config.LoadUnifiedFromYAML(serverConfig.ConfigPath)
+	if err != nil {
+		return 0
+	}
+
+	count := len(unifiedConfig.Scenarios)
+	if count > 0 {
+		logger.Debug("found scenarios in unified config",
+			"file", serverConfig.ConfigPath,
+			"scenario_count", count)
+	}
+
+	return count
+}
+
 // setupLogger creates a new logger with the specified level
 func setupLogger(level string) *slog.Logger {
 	var logLevel slog.Level
@@ -128,15 +176,8 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 		"log_level", serverConfig.LogLevel)
 
 	// Validate uni configuration
-	if uniConfig == nil {
-		err := "uni configuration is nil"
-		logger.Error(err)
-		return nil, &ConfigError{Message: err}
-	}
-	if len(uniConfig.Sections) == 0 {
-		err := "no sections defined in uni configuration"
-		logger.Error(err)
-		return nil, &ConfigError{Message: err}
+	if err := validateConfiguration(serverConfig, uniConfig, logger); err != nil {
+		return nil, err
 	}
 
 	// Create a new storage
