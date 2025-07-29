@@ -24,7 +24,7 @@ func main() {
 
 	logger.Info("Starting Unimock with in-code configuration")
 
-	// Step 1: Create a uni configuration with API endpoints
+	// Step 1: Create a unified configuration with API endpoints
 	uniConfig := &config.UniConfig{
 		Sections: map[string]config.Section{
 			"api": {
@@ -44,6 +44,7 @@ func main() {
 				HeaderIDNames: []string{"X-User-ID"},
 			},
 		},
+		Scenarios: []config.ScenarioConfig{}, // Empty scenarios for this example
 	}
 
 	// Step 2: Create server configuration

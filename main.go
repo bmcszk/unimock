@@ -35,7 +35,7 @@ func main() {
 		"config_path", serverConfig.ConfigPath,
 		"log_level", serverConfig.LogLevel)
 
-	// Load mock configuration from file
+	// Load unified configuration from file
 	uniConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
 	if err != nil {
 		logger.Error("failed to load configuration", "error", err)

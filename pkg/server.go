@@ -30,6 +30,33 @@ func (e *ConfigError) Error() string {
 	return e.Message
 }
 
+// validateConfiguration validates that we have either sections or scenarios configured
+func validateConfiguration(
+	uniConfig *config.UniConfig,
+	logger *slog.Logger,
+) *ConfigError {
+	if uniConfig == nil {
+		err := "uni configuration is nil"
+		logger.Error(err)
+		return &ConfigError{Message: err}
+	}
+
+	sectionCount := len(uniConfig.Sections)
+	scenarioCount := len(uniConfig.Scenarios)
+
+	if sectionCount == 0 && scenarioCount == 0 {
+		err := "no sections or scenarios defined in configuration"
+		logger.Error(err)
+		return &ConfigError{Message: err}
+	}
+
+	if sectionCount == 0 {
+		logger.Info("running in scenarios-only mode - no sections configured")
+	}
+
+	return nil
+}
+
 // setupLogger creates a new logger with the specified level
 func setupLogger(level string) *slog.Logger {
 	var logLevel slog.Level
@@ -60,22 +87,20 @@ func setupLogger(level string) *slog.Logger {
 //   - Port: "8080"
 //   - LogLevel: "info"
 //
-// UniConfig must be non-nil and contain at least one section.
+// uniConfig must be non-nil and contain at least one section or scenario.
 //
 // Usage examples:
 //
-// 1. Using environment variables:
+// 1. Using environment variables and file config:
 //
 //	// Load server configuration from environment variables
 //	// UNIMOCK_PORT and UNIMOCK_LOG_LEVEL
 //	serverConfig := config.FromEnv()
 //
-//	// Create mock configuration
-//	uniConfig := config.NewUniConfig()
-//	uniConfig.Sections["users"] = config.Section{
-//	    PathPattern:  "/users/*",
-//	    BodyIDPaths:  []string{"/id"},
-//	    HeaderIDName: "X-User-ID",
+//	// Load unified configuration from file
+//	uniConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
+//	if err != nil {
+//	    log.Fatal(err)
 //	}
 //
 //	// Initialize server
@@ -89,13 +114,21 @@ func setupLogger(level string) *slog.Logger {
 //	    LogLevel: "debug",
 //	}
 //
-//	// Create mock configuration
+//	// Create unified configuration
 //	uniConfig := &config.UniConfig{
 //	    Sections: map[string]config.Section{
 //	        "users": {
 //	            PathPattern:  "/users/*",
 //	            BodyIDPaths:  []string{"/id"},
-//	            HeaderIDName: "X-User-ID",
+//	            HeaderIDNames: []string{"X-User-ID"},
+//	        },
+//	    },
+//	    Scenarios: []config.ScenarioConfig{
+//	        {
+//	            Method: "GET",
+//	            Path: "/api/test",
+//	            StatusCode: 200,
+//	            Data: `{"message": "test"}`,
 //	        },
 //	    },
 //	}
@@ -128,15 +161,8 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 		"log_level", serverConfig.LogLevel)
 
 	// Validate uni configuration
-	if uniConfig == nil {
-		err := "uni configuration is nil"
-		logger.Error(err)
-		return nil, &ConfigError{Message: err}
-	}
-	if len(uniConfig.Sections) == 0 {
-		err := "no sections defined in uni configuration"
-		logger.Error(err)
-		return nil, &ConfigError{Message: err}
+	if err := validateConfiguration(uniConfig, logger); err != nil {
+		return nil, err
 	}
 
 	// Create a new storage
@@ -150,8 +176,8 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
-	// Load scenarios from unified config if available
-	loadScenariosFromFile(serverConfig, scenarioService, logger)
+	// Load scenarios from uni config directly
+	loadScenariosFromUniConfig(uniConfig, scenarioService, logger)
 
 	// Create handlers with services
 	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, uniConfig)
@@ -178,33 +204,23 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 	return srv, nil
 }
 
-// loadScenariosFromFile loads scenarios from the unified configuration file
-func loadScenariosFromFile(
-	serverConfig *config.ServerConfig,
+// loadScenariosFromUniConfig loads scenarios from the provided uni configuration
+func loadScenariosFromUniConfig(
+	uniConfig *config.UniConfig,
 	scenarioService *service.ScenarioService,
 	logger *slog.Logger,
 ) {
-	logger.Debug("loading scenarios from unified config", "file", serverConfig.ConfigPath)
-
-	// Try to load unified config first
-	unifiedConfig, err := config.LoadUnifiedFromYAML(serverConfig.ConfigPath)
-	if err != nil {
-		logger.Debug("failed to load unified config, no scenarios to load", "error", err)
+	// Check if uni config has scenarios
+	if len(uniConfig.Scenarios) == 0 {
+		logger.Debug("no scenarios found in uni config")
 		return
 	}
 
-	// Check if unified config has scenarios
-	if len(unifiedConfig.Scenarios) == 0 {
-		logger.Debug("no scenarios found in unified config")
-		return
-	}
-
-	logger.Info("loading scenarios from unified config",
-		"file", serverConfig.ConfigPath, "count", len(unifiedConfig.Scenarios))
+	logger.Info("loading scenarios from uni config", "count", len(uniConfig.Scenarios))
 
 	// Convert to model scenarios and load them
-	modelScenarios := make([]model.Scenario, 0, len(unifiedConfig.Scenarios))
-	for _, sf := range unifiedConfig.Scenarios {
+	modelScenarios := make([]model.Scenario, 0, len(uniConfig.Scenarios))
+	for _, sf := range uniConfig.Scenarios {
 		modelScenarios = append(modelScenarios, sf.ToModelScenario())
 	}
 	ctx := context.Background()
@@ -213,7 +229,7 @@ func loadScenariosFromFile(
 	for _, scenario := range modelScenarios {
 		_, err := scenarioService.CreateScenario(ctx, scenario)
 		if err != nil {
-			logger.Warn("failed to load scenario from unified config",
+			logger.Warn("failed to load scenario from uni config",
 				"scenario_path", scenario.RequestPath,
 				"scenario_uuid", scenario.UUID,
 				"error", err)
@@ -223,8 +239,7 @@ func loadScenariosFromFile(
 		loadedCount++
 	}
 
-	logger.Info("scenarios loaded from unified config",
-		"file", serverConfig.ConfigPath,
+	logger.Info("scenarios loaded from uni config",
 		"total_scenarios", len(modelScenarios),
 		"loaded_scenarios", loadedCount,
 		"failed_scenarios", len(modelScenarios)-loadedCount)
