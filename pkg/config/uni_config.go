@@ -30,18 +30,8 @@ type UniConfig struct {
 	// Sections contains configuration for different API endpoint patterns
 	// The map keys are section names (usually API resource names like "users" or "orders")
 	// and the values are Section structs defining how to handle requests to those endpoints.
-	Sections map[string]Section `yaml:",inline" json:"sections"`
-
-	// Scenarios contains predefined responses that override normal mock behavior
-	Scenarios []ScenarioConfig `yaml:"scenarios,omitempty" json:"scenarios,omitempty"`
-}
-
-// UnifiedConfig represents the unified configuration format that includes
-// endpoint sections and scenarios in a single file
-// Server settings (port, log level) are configured via environment variables
-type UnifiedConfig struct {
-	// Sections contains configuration for different API endpoint patterns
-	Sections map[string]Section `yaml:"sections" json:"sections"`
+	// Supports both inline format (legacy) and explicit sections field (unified)
+	Sections map[string]Section `yaml:"sections,omitempty" json:"sections"`
 
 	// Scenarios contains predefined responses that override normal mock behavior
 	Scenarios []ScenarioConfig `yaml:"scenarios,omitempty" json:"scenarios,omitempty"`
@@ -201,28 +191,32 @@ func LoadFromYAML(path string) (*UniConfig, error) {
 		return nil, err
 	}
 
-	// Try to parse as unified format first
-	unified := &UnifiedConfig{}
+	// Try to parse as unified format first (with explicit sections and scenarios)
+	config := NewUniConfig()
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(false) // Disable strict mode for format detection
 
-	unifiedErr := decoder.Decode(unified)
-	if unifiedErr == nil && (len(unified.Sections) > 0 || len(unified.Scenarios) > 0) {
+	unifiedErr := decoder.Decode(config)
+	if unifiedErr == nil && (len(config.Sections) > 0 || len(config.Scenarios) > 0) {
 		// Successfully parsed as unified format
-		unified.Normalize()
-		config := &UniConfig{
-			Sections:  unified.Sections,
-			Scenarios: unified.Scenarios,
-		}
+		config.Normalize()
 		return config, nil
 	}
 
-	// Fall back to legacy format (sections at root)
-	config := NewUniConfig()
+	// Fall back to legacy format (sections as inline root-level keys)
+	config = NewUniConfig()
+
+	// For legacy format, we need to parse sections as inline root-level keys
+	// Create a temporary struct with inline sections
+	var legacyConfig struct {
+		Sections map[string]Section `yaml:",inline"`
+	}
+	legacyConfig.Sections = make(map[string]Section)
+
 	decoder = yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true) // Enable strict mode for legacy format
 
-	if err := decoder.Decode(config.Sections); err != nil {
+	if err := decoder.Decode(&legacyConfig); err != nil {
 		// If both formats failed, return the unified format error for better debugging
 		if unifiedErr != nil {
 			return nil, unifiedErr
@@ -230,33 +224,12 @@ func LoadFromYAML(path string) (*UniConfig, error) {
 		return nil, err
 	}
 
+	config.Sections = legacyConfig.Sections
 	return config, nil
 }
 
-// LoadUnifiedFromYAML loads a UnifiedConfig from a YAML file at the given path
-// This function returns the complete unified configuration including server settings and scenarios
-func LoadUnifiedFromYAML(path string) (*UnifiedConfig, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	unified := &UnifiedConfig{}
-	decoder := yaml.NewDecoder(bytes.NewReader(data))
-	decoder.KnownFields(true) // Enable strict mode
-
-	if err := decoder.Decode(unified); err != nil {
-		return nil, err
-	}
-
-	// Normalize the configuration to handle field name variants
-	unified.Normalize()
-
-	return unified, nil
-}
-
 // Normalize ensures consistent field values across different configuration formats
-func (uc *UnifiedConfig) Normalize() {
+func (uc *UniConfig) Normalize() {
 	for name, section := range uc.Sections {
 		section.Normalize()
 		uc.Sections[name] = section
@@ -461,16 +434,16 @@ func (pm pathMatcher) handleExactMatch(
 }
 
 // MatchPath finds the section that matches the given path
-func (c *UniConfig) MatchPath(path string) (string, *Section, error) {
+func (uc *UniConfig) MatchPath(path string) (string, *Section, error) {
 	normalizedPath := strings.Trim(path, PathSeparator)
 
 	// First try exact matches (no wildcards)
-	if name, section := c.findExactMatch(normalizedPath); section != nil {
+	if name, section := uc.findExactMatch(normalizedPath); section != nil {
 		return name, section, nil
 	}
 
 	// Then try wildcard matches, prioritizing longer patterns
-	if name, section := c.findBestWildcardMatch(normalizedPath); section != nil {
+	if name, section := uc.findBestWildcardMatch(normalizedPath); section != nil {
 		return name, section, nil
 	}
 
@@ -478,8 +451,8 @@ func (c *UniConfig) MatchPath(path string) (string, *Section, error) {
 }
 
 // findExactMatch looks for exact pattern matches (no wildcards)
-func (c *UniConfig) findExactMatch(normalizedPath string) (string, *Section) {
-	for name, section := range c.Sections {
+func (uc *UniConfig) findExactMatch(normalizedPath string) (string, *Section) {
+	for name, section := range uc.Sections {
 		pattern := strings.Trim(section.PathPattern, PathSeparator)
 		if !strings.Contains(pattern, WildcardChar) {
 			if isPatternMatch(pattern, normalizedPath, section.CaseSensitive) {
@@ -492,18 +465,18 @@ func (c *UniConfig) findExactMatch(normalizedPath string) (string, *Section) {
 }
 
 // findBestWildcardMatch finds the best wildcard match by prioritizing longer patterns
-func (c *UniConfig) findBestWildcardMatch(normalizedPath string) (string, *Section) {
+func (uc *UniConfig) findBestWildcardMatch(normalizedPath string) (string, *Section) {
 	bestMatch := wildcardMatch{name: "", numSegments: noMatch}
 
-	for name, section := range c.Sections {
-		if match := c.evaluateWildcardSection(name, section, normalizedPath); match.isValid() {
+	for name, section := range uc.Sections {
+		if match := uc.evaluateWildcardSection(name, section, normalizedPath); match.isValid() {
 			if match.isBetterThan(bestMatch) {
 				bestMatch = match
 			}
 		}
 	}
 
-	return bestMatch.getResult(c)
+	return bestMatch.getResult(uc)
 }
 
 // wildcardMatch represents a potential wildcard match
@@ -523,11 +496,11 @@ func (m wildcardMatch) isBetterThan(other wildcardMatch) bool {
 }
 
 // getResult returns the section for this match
-func (m wildcardMatch) getResult(c *UniConfig) (string, *Section) {
+func (m wildcardMatch) getResult(uc *UniConfig) (string, *Section) {
 	if !m.isValid() {
 		return "", nil
 	}
-	matchedSection := c.Sections[m.name]
+	matchedSection := uc.Sections[m.name]
 	return m.name, &matchedSection
 }
 
