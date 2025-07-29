@@ -18,19 +18,20 @@ curl http://localhost:8080/api/users/123
 
 ## Configuration
 
-Create `config.yaml` with endpoint sections:
+Create `config.yaml` with the unified format:
 
 ```yaml
-users:
-  path_pattern: "/api/users/*"
-  body_id_paths: ["/id"]
-  header_id_names: ["X-User-ID", "Authorization"]  # Multiple headers supported
-  return_body: true
+sections:
+  users:
+    path_pattern: "/api/users/*"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-User-ID", "Authorization"]  # Multiple headers supported
+    return_body: true
 
-orders:
-  path_pattern: "/api/orders/*"
-  body_id_paths: ["/order_id"]
-  header_id_names: ["X-Order-ID"]
+  orders:
+    path_pattern: "/api/orders/*"
+    body_id_paths: ["/order_id"]
+    header_id_names: ["X-Order-ID"]
 ```
 
 **➜ [Copy-paste examples](examples/configs/) | [Full config guide](docs/configuration.md)**
@@ -40,13 +41,18 @@ orders:
 Pre-define responses for testing:
 
 ```yaml
+sections:
+  users:
+    path_pattern: "/api/users/*"
+    body_id_paths: ["/id"]
+
 scenarios:
   - uuid: "user-not-found"
     method: "GET"
     path: "/api/users/999"
-    response:
-      status_code: 404
-      body: '{"error": "User not found"}'
+    status_code: 404
+    content_type: "application/json"
+    data: '{"error": "User not found"}'
 ```
 
 **➜ [Scenario examples](docs/scenarios.md)**

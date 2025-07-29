@@ -33,9 +33,9 @@ scenarios:
   - uuid: "user-not-found"
     method: "GET"
     path: "/api/users/999"
-    response:
-      status_code: 404
-      body: '{"error": "User not found"}'
+    status_code: 404
+    content_type: "application/json"
+    data: '{"error": "User not found"}'
 ```
 
 ### 2. Legacy Format (Still Supported)
