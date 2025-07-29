@@ -198,6 +198,13 @@ func TestUniConfig_LoadFromYAML_HeaderIDNames(t *testing.T) {
     - "X-Resource-ID"
 `
 
+	mockConfig := loadConfigFromYAML(t, yamlContent)
+	section := getTestSection(t, mockConfig)
+	validateHeaderIDNames(t, section, []string{"X-Test-ID", "X-Resource-ID"})
+}
+
+func loadConfigFromYAML(t *testing.T, yamlContent string) *config.UniConfig {
+	t.Helper()
 	tempFile, err := os.CreateTemp("", "test_config_*.yaml")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
@@ -213,13 +220,20 @@ func TestUniConfig_LoadFromYAML_HeaderIDNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
+	return mockConfig
+}
 
+func getTestSection(t *testing.T, mockConfig *config.UniConfig) config.Section {
+	t.Helper()
 	section, exists := mockConfig.Sections["test_section"]
 	if !exists {
 		t.Fatal("Expected test_section to exist")
 	}
+	return section
+}
 
-	expectedHeaders := []string{"X-Test-ID", "X-Resource-ID"}
+func validateHeaderIDNames(t *testing.T, section config.Section, expectedHeaders []string) {
+	t.Helper()
 	if len(section.HeaderIDNames) != len(expectedHeaders) {
 		t.Errorf("Expected %d header ID names, got %d", len(expectedHeaders), len(section.HeaderIDNames))
 	}
@@ -284,41 +298,27 @@ scenarios:
       body: '{"error": "Not found"}'
 `
 
-	tempFile, err := os.CreateTemp("", "test_unified_*.yaml")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-	defer os.Remove(tempFile.Name())
+	mockConfig := loadConfigFromYAML(t, yamlContent)
+	section := getUsersSection(t, mockConfig)
+	validateUnifiedSection(t, section)
+}
 
-	if _, err := tempFile.WriteString(yamlContent); err != nil {
-		t.Fatalf("Failed to write to temp file: %v", err)
-	}
-	tempFile.Close()
-
-	mockConfig, err := config.LoadFromYAML(tempFile.Name())
-	if err != nil {
-		t.Fatalf("Failed to load unified config: %v", err)
-	}
-
+func getUsersSection(t *testing.T, mockConfig *config.UniConfig) config.Section {
+	t.Helper()
 	section, exists := mockConfig.Sections["users"]
 	if !exists {
 		t.Fatal("Expected users section to exist")
 	}
+	return section
+}
 
+func validateUnifiedSection(t *testing.T, section config.Section) {
+	t.Helper()
 	if section.PathPattern != "/api/users/*" {
 		t.Errorf("Expected PathPattern to be '/api/users/*', got '%s'", section.PathPattern)
 	}
 
-	expectedHeaders := []string{"X-User-ID", "Authorization"}
-	if len(section.HeaderIDNames) != len(expectedHeaders) {
-		t.Errorf("Expected %d header names, got %d", len(expectedHeaders), len(section.HeaderIDNames))
-	}
-
-	for i, expected := range expectedHeaders {
-		if section.HeaderIDNames[i] != expected {
-			t.Errorf("Expected header %d to be '%s', got '%s'", i, expected, section.HeaderIDNames[i])
-		}
-	}
+	validateHeaderIDNames(t, section, []string{"X-User-ID", "Authorization"})
 
 	if !section.ReturnBody {
 		t.Errorf("Expected ReturnBody to be true, got %v", section.ReturnBody)

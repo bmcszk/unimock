@@ -25,7 +25,7 @@ func TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle(t *testing.T) {
 
 	// Initialize clients
 	unimockAPIClient, rc := setupTestClients(t)
-	
+
 	var scenarioID string
 	setupScenarioCleanup(ctx, t, unimockAPIClient, &scenarioID)
 
@@ -36,7 +36,7 @@ func TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle(t *testing.T) {
 	runStep7DeleteScenarioOverride(ctx, t, unimockAPIClient, &scenarioID)
 	runPart3VerifyScenarioRemovalAndDelete(ctx, t, rc)
 
-	t.Logf("TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle completed all steps.")
+	t.Log("TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle completed all steps.")
 }
 
 type httpClient interface {
@@ -85,9 +85,9 @@ func runPart1CreateUpdateVerify(ctx context.Context, t *testing.T, rc httpClient
 		}
 
 		validationErr := rc.ValidateResponses(expectedResponseFilePath, responses...)
-		require.NoErrorf(t, validationErr, 
+		require.NoErrorf(t, validationErr,
 			"Validation of Part 1 responses against '%s' failed", expectedResponseFilePath)
-		t.Logf("Part 1 (Steps 1, 3-4) completed successfully.")
+		t.Log("Part 1 (Steps 1, 3-4) completed successfully.")
 	})
 }
 
@@ -127,16 +127,16 @@ func runPart2VerifyScenarioOverride(ctx context.Context, t *testing.T, rc httpCl
 		}
 
 		validationErr := rc.ValidateResponses(expectedResponseFilePath, responses...)
-		require.NoErrorf(t, validationErr, 
+		require.NoErrorf(t, validationErr,
 			"Validation of Part 2 (Step 6) responses against '%s' failed", expectedResponseFilePath)
-		t.Logf("Part 2 (Step 6 - Verify Scenario Override) completed successfully.")
+		t.Log("Part 2 (Step 6 - Verify Scenario Override) completed successfully.")
 	})
 }
 
 func runStep7DeleteScenarioOverride(
-	ctx context.Context, 
-	t *testing.T, 
-	unimockAPIClient *client.Client, 
+	ctx context.Context,
+	t *testing.T,
+	unimockAPIClient *client.Client,
 	scenarioID *string,
 ) {
 	t.Helper()
@@ -162,7 +162,7 @@ func runPart3VerifyScenarioRemovalAndDelete(ctx context.Context, t *testing.T, r
 		}
 
 		validationErr := rc.ValidateResponses(expectedResponseFilePath, responses...)
-		require.NoErrorf(t, validationErr, 
+		require.NoErrorf(t, validationErr,
 			"Validation of Part 3 (Steps 8-10) responses against '%s' failed", expectedResponseFilePath)
 		t.Logf("Part 3 (Steps 8-10 - Verify Scenario Removal, Delete Resource, Verify Deletion) " +
 			"completed successfully.")

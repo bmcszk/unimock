@@ -1,0 +1,37 @@
+{
+  "name": "Unimock",
+  "description": "Universal HTTP mock server designed for e2e testing scenarios. Mock any HTTP-based service (REST, XML, etc.) with flexible ID extraction and scenario-based testing.",
+  "repository_url": "https://github.com/bmcszk/unimock",
+  "documentation_url": "https://github.com/bmcszk/unimock/blob/master/README.md",
+  "homepage": "https://github.com/bmcszk/unimock",
+  "tags": ["http", "mock", "testing", "e2e", "rest", "xml", "api", "server", "go", "kubernetes"],
+  "category": "Testing Tools",
+  "language": "Go",
+  "license": "MIT",
+  "docs_structure": {
+    "readme": "README.md",
+    "api_docs": "docs/api.md",
+    "deployment": "docs/deployment.md",
+    "configuration": "docs/configuration.md",
+    "scenarios": "docs/scenarios.md",
+    "examples": "examples/",
+    "helm_chart": "helm/unimock/"
+  },
+  "key_features": [
+    "Universal HTTP service mocking (REST, XML, any HTTP-based API)",
+    "Flexible ID extraction from URL paths, JSON/XML bodies, and HTTP headers",
+    "Scenario-based testing with predefined responses",
+    "Thread-safe in-memory storage with CRUD operations",
+    "Kubernetes-ready with Helm chart and Docker support",
+    "Technical endpoints for health checks and metrics",
+    "Three-layer architecture (Handler, Service, Storage)",
+    "Support for both standalone and embedded library usage"
+  ],
+  "use_cases": [
+    "End-to-end testing of microservices",
+    "API integration testing",
+    "Legacy system mocking",
+    "Development environment setup",
+    "CI/CD pipeline testing"
+  ]
+}
