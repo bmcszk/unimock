@@ -64,20 +64,18 @@ scenarios:
 	configFile := createTempConfigFile(t, configContent)
 	defer os.Remove(configFile)
 
-	// Create server config pointing to scenarios-only config
+	// Create server config
 	serverConfig := &config.ServerConfig{
-		Port:       "0", // Use random available port
-		LogLevel:   "error",
-		ConfigPath: configFile,
+		Port:     "0", // Use random available port
+		LogLevel: "error",
 	}
 
-	// Create empty UniConfig (no sections)
-	uniConfig := &config.UniConfig{
-		Sections: map[string]config.Section{}, // Empty sections map
-	}
+	// Load unified config from scenarios-only file
+	unifiedConfig, err := config.LoadUnifiedFromYAML(configFile)
+	require.NoError(t, err, "Should load scenarios-only config")
 
 	// This should work - server should start with scenarios-only config
-	server, err := pkg.NewServer(serverConfig, uniConfig)
+	server, err := pkg.NewServer(serverConfig, unifiedConfig)
 	require.NoError(t, err, "Server should start with scenarios-only configuration")
 
 	// Use httptest server instead for reliable testing

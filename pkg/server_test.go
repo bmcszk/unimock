@@ -31,37 +31,32 @@ scenarios:
 		defer os.Remove(configFile)
 
 		serverConfig := &config.ServerConfig{
-			Port:       "0",
-			LogLevel:   "error",
-			ConfigPath: configFile,
+			Port:     "0",
+			LogLevel: "error",
 		}
 
-		// Empty sections should be allowed when scenarios exist
-		uniConfig := &config.UniConfig{
-			Sections: map[string]config.Section{},
-		}
+		// Load unified config from file - should work with scenarios only
+		unifiedConfig, err := config.LoadUnifiedFromYAML(configFile)
+		require.NoError(t, err)
 
-		server, err := pkg.NewServer(serverConfig, uniConfig)
+		server, err := pkg.NewServer(serverConfig, unifiedConfig)
 		require.NoError(t, err, "Should create server with empty sections when scenarios exist")
 		require.NotNil(t, server)
 	})
 
 	t.Run("should reject completely empty config (no sections, no scenarios)", func(t *testing.T) {
-		// Create empty config file
-		configFile := createTempConfigFile(t, "")
-		defer os.Remove(configFile)
+		// Create empty unified config
+		unifiedConfig := &config.UnifiedConfig{
+			Sections:  map[string]config.Section{},
+			Scenarios: []config.ScenarioConfig{},
+		}
 
 		serverConfig := &config.ServerConfig{
-			Port:       "0",
-			LogLevel:   "error",
-			ConfigPath: configFile,
+			Port:     "0",
+			LogLevel: "error",
 		}
 
-		uniConfig := &config.UniConfig{
-			Sections: map[string]config.Section{},
-		}
-
-		server, err := pkg.NewServer(serverConfig, uniConfig)
+		server, err := pkg.NewServer(serverConfig, unifiedConfig)
 		require.Error(t, err, "Should reject config with no sections and no scenarios")
 		require.Nil(t, server)
 
@@ -76,34 +71,35 @@ scenarios:
 			LogLevel: "error",
 		}
 
-		uniConfig := &config.UniConfig{
+		unifiedConfig := &config.UnifiedConfig{
 			Sections: map[string]config.Section{
 				"users": {
 					PathPattern: "/users/*",
 					BodyIDPaths: []string{"/id"},
 				},
 			},
+			Scenarios: []config.ScenarioConfig{},
 		}
 
-		server, err := pkg.NewServer(serverConfig, uniConfig)
+		server, err := pkg.NewServer(serverConfig, unifiedConfig)
 		require.NoError(t, err, "Should accept config with sections")
 		require.NotNil(t, server)
 	})
 
-	t.Run("should handle missing config file gracefully", func(t *testing.T) {
+	t.Run("should handle empty unified config gracefully", func(t *testing.T) {
 		serverConfig := &config.ServerConfig{
-			Port:       "0",
-			LogLevel:   "error",
-			ConfigPath: "/nonexistent/file.yaml",
+			Port:     "0",
+			LogLevel: "error",
 		}
 
-		uniConfig := &config.UniConfig{
-			Sections: map[string]config.Section{},
-		}
-
-		server, err := pkg.NewServer(serverConfig, uniConfig)
-		require.Error(t, err, "Should reject config with no sections when config file is missing")
+		// Nil unified config should be rejected
+		server, err := pkg.NewServer(serverConfig, nil)
+		require.Error(t, err, "Should reject nil unified config")
 		require.Nil(t, server)
+
+		var configErr *pkg.ConfigError
+		require.ErrorAs(t, err, &configErr)
+		assert.Contains(t, configErr.Message, "unified configuration is nil")
 	})
 }
 
@@ -127,16 +123,15 @@ scenarios:
 		defer os.Remove(configFile)
 
 		serverConfig := &config.ServerConfig{
-			Port:       "0",
-			LogLevel:   "error",
-			ConfigPath: configFile,
+			Port:     "0",
+			LogLevel: "error",
 		}
 
-		uniConfig := &config.UniConfig{
-			Sections: map[string]config.Section{},
-		}
+		// Load unified config from file
+		unifiedConfig, err := config.LoadUnifiedFromYAML(configFile)
+		require.NoError(t, err)
 
-		server, err := pkg.NewServer(serverConfig, uniConfig)
+		server, err := pkg.NewServer(serverConfig, unifiedConfig)
 		require.NoError(t, err)
 
 		// Start test server
@@ -183,16 +178,15 @@ scenarios:
 		defer os.Remove(configFile)
 
 		serverConfig := &config.ServerConfig{
-			Port:       "0",
-			LogLevel:   "error",
-			ConfigPath: configFile,
+			Port:     "0",
+			LogLevel: "error",
 		}
 
-		uniConfig := &config.UniConfig{
-			Sections: map[string]config.Section{},
-		}
+		// Load unified config from file
+		unifiedConfig, err := config.LoadUnifiedFromYAML(configFile)
+		require.NoError(t, err)
 
-		server, err := pkg.NewServer(serverConfig, uniConfig)
+		server, err := pkg.NewServer(serverConfig, unifiedConfig)
 		require.NoError(t, err)
 
 		testServer := httptest.NewServer(server.Handler)

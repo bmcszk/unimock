@@ -32,50 +32,29 @@ func (e *ConfigError) Error() string {
 
 // validateConfiguration validates that we have either sections or scenarios configured
 func validateConfiguration(
-	serverConfig *config.ServerConfig,
-	uniConfig *config.UniConfig,
+	unifiedConfig *config.UnifiedConfig,
 	logger *slog.Logger,
 ) *ConfigError {
-	if uniConfig == nil {
-		err := "uni configuration is nil"
+	if unifiedConfig == nil {
+		err := "unified configuration is nil"
 		logger.Error(err)
 		return &ConfigError{Message: err}
 	}
 
-	scenarioCount := getScenariosCount(serverConfig, logger)
+	sectionCount := len(unifiedConfig.Sections)
+	scenarioCount := len(unifiedConfig.Scenarios)
 
-	if len(uniConfig.Sections) == 0 && scenarioCount == 0 {
+	if sectionCount == 0 && scenarioCount == 0 {
 		err := "no sections or scenarios defined in configuration"
 		logger.Error(err)
 		return &ConfigError{Message: err}
 	}
 
-	if len(uniConfig.Sections) == 0 {
+	if sectionCount == 0 {
 		logger.Info("running in scenarios-only mode - no sections configured")
 	}
 
 	return nil
-}
-
-// getScenariosCount returns the number of scenarios found in the config file
-func getScenariosCount(serverConfig *config.ServerConfig, logger *slog.Logger) int {
-	if serverConfig.ConfigPath == "" {
-		return 0
-	}
-
-	unifiedConfig, err := config.LoadUnifiedFromYAML(serverConfig.ConfigPath)
-	if err != nil {
-		return 0
-	}
-
-	count := len(unifiedConfig.Scenarios)
-	if count > 0 {
-		logger.Debug("found scenarios in unified config",
-			"file", serverConfig.ConfigPath,
-			"scenario_count", count)
-	}
-
-	return count
 }
 
 // setupLogger creates a new logger with the specified level
@@ -102,32 +81,30 @@ func setupLogger(level string) *slog.Logger {
 }
 
 // NewServer initializes a new HTTP server with the provided configurations.
-// Both serverConfig and uniConfig parameters are required.
+// Both serverConfig and unifiedConfig parameters are required.
 //
 // If serverConfig is nil, default values will be used:
 //   - Port: "8080"
 //   - LogLevel: "info"
 //
-// UniConfig must be non-nil and contain at least one section.
+// UnifiedConfig must be non-nil and contain at least one section or scenario.
 //
 // Usage examples:
 //
-// 1. Using environment variables:
+// 1. Using environment variables and file config:
 //
 //	// Load server configuration from environment variables
 //	// UNIMOCK_PORT and UNIMOCK_LOG_LEVEL
 //	serverConfig := config.FromEnv()
 //
-//	// Create mock configuration
-//	uniConfig := config.NewUniConfig()
-//	uniConfig.Sections["users"] = config.Section{
-//	    PathPattern:  "/users/*",
-//	    BodyIDPaths:  []string{"/id"},
-//	    HeaderIDName: "X-User-ID",
+//	// Load unified configuration from file
+//	unifiedConfig, err := config.LoadUnifiedFromYAML(serverConfig.ConfigPath)
+//	if err != nil {
+//	    log.Fatal(err)
 //	}
 //
 //	// Initialize server
-//	srv, err := pkg.NewServer(serverConfig, uniConfig)
+//	srv, err := pkg.NewServer(serverConfig, unifiedConfig)
 //
 // 2. Using direct configuration:
 //
@@ -137,23 +114,31 @@ func setupLogger(level string) *slog.Logger {
 //	    LogLevel: "debug",
 //	}
 //
-//	// Create mock configuration
-//	uniConfig := &config.UniConfig{
+//	// Create unified configuration
+//	unifiedConfig := &config.UnifiedConfig{
 //	    Sections: map[string]config.Section{
 //	        "users": {
 //	            PathPattern:  "/users/*",
 //	            BodyIDPaths:  []string{"/id"},
-//	            HeaderIDName: "X-User-ID",
+//	            HeaderIDNames: []string{"X-User-ID"},
+//	        },
+//	    },
+//	    Scenarios: []config.ScenarioConfig{
+//	        {
+//	            Method: "GET",
+//	            Path: "/api/test",
+//	            StatusCode: 200,
+//	            Data: `{"message": "test"}`,
 //	        },
 //	    },
 //	}
 //
 //	// Initialize server
-//	srv, err := pkg.NewServer(serverConfig, uniConfig)
+//	srv, err := pkg.NewServer(serverConfig, unifiedConfig)
 //
 // For a complete server setup:
 //
-//	srv, err := pkg.NewServer(serverConfig, uniConfig)
+//	srv, err := pkg.NewServer(serverConfig, unifiedConfig)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -163,7 +148,7 @@ func setupLogger(level string) *slog.Logger {
 //	if err := srv.ListenAndServe(); err != nil {
 //	    log.Fatal(err)
 //	}
-func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (*http.Server, error) {
+func NewServer(serverConfig *config.ServerConfig, unifiedConfig *config.UnifiedConfig) (*http.Server, error) {
 	if serverConfig == nil {
 		serverConfig = config.NewDefaultServerConfig()
 	}
@@ -175,8 +160,8 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 		"port", serverConfig.Port,
 		"log_level", serverConfig.LogLevel)
 
-	// Validate uni configuration
-	if err := validateConfiguration(serverConfig, uniConfig, logger); err != nil {
+	// Validate unified configuration
+	if err := validateConfiguration(unifiedConfig, logger); err != nil {
 		return nil, err
 	}
 
@@ -186,13 +171,18 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 	// Create a new scenario storage
 	scenarioStore := storage.NewScenarioStorage()
 
+	// Convert unified config to uni config for backward compatibility
+	uniConfig := &config.UniConfig{
+		Sections: unifiedConfig.Sections,
+	}
+
 	// Create services
 	uniService := service.NewUniService(store, uniConfig)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
-	// Load scenarios from unified config if available
-	loadScenariosFromFile(serverConfig, scenarioService, logger)
+	// Load scenarios from unified config directly
+	loadScenariosFromUnifiedConfig(unifiedConfig, scenarioService, logger)
 
 	// Create handlers with services
 	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, uniConfig)
@@ -219,29 +209,19 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 	return srv, nil
 }
 
-// loadScenariosFromFile loads scenarios from the unified configuration file
-func loadScenariosFromFile(
-	serverConfig *config.ServerConfig,
+// loadScenariosFromUnifiedConfig loads scenarios from the provided unified configuration
+func loadScenariosFromUnifiedConfig(
+	unifiedConfig *config.UnifiedConfig,
 	scenarioService *service.ScenarioService,
 	logger *slog.Logger,
 ) {
-	logger.Debug("loading scenarios from unified config", "file", serverConfig.ConfigPath)
-
-	// Try to load unified config first
-	unifiedConfig, err := config.LoadUnifiedFromYAML(serverConfig.ConfigPath)
-	if err != nil {
-		logger.Debug("failed to load unified config, no scenarios to load", "error", err)
-		return
-	}
-
 	// Check if unified config has scenarios
 	if len(unifiedConfig.Scenarios) == 0 {
 		logger.Debug("no scenarios found in unified config")
 		return
 	}
 
-	logger.Info("loading scenarios from unified config",
-		"file", serverConfig.ConfigPath, "count", len(unifiedConfig.Scenarios))
+	logger.Info("loading scenarios from unified config", "count", len(unifiedConfig.Scenarios))
 
 	// Convert to model scenarios and load them
 	modelScenarios := make([]model.Scenario, 0, len(unifiedConfig.Scenarios))
@@ -265,7 +245,6 @@ func loadScenariosFromFile(
 	}
 
 	logger.Info("scenarios loaded from unified config",
-		"file", serverConfig.ConfigPath,
 		"total_scenarios", len(modelScenarios),
 		"loaded_scenarios", loadedCount,
 		"failed_scenarios", len(modelScenarios)-loadedCount)

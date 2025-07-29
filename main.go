@@ -35,15 +35,15 @@ func main() {
 		"config_path", serverConfig.ConfigPath,
 		"log_level", serverConfig.LogLevel)
 
-	// Load mock configuration from file
-	uniConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
+	// Load unified configuration from file
+	unifiedConfig, err := config.LoadUnifiedFromYAML(serverConfig.ConfigPath)
 	if err != nil {
 		logger.Error("failed to load configuration", "error", err)
 		panic(err)
 	}
 
 	// Start the server
-	srv, err := pkg.NewServer(serverConfig, uniConfig)
+	srv, err := pkg.NewServer(serverConfig, unifiedConfig)
 	if err != nil {
 		logger.Error("failed to initialize server", "error", err)
 		panic(err)
