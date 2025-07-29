@@ -161,11 +161,13 @@ The following table lists the configurable parameters of the Unimock chart and t
 
 config:
   sections:
-    - path: "/api/users/*"
-      id_path: "/id"
+    users:
+      path_pattern: "/api/users/*"
+      body_id_paths: ["/id"]
       return_body: true
-    - path: "/api/products/*"
-      id_path: "/product_id"
+    products:
+      path_pattern: "/api/products/*"
+      body_id_paths: ["/product_id"]
       return_body: true
 
 resources:
@@ -284,8 +286,9 @@ Use structured YAML objects for better validation and IDE support:
 ```yaml
 config:
   sections:
-    - path: "/api/users/*"
-      id_path: "/id"
+    users:
+      path_pattern: "/api/users/*"
+      body_id_paths: ["/id"]
       return_body: true
 
 scenarios:
@@ -296,6 +299,7 @@ scenarios:
         method: "GET"
         path: "/test"
         status_code: 200
+        content_type: "text/plain"
         data: "test response"
 ```
 
@@ -307,8 +311,9 @@ Alternatively, use raw YAML strings:
 config:
   yaml: |
     sections:
-      - path: "/api/users/*"
-        id_path: "/id"
+      users:
+        path_pattern: "/api/users/*"
+        body_id_paths: ["/id"]
 
 scenarios:
   enabled: true
@@ -318,6 +323,7 @@ scenarios:
         method: "GET"
         path: "/test"
         status_code: 200
+        content_type: "text/plain"
         data: "test response"
 ```
 
