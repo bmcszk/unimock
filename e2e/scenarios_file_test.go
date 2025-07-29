@@ -84,12 +84,12 @@ func setupScenarioTestServer(t *testing.T, configFile string) (*http.Server, str
 		ConfigPath: configFile,
 	}
 
-	unifiedConfig, err := config.LoadUnifiedFromYAML(configFile)
+	uniConfig, err := config.LoadFromYAML(configFile)
 	if err != nil {
 		t.Fatalf("Failed to load unified config: %v", err)
 	}
 
-	srv, err := pkg.NewServer(serverConfig, unifiedConfig)
+	srv, err := pkg.NewServer(serverConfig, uniConfig)
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}

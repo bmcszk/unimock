@@ -36,14 +36,14 @@ func main() {
 		"log_level", serverConfig.LogLevel)
 
 	// Load unified configuration from file
-	unifiedConfig, err := config.LoadUnifiedFromYAML(serverConfig.ConfigPath)
+	uniConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
 	if err != nil {
 		logger.Error("failed to load configuration", "error", err)
 		panic(err)
 	}
 
 	// Start the server
-	srv, err := pkg.NewServer(serverConfig, unifiedConfig)
+	srv, err := pkg.NewServer(serverConfig, uniConfig)
 	if err != nil {
 		logger.Error("failed to initialize server", "error", err)
 		panic(err)

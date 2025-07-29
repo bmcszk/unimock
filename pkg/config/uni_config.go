@@ -31,6 +31,9 @@ type UniConfig struct {
 	// The map keys are section names (usually API resource names like "users" or "orders")
 	// and the values are Section structs defining how to handle requests to those endpoints.
 	Sections map[string]Section `yaml:",inline" json:"sections"`
+
+	// Scenarios contains predefined responses that override normal mock behavior
+	Scenarios []ScenarioConfig `yaml:"scenarios,omitempty" json:"scenarios,omitempty"`
 }
 
 // UnifiedConfig represents the unified configuration format that includes
@@ -185,7 +188,8 @@ type Section struct {
 // NewUniConfig creates an empty UniConfig with an initialized Sections map
 func NewUniConfig() *UniConfig {
 	return &UniConfig{
-		Sections: make(map[string]Section),
+		Sections:  make(map[string]Section),
+		Scenarios: []ScenarioConfig{},
 	}
 }
 
@@ -203,10 +207,13 @@ func LoadFromYAML(path string) (*UniConfig, error) {
 	decoder.KnownFields(false) // Disable strict mode for format detection
 
 	unifiedErr := decoder.Decode(unified)
-	if unifiedErr == nil && unified.Sections != nil && len(unified.Sections) > 0 {
+	if unifiedErr == nil && (len(unified.Sections) > 0 || len(unified.Scenarios) > 0) {
 		// Successfully parsed as unified format
 		unified.Normalize()
-		config := &UniConfig{Sections: unified.Sections}
+		config := &UniConfig{
+			Sections:  unified.Sections,
+			Scenarios: unified.Scenarios,
+		}
 		return config, nil
 	}
 

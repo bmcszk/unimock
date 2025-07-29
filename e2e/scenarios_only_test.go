@@ -71,11 +71,11 @@ scenarios:
 	}
 
 	// Load unified config from scenarios-only file
-	unifiedConfig, err := config.LoadUnifiedFromYAML(configFile)
+	uniConfig, err := config.LoadFromYAML(configFile)
 	require.NoError(t, err, "Should load scenarios-only config")
 
 	// This should work - server should start with scenarios-only config
-	server, err := pkg.NewServer(serverConfig, unifiedConfig)
+	server, err := pkg.NewServer(serverConfig, uniConfig)
 	require.NoError(t, err, "Server should start with scenarios-only configuration")
 
 	// Use httptest server instead for reliable testing

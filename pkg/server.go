@@ -32,17 +32,17 @@ func (e *ConfigError) Error() string {
 
 // validateConfiguration validates that we have either sections or scenarios configured
 func validateConfiguration(
-	unifiedConfig *config.UnifiedConfig,
+	uniConfig *config.UniConfig,
 	logger *slog.Logger,
 ) *ConfigError {
-	if unifiedConfig == nil {
-		err := "unified configuration is nil"
+	if uniConfig == nil {
+		err := "uni configuration is nil"
 		logger.Error(err)
 		return &ConfigError{Message: err}
 	}
 
-	sectionCount := len(unifiedConfig.Sections)
-	scenarioCount := len(unifiedConfig.Scenarios)
+	sectionCount := len(uniConfig.Sections)
+	scenarioCount := len(uniConfig.Scenarios)
 
 	if sectionCount == 0 && scenarioCount == 0 {
 		err := "no sections or scenarios defined in configuration"
@@ -81,13 +81,13 @@ func setupLogger(level string) *slog.Logger {
 }
 
 // NewServer initializes a new HTTP server with the provided configurations.
-// Both serverConfig and unifiedConfig parameters are required.
+// Both serverConfig and uniConfig parameters are required.
 //
 // If serverConfig is nil, default values will be used:
 //   - Port: "8080"
 //   - LogLevel: "info"
 //
-// UnifiedConfig must be non-nil and contain at least one section or scenario.
+// uniConfig must be non-nil and contain at least one section or scenario.
 //
 // Usage examples:
 //
@@ -98,13 +98,13 @@ func setupLogger(level string) *slog.Logger {
 //	serverConfig := config.FromEnv()
 //
 //	// Load unified configuration from file
-//	unifiedConfig, err := config.LoadUnifiedFromYAML(serverConfig.ConfigPath)
+//	uniConfig, err := config.LoadFromYAML(serverConfig.ConfigPath)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //
 //	// Initialize server
-//	srv, err := pkg.NewServer(serverConfig, unifiedConfig)
+//	srv, err := pkg.NewServer(serverConfig, uniConfig)
 //
 // 2. Using direct configuration:
 //
@@ -115,7 +115,7 @@ func setupLogger(level string) *slog.Logger {
 //	}
 //
 //	// Create unified configuration
-//	unifiedConfig := &config.UnifiedConfig{
+//	uniConfig := &config.UniConfig{
 //	    Sections: map[string]config.Section{
 //	        "users": {
 //	            PathPattern:  "/users/*",
@@ -134,11 +134,11 @@ func setupLogger(level string) *slog.Logger {
 //	}
 //
 //	// Initialize server
-//	srv, err := pkg.NewServer(serverConfig, unifiedConfig)
+//	srv, err := pkg.NewServer(serverConfig, uniConfig)
 //
 // For a complete server setup:
 //
-//	srv, err := pkg.NewServer(serverConfig, unifiedConfig)
+//	srv, err := pkg.NewServer(serverConfig, uniConfig)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -148,7 +148,7 @@ func setupLogger(level string) *slog.Logger {
 //	if err := srv.ListenAndServe(); err != nil {
 //	    log.Fatal(err)
 //	}
-func NewServer(serverConfig *config.ServerConfig, unifiedConfig *config.UnifiedConfig) (*http.Server, error) {
+func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (*http.Server, error) {
 	if serverConfig == nil {
 		serverConfig = config.NewDefaultServerConfig()
 	}
@@ -160,8 +160,8 @@ func NewServer(serverConfig *config.ServerConfig, unifiedConfig *config.UnifiedC
 		"port", serverConfig.Port,
 		"log_level", serverConfig.LogLevel)
 
-	// Validate unified configuration
-	if err := validateConfiguration(unifiedConfig, logger); err != nil {
+	// Validate uni configuration
+	if err := validateConfiguration(uniConfig, logger); err != nil {
 		return nil, err
 	}
 
@@ -171,18 +171,13 @@ func NewServer(serverConfig *config.ServerConfig, unifiedConfig *config.UnifiedC
 	// Create a new scenario storage
 	scenarioStore := storage.NewScenarioStorage()
 
-	// Convert unified config to uni config for backward compatibility
-	uniConfig := &config.UniConfig{
-		Sections: unifiedConfig.Sections,
-	}
-
 	// Create services
 	uniService := service.NewUniService(store, uniConfig)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
-	// Load scenarios from unified config directly
-	loadScenariosFromUnifiedConfig(unifiedConfig, scenarioService, logger)
+	// Load scenarios from uni config directly
+	loadScenariosFromUniConfig(uniConfig, scenarioService, logger)
 
 	// Create handlers with services
 	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, uniConfig)
@@ -209,23 +204,23 @@ func NewServer(serverConfig *config.ServerConfig, unifiedConfig *config.UnifiedC
 	return srv, nil
 }
 
-// loadScenariosFromUnifiedConfig loads scenarios from the provided unified configuration
-func loadScenariosFromUnifiedConfig(
-	unifiedConfig *config.UnifiedConfig,
+// loadScenariosFromUniConfig loads scenarios from the provided uni configuration
+func loadScenariosFromUniConfig(
+	uniConfig *config.UniConfig,
 	scenarioService *service.ScenarioService,
 	logger *slog.Logger,
 ) {
-	// Check if unified config has scenarios
-	if len(unifiedConfig.Scenarios) == 0 {
-		logger.Debug("no scenarios found in unified config")
+	// Check if uni config has scenarios
+	if len(uniConfig.Scenarios) == 0 {
+		logger.Debug("no scenarios found in uni config")
 		return
 	}
 
-	logger.Info("loading scenarios from unified config", "count", len(unifiedConfig.Scenarios))
+	logger.Info("loading scenarios from uni config", "count", len(uniConfig.Scenarios))
 
 	// Convert to model scenarios and load them
-	modelScenarios := make([]model.Scenario, 0, len(unifiedConfig.Scenarios))
-	for _, sf := range unifiedConfig.Scenarios {
+	modelScenarios := make([]model.Scenario, 0, len(uniConfig.Scenarios))
+	for _, sf := range uniConfig.Scenarios {
 		modelScenarios = append(modelScenarios, sf.ToModelScenario())
 	}
 	ctx := context.Background()
@@ -234,7 +229,7 @@ func loadScenariosFromUnifiedConfig(
 	for _, scenario := range modelScenarios {
 		_, err := scenarioService.CreateScenario(ctx, scenario)
 		if err != nil {
-			logger.Warn("failed to load scenario from unified config",
+			logger.Warn("failed to load scenario from uni config",
 				"scenario_path", scenario.RequestPath,
 				"scenario_uuid", scenario.UUID,
 				"error", err)
@@ -244,7 +239,7 @@ func loadScenariosFromUnifiedConfig(
 		loadedCount++
 	}
 
-	logger.Info("scenarios loaded from unified config",
+	logger.Info("scenarios loaded from uni config",
 		"total_scenarios", len(modelScenarios),
 		"loaded_scenarios", loadedCount,
 		"failed_scenarios", len(modelScenarios)-loadedCount)

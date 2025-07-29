@@ -36,17 +36,17 @@ scenarios:
 		}
 
 		// Load unified config from file - should work with scenarios only
-		unifiedConfig, err := config.LoadUnifiedFromYAML(configFile)
+		uniConfig, err := config.LoadFromYAML(configFile)
 		require.NoError(t, err)
 
-		server, err := pkg.NewServer(serverConfig, unifiedConfig)
+		server, err := pkg.NewServer(serverConfig, uniConfig)
 		require.NoError(t, err, "Should create server with empty sections when scenarios exist")
 		require.NotNil(t, server)
 	})
 
 	t.Run("should reject completely empty config (no sections, no scenarios)", func(t *testing.T) {
-		// Create empty unified config
-		unifiedConfig := &config.UnifiedConfig{
+		// Create empty uni config
+		uniConfig := &config.UniConfig{
 			Sections:  map[string]config.Section{},
 			Scenarios: []config.ScenarioConfig{},
 		}
@@ -56,7 +56,7 @@ scenarios:
 			LogLevel: "error",
 		}
 
-		server, err := pkg.NewServer(serverConfig, unifiedConfig)
+		server, err := pkg.NewServer(serverConfig, uniConfig)
 		require.Error(t, err, "Should reject config with no sections and no scenarios")
 		require.Nil(t, server)
 
@@ -71,7 +71,7 @@ scenarios:
 			LogLevel: "error",
 		}
 
-		unifiedConfig := &config.UnifiedConfig{
+		uniConfig := &config.UniConfig{
 			Sections: map[string]config.Section{
 				"users": {
 					PathPattern: "/users/*",
@@ -81,7 +81,7 @@ scenarios:
 			Scenarios: []config.ScenarioConfig{},
 		}
 
-		server, err := pkg.NewServer(serverConfig, unifiedConfig)
+		server, err := pkg.NewServer(serverConfig, uniConfig)
 		require.NoError(t, err, "Should accept config with sections")
 		require.NotNil(t, server)
 	})
@@ -92,14 +92,14 @@ scenarios:
 			LogLevel: "error",
 		}
 
-		// Nil unified config should be rejected
+		// Nil uni config should be rejected
 		server, err := pkg.NewServer(serverConfig, nil)
-		require.Error(t, err, "Should reject nil unified config")
+		require.Error(t, err, "Should reject nil uni config")
 		require.Nil(t, server)
 
 		var configErr *pkg.ConfigError
 		require.ErrorAs(t, err, &configErr)
-		assert.Contains(t, configErr.Message, "unified configuration is nil")
+		assert.Contains(t, configErr.Message, "uni configuration is nil")
 	})
 }
 
@@ -128,10 +128,10 @@ scenarios:
 		}
 
 		// Load unified config from file
-		unifiedConfig, err := config.LoadUnifiedFromYAML(configFile)
+		uniConfig, err := config.LoadFromYAML(configFile)
 		require.NoError(t, err)
 
-		server, err := pkg.NewServer(serverConfig, unifiedConfig)
+		server, err := pkg.NewServer(serverConfig, uniConfig)
 		require.NoError(t, err)
 
 		// Start test server
@@ -183,10 +183,10 @@ scenarios:
 		}
 
 		// Load unified config from file
-		unifiedConfig, err := config.LoadUnifiedFromYAML(configFile)
+		uniConfig, err := config.LoadFromYAML(configFile)
 		require.NoError(t, err)
 
-		server, err := pkg.NewServer(serverConfig, unifiedConfig)
+		server, err := pkg.NewServer(serverConfig, uniConfig)
 		require.NoError(t, err)
 
 		testServer := httptest.NewServer(server.Handler)
