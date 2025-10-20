@@ -279,7 +279,7 @@ func startUnimockServer(t *testing.T) (string, *os.Process) {
 
 	// Start the process using the built binary
 	cmd := exec.Command("./unimock")
-	cmd.Dir = "/home/blaze/github/bmcszk/unimock"
+	
 	cmd.Env = env
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
