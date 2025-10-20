@@ -24,5 +24,6 @@ jobs:
 
     - name: Run e2e tests
       run: |
+        make build
         make install-gotestsum
         make test-e2e

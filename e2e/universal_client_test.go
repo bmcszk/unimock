@@ -278,7 +278,7 @@ func startUnimockServer(t *testing.T) (string, *os.Process) {
 	env = append(env, "UNIMOCK_LOG_LEVEL=error") // Reduce log noise during tests
 
 	// Start the process using the built binary
-	cmd := exec.Command("../unimock")
+	cmd := exec.Command("./unimock")
 	
 	cmd.Env = env
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
