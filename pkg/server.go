@@ -219,9 +219,10 @@ func loadScenariosFromUniConfig(
 	logger.Info("loading scenarios from uni config", "count", len(uniConfig.Scenarios))
 
 	// Convert to model scenarios and load them
+	resolver := uniConfig.GetFixtureResolver()
 	modelScenarios := make([]model.Scenario, 0, len(uniConfig.Scenarios))
 	for _, sf := range uniConfig.Scenarios {
-		modelScenarios = append(modelScenarios, sf.ToModelScenario())
+		modelScenarios = append(modelScenarios, sf.ToModelScenario(resolver))
 	}
 	ctx := context.Background()
 	loadedCount := 0
