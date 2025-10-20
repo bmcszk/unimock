@@ -63,8 +63,6 @@ func setupLogger(level string) *slog.Logger {
 	switch level {
 	case "debug":
 		logLevel = slog.LevelDebug
-	case "info":
-		logLevel = slog.LevelInfo
 	case "warn":
 		logLevel = slog.LevelWarn
 	case "error":
