@@ -22,8 +22,20 @@ jobs:
       with:
         args: --build-tags=e2e ./e2e
 
-    - name: Run e2e tests
+    - name: Deps
       run: |
         make build
         make install-gotestsum
-        make test-e2e
+
+    - name: Docker compose up
+      run: |
+        make test-e2e-up
+
+    - name: Run e2e tests
+      run: |
+        make test-e2e-run
+
+    - name: Docker compose down
+      if: always()
+      run: |
+        make test-e2e-down
