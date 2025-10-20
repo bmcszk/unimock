@@ -1,5 +1,3 @@
-//go:build e2e
-
 package e2e_test
 
 import (
@@ -101,8 +99,8 @@ func testJSONOperationsE2E(ctx context.Context, t *testing.T, c *client.Client) 
 func testCreateUserE2E(ctx context.Context, t *testing.T, c *client.Client) {
 	t.Helper()
 	userData := map[string]any{
-		"id":   "test-user-001",
-		"name": "Test User",
+		"id":    "test-user-001",
+		"name":  "Test User",
 		"email": "test@example.com",
 	}
 
@@ -135,8 +133,8 @@ func testCreateUserE2E(ctx context.Context, t *testing.T, c *client.Client) {
 func testUpdateUserE2E(ctx context.Context, t *testing.T, c *client.Client) {
 	t.Helper()
 	updatedData := map[string]any{
-		"id":   "test-user-001",
-		"name": "Updated Test User",
+		"id":    "test-user-001",
+		"name":  "Updated Test User",
 		"email": "updated@example.com",
 	}
 
@@ -279,12 +277,12 @@ func startUnimockServer(t *testing.T) (string, *os.Process) {
 	env = append(env, "UNIMOCK_PORT="+port)
 	env = append(env, "UNIMOCK_LOG_LEVEL=error") // Reduce log noise during tests
 
-	// Start the server process  
-	cmd := exec.Command("go", "run", "/home/blaze/work/unimock/main.go")
-	cmd.Dir = "/home/blaze/work/unimock"
+	// Start the process using the built binary
+	cmd := exec.Command("./unimock")
+	cmd.Dir = "/home/blaze/github/bmcszk/unimock"
 	cmd.Env = env
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	
+
 	// Capture output for debugging
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -301,7 +299,7 @@ func stopUnimockServer(t *testing.T, process *os.Process) {
 	if process != nil {
 		// Send SIGTERM to the process group
 		syscall.Kill(-process.Pid, syscall.SIGTERM)
-		
+
 		// Wait for the process to exit
 		done := make(chan error, 1)
 		go func() {
@@ -322,7 +320,7 @@ func stopUnimockServer(t *testing.T, process *os.Process) {
 
 func waitForServer(t *testing.T, port string) {
 	t.Helper()
-	
+
 	// Create a client to test server readiness
 	c, err := client.NewClient(fmt.Sprintf("http://localhost:%s", port))
 	if err != nil {
@@ -337,7 +335,7 @@ func waitForServer(t *testing.T, port string) {
 		if isServerReady(c) {
 			return
 		}
-		
+
 		select {
 		case <-ctx.Done():
 			t.Fatal("Timeout waiting for server to start")

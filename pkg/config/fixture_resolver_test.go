@@ -77,32 +77,36 @@ func TestFixtureResolver_ResolveFixture_FileNotFound(t *testing.T) {
 }
 
 func TestFixtureResolver_ResolveFixture_InvalidPath(t *testing.T) {
-	// Setup
-	tempDir := t.TempDir()
-	resolver := config.NewFixtureResolver(tempDir)
+	resolver := config.NewFixtureResolver(t.TempDir())
 
-	testCases := []struct {
-		name    string
-		path    string
-		wantErr bool
-	}{
-		{"path traversal attempt", "@fixtures/../../../etc/passwd", true},
-		{"absolute path", "@/etc/passwd", true},
-		{"empty path", "@", true},
-		{"no @ prefix", "fixtures/data.json", false}, // Should treat as inline data
-	}
+	// Test paths that should error
+	testErrorPaths(t, resolver, []string{
+		"@fixtures/../../../etc/passwd",
+		"@/etc/passwd",
+		"@",
+	})
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := resolver.ResolveFixture(tc.path)
+	// Test inline data (no @ prefix)
+	testInlineDataPath(t, resolver, "fixtures/data.json")
+}
 
-			if tc.wantErr && err == nil {
-				t.Errorf("Expected error for path %q, got nil", tc.path)
-			}
-			if !tc.wantErr && err != nil {
-				t.Errorf("Expected no error for path %q, got: %v", tc.path, err)
+func testErrorPaths(t *testing.T, resolver *config.FixtureResolver, paths []string) {
+	t.Helper()
+	for _, path := range paths {
+		t.Run("error for "+path, func(t *testing.T) {
+			_, err := resolver.ResolveFixture(path)
+			if err == nil {
+				t.Errorf("Expected error for path %q, got nil", path)
 			}
 		})
+	}
+}
+
+func testInlineDataPath(t *testing.T, resolver *config.FixtureResolver, path string) {
+	t.Helper()
+	_, err := resolver.ResolveFixture(path)
+	if err != nil {
+		t.Errorf("Expected no error for inline path %q, got: %v", path, err)
 	}
 }
 

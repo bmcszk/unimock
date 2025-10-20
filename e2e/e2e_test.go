@@ -1,24 +1,30 @@
-//go:build e2e
-
 package e2e_test
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	restclient "github.com/bmcszk/go-restclient"
 )
 
 const (
-	defaultBaseURL = "http://localhost:8080"
 	clientErrorMsg = "Failed to create client: %v"
 )
 
+// getBaseURL returns the base URL for E2E tests from environment variable or default
+func getBaseURL() string {
+	if url := os.Getenv("UNIMOCK_BASE_URL"); url != "" {
+		return url
+	}
+	return "http://localhost:8080" // Default to original port for backward compatibility
+}
+
 // TestE2E_SCEN_RM_MULTI_ID_001 tests REQ-RM-MULTI-ID - Scenario 001
-// Create a resource with multiple IDs (one from header, one from body JSON path) 
+// Create a resource with multiple IDs (one from header, one from body JSON path)
 // and verify it can be retrieved by either ID.
 func TestE2E_SCEN_RM_MULTI_ID_001(t *testing.T) {
-	client, err := restclient.NewClient(restclient.WithBaseURL(defaultBaseURL))
+	client, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	if err != nil {
 		t.Fatalf(clientErrorMsg, err)
 	}
@@ -33,7 +39,7 @@ func TestE2E_SCEN_RM_MULTI_ID_001(t *testing.T) {
 }
 
 func TestE2E_SCEN_RM_MULTI_ID_002(t *testing.T) {
-	client, err := restclient.NewClient(restclient.WithBaseURL(defaultBaseURL))
+	client, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	if err != nil {
 		t.Fatalf(clientErrorMsg, err)
 	}
@@ -48,7 +54,7 @@ func TestE2E_SCEN_RM_MULTI_ID_002(t *testing.T) {
 }
 
 func TestE2E_SCEN_RM_MULTI_ID_003(t *testing.T) {
-	client, err := restclient.NewClient(restclient.WithBaseURL(defaultBaseURL))
+	client, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	if err != nil {
 		t.Fatalf(clientErrorMsg, err)
 	}
@@ -63,7 +69,7 @@ func TestE2E_SCEN_RM_MULTI_ID_003(t *testing.T) {
 }
 
 func TestE2E_SCEN_RM_MULTI_ID_004(t *testing.T) {
-	client, err := restclient.NewClient(restclient.WithBaseURL(defaultBaseURL))
+	client, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	if err != nil {
 		t.Fatalf(clientErrorMsg, err)
 	}
@@ -78,7 +84,7 @@ func TestE2E_SCEN_RM_MULTI_ID_004(t *testing.T) {
 }
 
 func TestE2E_SCEN_RM_MULTI_ID_005(t *testing.T) {
-	client, err := restclient.NewClient(restclient.WithBaseURL(defaultBaseURL))
+	client, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	if err != nil {
 		t.Fatalf(clientErrorMsg, err)
 	}

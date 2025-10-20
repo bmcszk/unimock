@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/antchfx/jsonquery v1.3.6
 	github.com/antchfx/xmlquery v1.4.4
-	github.com/bmcszk/go-restclient v0.0.7
+	github.com/bmcszk/go-restclient v0.0.9
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.10.0

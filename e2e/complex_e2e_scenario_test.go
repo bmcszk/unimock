@@ -1,4 +1,3 @@
-//go:build e2e
 
 package e2e_test
 
@@ -14,7 +13,6 @@ import (
 )
 
 const (
-	complexE2EBaseURL      = "http://localhost:8080" // Assuming Unimock runs here
 	complexE2EPrimaryID    = "e2e-static-prod-001"
 	complexE2ESecondarySKU = "SKU-E2E-STATIC-001"
 )
@@ -46,12 +44,13 @@ type httpClient interface {
 
 func setupTestClients(t *testing.T) (*client.Client, httpClient) {
 	t.Helper()
+	baseURL := getBaseURL()
 	// Initialize Unimock API client (for scenario management)
-	unimockAPIClient, err := client.NewClient(complexE2EBaseURL)
+	unimockAPIClient, err := client.NewClient(baseURL)
 	require.NoError(t, err, "Failed to create unimock API client")
 
 	// Initialize go-restclient
-	rc, err := restclient.NewClient(restclient.WithBaseURL(complexE2EBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(baseURL))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	return unimockAPIClient, rc

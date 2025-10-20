@@ -41,19 +41,20 @@ Add support for `@fixtures/` file references in scenario configuration that load
 ## Task List
 
 ### Development Tasks
-- [ ] Create `pkg/config/fixture_resolver.go`
-- [ ] Add tests in `pkg/config/fixture_resolver_test.go`
-- [ ] Update `ScenarioConfig.ToModelScenario()` method
-- [ ] Update config loading to track base directory
-- [ ] Add integration tests
-- [ ] Add documentation examples
+- [x] Create `pkg/config/fixture_resolver.go`
+- [x] Add tests in `pkg/config/fixture_resolver_test.go`
+- [x] Update `ScenarioConfig.ToModelScenario()` method
+- [x] Update config loading to track base directory
+- [x] Add integration tests
+- [x] Add documentation examples
 
 ### Testing Tasks
-- [ ] Unit tests for fixture resolver
-- [ ] Integration tests with scenario loading
-- [ ] Error handling tests
-- [ ] Backward compatibility tests
-- [ ] Performance tests for caching
+- [x] Unit tests for fixture resolver
+- [x] Integration tests with scenario loading
+- [x] Error handling tests
+- [x] Backward compatibility tests
+- [x] Performance tests for caching
+- [x] End-to-end tests for complete fixture file workflow
 
 ## Acceptance Criteria
 
@@ -64,6 +65,7 @@ Add support for `@fixtures/` file references in scenario configuration that load
 5. ✅ Security prevents path traversal attacks
 6. ✅ All existing tests pass
 7. ✅ New tests achieve >90% coverage
+8. ✅ E2E tests verify complete fixture file workflow including JSON, XML, and text files
 
 ## Technical Details
 

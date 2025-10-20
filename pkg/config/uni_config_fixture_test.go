@@ -72,6 +72,7 @@ scenarios:
 }
 
 func verifyFixtureFileSupportSections(t *testing.T, uniConfig *config.UniConfig) {
+	t.Helper()
 	if len(uniConfig.Sections) != 1 {
 		t.Errorf("Expected 1 section, got %d", len(uniConfig.Sections))
 	}
@@ -89,6 +90,7 @@ func verifyFixtureFileSupportSections(t *testing.T, uniConfig *config.UniConfig)
 }
 
 func verifyFixtureFileSupportScenarios(t *testing.T, uniConfig *config.UniConfig, robotsContent, statusContent string) {
+	t.Helper()
 	if len(uniConfig.Scenarios) != 2 {
 		t.Errorf("Expected 2 scenarios, got %d", len(uniConfig.Scenarios))
 	}
@@ -100,58 +102,39 @@ func verifyFixtureFileSupportScenarios(t *testing.T, uniConfig *config.UniConfig
 		scenarios[i] = scenarioConfig.ToModelScenario(resolver)
 	}
 
-	// Verify first scenario (robots list)
-	robotsScenario := scenarios[0]
-	if robotsScenario.UUID != "list-robots" {
-		t.Errorf("Expected UUID 'list-robots', got '%s'", robotsScenario.UUID)
-	}
-	if robotsScenario.RequestPath != "GET /internal/robots" {
-		t.Errorf("Expected request path 'GET /internal/robots', got '%s'", robotsScenario.RequestPath)
-	}
-	if robotsScenario.StatusCode != 200 {
-		t.Errorf("Expected status code 200, got %d", robotsScenario.StatusCode)
-	}
-	if robotsScenario.Data != robotsContent {
-		t.Errorf("Expected robots fixture content, got '%s'", robotsScenario.Data)
-	}
+	// Verify scenarios
+	verifyScenario(t, scenarios[0], "list-robots", "GET /internal/robots", 200, robotsContent)
+	verifyScenario(t, scenarios[1], "robot-status-C10190", "GET /robots/C10190/status", 200, statusContent)
+}
 
-	// Verify second scenario (robot status)
-	statusScenario := scenarios[1]
-	if statusScenario.UUID != "robot-status-C10190" {
-		t.Errorf("Expected UUID 'robot-status-C10190', got '%s'", statusScenario.UUID)
+func verifyScenario(
+	t *testing.T,
+	scenario model.Scenario,
+	expectedUUID string,
+	expectedPath string,
+	expectedStatusCode int,
+	expectedData string,
+) {
+	t.Helper()
+	if scenario.UUID != expectedUUID {
+		t.Errorf("Expected UUID '%s', got '%s'", expectedUUID, scenario.UUID)
 	}
-	if statusScenario.RequestPath != "GET /robots/C10190/status" {
-		t.Errorf("Expected request path 'GET /robots/C10190/status', got '%s'", statusScenario.RequestPath)
+	if scenario.RequestPath != expectedPath {
+		t.Errorf("Expected request path '%s', got '%s'", expectedPath, scenario.RequestPath)
 	}
-	if statusScenario.StatusCode != 200 {
-		t.Errorf("Expected status code 200, got %d", statusScenario.StatusCode)
+	if scenario.StatusCode != expectedStatusCode {
+		t.Errorf("Expected status code %d, got %d", expectedStatusCode, scenario.StatusCode)
 	}
-	if statusScenario.Data != statusContent {
-		t.Errorf("Expected status fixture content, got '%s'", statusScenario.Data)
+	if scenario.Data != expectedData {
+		t.Errorf("Expected data content, got '%s'", scenario.Data)
 	}
 }
 
 func TestUniConfig_LoadFromYAML_MixedInlineAndFixtureData(t *testing.T) {
-	// Setup
 	tempDir := t.TempDir()
-	fixturesDir := filepath.Join(tempDir, "fixtures")
+	fixtureContent := createTestFixture(t, tempDir, "fixtures", "data.json", `{"fixture": "data"}`)
 
-	err := os.MkdirAll(fixturesDir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create fixtures dir: %v", err)
-	}
-
-	// Create fixture file
-	fixtureFile := filepath.Join(fixturesDir, "data.json")
-	fixtureContent := `{"fixture": "data"}`
-	err = os.WriteFile(fixtureFile, []byte(fixtureContent), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create fixture file: %v", err)
-	}
-
-	// Create configuration file with mixed data
-	configFile := filepath.Join(tempDir, "config.yaml")
-	configContent := `scenarios:
+	configFile := createTestConfig(t, tempDir, `scenarios:
   - uuid: "inline-data"
     method: "GET"
     path: "/inline"
@@ -163,19 +146,50 @@ func TestUniConfig_LoadFromYAML_MixedInlineAndFixtureData(t *testing.T) {
     path: "/fixture"
     status_code: 200
     data: "@fixtures/data.json"
-`
-	err = os.WriteFile(configFile, []byte(configContent), 0644)
+`)
+
+	uniConfig := loadConfigOrFatal(t, configFile)
+	verifyMixedDataScenarios(t, uniConfig, fixtureContent)
+}
+
+func createTestFixture(t *testing.T, tempDir, fixtureDir, filename, content string) string {
+	t.Helper()
+	fixturesDir := filepath.Join(tempDir, fixtureDir)
+
+	err := os.MkdirAll(fixturesDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create fixtures dir: %v", err)
+	}
+
+	fixtureFile := filepath.Join(fixturesDir, filename)
+	err = os.WriteFile(fixtureFile, []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create fixture file: %v", err)
+	}
+	return content
+}
+
+func createTestConfig(t *testing.T, tempDir, configContent string) string {
+	t.Helper()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
 	}
+	return configFile
+}
 
-	// Load configuration
+func loadConfigOrFatal(t *testing.T, configFile string) *config.UniConfig {
+	t.Helper()
 	uniConfig, err := config.LoadFromYAML(configFile)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
+	return uniConfig
+}
 
-	// Verify scenarios
+func verifyMixedDataScenarios(t *testing.T, uniConfig *config.UniConfig, fixtureContent string) {
+	t.Helper()
 	if len(uniConfig.Scenarios) != 2 {
 		t.Errorf("Expected 2 scenarios, got %d", len(uniConfig.Scenarios))
 	}

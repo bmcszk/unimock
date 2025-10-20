@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:8080
+@baseUrl = http://localhost:28080
 @primaryId = e2e-static-prod-001
 @secondarySku = SKU-E2E-STATIC-001
 

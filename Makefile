@@ -1,4 +1,4 @@
-.PHONY: test build clean run helm-lint tilt-run tilt-stop tilt-ci kind-start kind-stop k8s-setup check install-lint install-gotestsum
+.PHONY: all test-all test-unit test-e2e test-e2e-up test-e2e-run test-e2e-down build clean run deps tidy vet lint check kind-start kind-stop helm-lint tilt-run tilt-stop tilt-ci k8s-setup install-lint install-gotestsum help
 
 # Go parameters
 GOCMD=go
@@ -16,65 +16,41 @@ K8S_CLUSTER_NAME=unimock
 
 # Test parameters
 TEST_FLAGS=-v -race -cover
-TEST_E2E_FLAGS=-v -p 1 -count=1 -tags=e2e -timeout=10m
+TEST_E2E_FLAGS=-v -p 1 -count=1 -timeout=10m
 
 # Health check parameters for E2E tests
-HEALTH_CHECK_URL=http://localhost:8080/_uni/health
+HEALTH_CHECK_URL=http://localhost:28080/_uni/health
 MAX_WAIT_SECONDS=10
 
 SHELL := /bin/bash -e -o pipefail
 
 all: build
 
-test:
+test-all:
 	@echo "Running all tests (unit and E2E)..."
 	make test-unit
 	make test-e2e
 
 test-unit:
 	@echo "Running unit tests..."
-	$(GOTEST) $(TEST_FLAGS) ./...
+	$(GOTEST) $(TEST_FLAGS) ./pkg/... ./internal/...
 
-test-e2e: build
-	@echo "Stopping any existing $(BINARY_NAME) process..."
-	killall $(BINARY_NAME) || true
-	@echo "Starting application for E2E tests..."
-	./$(BINARY_NAME) > unimock_e2e.log 2>&1 & \
-	APP_PID=$! ; \
-	echo "Application starting with PID $$APP_PID. Logs in unimock_e2e.log" ; \
-	# Ensure the application is stopped and logs are removed on exit, interrupt, or error
-	trap "echo 'Stopping application (PID $$APP_PID)...'; kill $$APP_PID 2>/dev/null || true; echo 'Application stopped.' ; exit $$LAST_EXIT_CODE" EXIT INT TERM ; \
-	LAST_EXIT_CODE=0; \
-	( \
-	    echo "Waiting for application to become healthy at $(HEALTH_CHECK_URL)..." ; \
-	    COUNT=0; \
-	    SUCCESS=false; \
-	    while [ $$COUNT -lt $(MAX_WAIT_SECONDS) ]; do \
-	        if curl -sf $(HEALTH_CHECK_URL) > /dev/null; then \
-	            SUCCESS=true; \
-	            break; \
-	        fi; \
-	        echo "Still waiting... ($$((COUNT+1))/$(MAX_WAIT_SECONDS))"; \
-	        sleep 1; \
-	        COUNT=$$((COUNT + 1)); \
-	    done; \
-	    if [ "$$SUCCESS" = "false" ]; then \
-	        echo "Application failed to start and become healthy after $(MAX_WAIT_SECONDS) seconds." ; \
-	        echo "--- Application Log (unimock_e2e.log) --- " ; \
-	        cat unimock_e2e.log ; \
-	        echo "--- End Application Log --- " ; \
-	        LAST_EXIT_CODE=1; exit 1; \
-	    fi; \
-	    echo "Application is healthy." ; \
-	    \
-	    echo "Running E2E tests..." ; \
-	    $(GOTEST) $(TEST_E2E_FLAGS) ./e2e/... ; \
-	    LAST_EXIT_CODE=$$? ; \
-	) || LAST_EXIT_CODE=$$? ; \
-	exit $$LAST_EXIT_CODE
+test-e2e:
+	$(MAKE) test-e2e-up
+	$(MAKE) test-e2e-run
+	$(MAKE) test-e2e-down
 
-test-short:
-	$(GOTEST) -short ./...
+test-e2e-up:
+	@echo "Starting unimock in Docker for E2E tests..."
+	docker compose -f docker-compose.test.yml up -d --wait
+
+test-e2e-run:
+	@echo "Running E2E tests..."
+	UNIMOCK_BASE_URL=http://localhost:28080 $(GOTEST) $(TEST_E2E_FLAGS) ./e2e/
+
+test-e2e-down:
+	@echo "Stopping unimock Docker containers..."
+	docker compose -f docker-compose.test.yml down --remove-orphans || true
 
 build:
 	$(GOBUILD) -o $(BINARY_NAME) .
@@ -97,7 +73,7 @@ vet:
 
 lint:
 	golangci-lint run ./...
-	golangci-lint run --build-tags=e2e ./e2e
+	golangci-lint run ./e2e
 
 check:
 	@echo "Running checks..."
@@ -123,11 +99,9 @@ helm-lint:
 tilt-run: kind-start ## Run Tilt for local development
 	cd tilt && tilt up
 
-.PHONY: tilt-stop
 tilt-stop: ## Stop Tilt and clean up resources
 	cd tilt && tilt down
 
-.PHONY: tilt-ci
 tilt-ci: kind-start ## Run Tilt in CI mode (non-interactive)
 	cd tilt && tilt ci
 
@@ -145,23 +119,25 @@ install-gotestsum: ## Install gotestsum
 
 help:
 	@echo "Available targets:"
-	@echo "  all        - Run tests and build"
-	@echo "  test       - Run all tests (unit and E2E) with race detection and coverage"
-	@echo "  test-unit  - Run unit tests (all tests not tagged 'e2e')"
-	@echo "  test-e2e   - Run end-to-end tests (tests tagged 'e2e')"
-	@echo "  test-short - Run only short tests"
-	@echo "  build      - Build the application"
-	@echo "  clean      - Remove build artifacts"
-	@echo "  run        - Build and run the application"
-	@echo "  deps       - Download dependencies"
-	@echo "  tidy       - Tidy up dependencies"
-	@echo "  vet        - Run go vet"
-	@echo "  lint       - Lint the codebase"
-	@echo "  kind-start - Create a Kind Kubernetes cluster"
-	@echo "  kind-stop  - Delete the Kind Kubernetes cluster"
-	@echo "  helm-lint  - Lint the Helm chart"
-	@echo "  tilt-run   - Start Tilt for local development"
-	@echo "  tilt-stop  - Stop Tilt and clean up resources"
-	@echo "  tilt-ci    - Run Tilt in CI mode (non-interactive)"
-	@echo "  k8s-setup  - Deploy to Kubernetes using Helm"
-	@echo "  check      - Run all checks" 
+	@echo "  all           - Run tests and build"
+	@echo "  test-all      - Run all tests (unit and E2E) with race detection and coverage"
+	@echo "  test-unit     - Run unit tests (all tests not tagged 'e2e')"
+	@echo "  test-e2e      - Run complete E2E test suite (Docker Compose)"
+	@echo "  test-e2e-up   - Start unimock in Docker for E2E tests"
+	@echo "  test-e2e-run  - Run E2E tests against running Docker container"
+	@echo "  test-e2e-down - Stop unimock Docker containers"
+	@echo "  build         - Build the application"
+	@echo "  clean         - Remove build artifacts"
+	@echo "  run           - Build and run the application"
+	@echo "  deps          - Download dependencies"
+	@echo "  tidy          - Tidy up dependencies"
+	@echo "  vet           - Run go vet"
+	@echo "  lint          - Lint the codebase"
+	@echo "  kind-start    - Create a Kind Kubernetes cluster"
+	@echo "  kind-stop     - Delete the Kind Kubernetes cluster"
+	@echo "  helm-lint     - Lint the Helm chart"
+	@echo "  tilt-run      - Start Tilt for local development"
+	@echo "  tilt-stop     - Stop Tilt and clean up resources"
+	@echo "  tilt-ci       - Run Tilt in CI mode (non-interactive)"
+	@echo "  k8s-setup     - Deploy to Kubernetes using Helm"
+	@echo "  check         - Run all checks" 
