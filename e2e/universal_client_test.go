@@ -4,10 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
-	"os"
-	"os/exec"
-	"syscall"
 	"testing"
 	"time"
 
