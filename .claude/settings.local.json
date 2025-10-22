@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.docker.com)",
+      "WebFetch(domain:www.gnu.org)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

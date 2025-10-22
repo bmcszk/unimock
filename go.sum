@@ -6,8 +6,8 @@ github.com/antchfx/xpath v1.3.2/go.mod h1:i54GszH55fYfBmoZXapTHN8T8tkcHfRgLyVwwq
 github.com/antchfx/xpath v1.3.3/go.mod h1:i54GszH55fYfBmoZXapTHN8T8tkcHfRgLyVwwqzXNcs=
 github.com/antchfx/xpath v1.3.4 h1:1ixrW1VnXd4HurCj7qnqnR0jo14g8JMe20Fshg1Vgz4=
 github.com/antchfx/xpath v1.3.4/go.mod h1:i54GszH55fYfBmoZXapTHN8T8tkcHfRgLyVwwqzXNcs=
-github.com/bmcszk/go-restclient v0.0.7 h1:zk9dAo1lLsqClKhgoKZzJ6VYDoLakZvJXk0u2BEgWQQ=
-github.com/bmcszk/go-restclient v0.0.7/go.mod h1:pJAc0Lo7P3oiVv5s1LU8HsHiStBeW8xmAaLe37a7kTw=
+github.com/bmcszk/go-restclient v0.0.9 h1:2ExY7UsFfIPiwRxDsUf2sC+dZXbZOvVcHparBS5nEcw=
+github.com/bmcszk/go-restclient v0.0.9/go.mod h1:pJAc0Lo7P3oiVv5s1LU8HsHiStBeW8xmAaLe37a7kTw=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
