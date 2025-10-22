@@ -1,4 +1,3 @@
-//go:build e2e
 
 package e2e_test
 
@@ -16,10 +15,9 @@ import (
 )
 
 const (
-	UnimockBaseURL               = "http://localhost:8080"
-	applicationJSONContentType   = "application/json"
-	failedToCreateUnimockAPIMsg  = "Failed to create unimock API client"
-	getPrefix                    = "GET "
+	applicationJSONContentType  = "application/json"
+	failedToCreateUnimockAPIMsg = "Failed to create unimock API client"
+	getPrefix                   = "GET "
 )
 
 // Note: Uses localhost:8080 as configured in the Makefile test setup.
@@ -32,7 +30,7 @@ func ExecuteAndValidateHTTPFile(t *testing.T, httpFilePath string, hrespFilePath
 	t.Helper() // Mark as test helper
 
 	// Use go-restclient to execute and validate
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance for %s", httpFilePath)
 
 	resps, err := rc.ExecuteFile(context.Background(), httpFilePath)
@@ -45,7 +43,7 @@ func ExecuteAndValidateHTTPFile(t *testing.T, httpFilePath string, hrespFilePath
 // TestSCEN_RH_001_GetExistingResource verifies SCEN-RH-001:
 // Successful processing of a getPrefixrequest for an existing individual resource.
 func TestSCEN_RH_001_GetExistingResource(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	targetURLPath := "/test/resource/item123"
@@ -70,7 +68,7 @@ func TestSCEN_RH_001_GetExistingResource(t *testing.T) {
 	})
 
 	// Use go-restclient to execute and validate
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_001.http")
@@ -83,7 +81,7 @@ func TestSCEN_RH_001_GetExistingResource(t *testing.T) {
 // TestSCEN_RH_002_PostCreateResource verifies SCEN-RH-002:
 // Successful creation of a new resource via a POST request.
 func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	targetCollectionURLPath := "/test/collection"
@@ -122,7 +120,7 @@ func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 	})
 
 	// Use go-restclient to execute and validate
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_002.http")
@@ -135,7 +133,7 @@ func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 // TestSCEN_RH_003_PutUpdateResource verifies SCEN-RH-003:
 // Successful update of an existing resource via a PUT request.
 func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	targetResourceURLPath := "/test/resource/itemToUpdate"
@@ -165,7 +163,7 @@ func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdGetAfterPutScenario.UUID) })
 
 	// Use go-restclient to execute and validate
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_003.http")
@@ -178,7 +176,7 @@ func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 // TestSCEN_RH_004_DeleteResource verifies SCEN-RH-004:
 // Successful deletion of an existing resource via a DELETE request.
 func TestSCEN_RH_004_DeleteResource(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	targetResourceURLPath := "/test/resource/itemToDelete"
@@ -205,7 +203,7 @@ func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdGetAfterDeleteScenario.UUID) })
 
 	// Use go-restclient to execute and validate
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_004.http")
@@ -218,7 +216,7 @@ func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 // TestSCEN_RH_005_GetIndividualResourceEndpoint verifies SCEN-RH-005:
 // The application correctly uses Unimock for an individual resource endpoint (e.g., getPrefix/mocks/{id}).
 func TestSCEN_RH_005_GetIndividualResourceEndpoint(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	mockedEndpointPath := "/mocks/specific-mock-id"
@@ -242,7 +240,7 @@ func TestSCEN_RH_005_GetIndividualResourceEndpoint(t *testing.T) {
 // TestSCEN_RH_006_GetCollectionEndpoint verifies SCEN-RH-006:
 // The application correctly uses Unimock for a collection endpoint (e.g., getPrefix/mocks).
 func TestSCEN_RH_006_GetCollectionEndpoint(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	mockedCollectionPath := "/mocks"
@@ -267,12 +265,12 @@ func TestSCEN_RH_006_GetCollectionEndpoint(t *testing.T) {
 // TestSCEN_RH_007_PostInvalidContentType verifies SCEN-RH-007:
 // Unimock rejects a POST request with an unsupported Content-Type header with a 415 status.
 func TestSCEN_RH_007_PostInvalidContentType(t *testing.T) {
-	// For this test, we are testing Unimock's *direct* handling of invalid Content-Type 
+	// For this test, we are testing Unimock's *direct* handling of invalid Content-Type
 	// on its scenario management endpoint.
 	// No specific Unimock scenario needs to be created or matched via the API client.
 
 	// Use go-restclient to execute and validate
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_007.http")
@@ -292,7 +290,7 @@ func TestSCEN_RH_008_GetNonExistentResource(t *testing.T) {
 	// when no scenario matches the request to a path not covered by mock handler logic.
 
 	// Use go-restclient to execute and validate
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_008.http")
@@ -308,7 +306,7 @@ func TestSCEN_RH_008_GetNonExistentResource(t *testing.T) {
 // TestSCEN_RH_009_PathBasedRouting verifies SCEN-RH-009:
 // Unimock correctly routes requests to different mock configurations based on the request path.
 func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	pathA := "/test/routing/pathA"
@@ -342,7 +340,7 @@ func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
 	t.Cleanup(func() { _ = unimockAPIClient.DeleteScenario(context.Background(), createdScenarioB.UUID) })
 
 	// Use go-restclient to execute and validate
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_rh_009.http")
@@ -355,7 +353,7 @@ func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
 // TestSCEN_RH_010_WildcardPathMatching verifies SCEN-RH-010:
 // Unimock supports wildcard matching in request paths (e.g., /users/*).
 func TestSCEN_RH_010_WildcardPathMatching(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	wildcardPathPattern := "/users/*"
@@ -379,7 +377,7 @@ func TestSCEN_RH_010_WildcardPathMatching(t *testing.T) {
 // TestSCEN_SH_001_ExactPathScenarioMatch verifies SCEN-SH-001:
 // A configured scenario is matched by its exact RequestPath.
 func TestSCEN_SH_001_ExactPathScenarioMatch(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	targetMethod := http.MethodGet
@@ -411,7 +409,7 @@ func TestSCEN_SH_001_ExactPathScenarioMatch(t *testing.T) {
 // TestSCEN_SH_002_WildcardPathScenarioMatch verifies SCEN-SH-002:
 // A configured scenario with a wildcard in RequestPath is matched.
 func TestSCEN_SH_002_WildcardPathScenarioMatch(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	scenarioMethod := http.MethodPost
@@ -443,7 +441,7 @@ func TestSCEN_SH_002_WildcardPathScenarioMatch(t *testing.T) {
 // TestSCEN_SH_003_ScenarioSkipsMockHandling verifies SCEN-SH-003:
 // If a scenario matches, normal mock resource handling for the same path is skipped.
 func TestSCEN_SH_003_ScenarioSkipsMockHandling(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	targetMethod := http.MethodGet
@@ -472,7 +470,7 @@ func TestSCEN_SH_003_ScenarioSkipsMockHandling(t *testing.T) {
 	})
 
 	// Use go-restclient to execute the sequence: PUT original, getPrefix(expect scenario), DELETE original
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_sh_003.http")
@@ -485,7 +483,7 @@ func TestSCEN_SH_003_ScenarioSkipsMockHandling(t *testing.T) {
 // TestSCEN_SH_004_ScenarioMethodMismatch verifies SCEN-SH-004:
 // A scenario for a specific HTTP method does not match requests with other methods on the same path.
 func TestSCEN_SH_004_ScenarioMethodMismatch(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	targetPath := "/api/test/method-specific"
@@ -509,7 +507,7 @@ func TestSCEN_SH_004_ScenarioMethodMismatch(t *testing.T) {
 	})
 
 	// Use go-restclient to execute and validate
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_sh_004.http")
@@ -522,7 +520,7 @@ func TestSCEN_SH_004_ScenarioMethodMismatch(t *testing.T) {
 // TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation verifies SCEN-SH-005:
 // A scenario can return an empty body, a specific status code, and a custom Location header.
 func TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation(t *testing.T) {
-	unimockAPIClient, err := client.NewClient(UnimockBaseURL)
+	unimockAPIClient, err := client.NewClient(getBaseURL())
 	require.NoError(t, err, failedToCreateUnimockAPIMsg)
 
 	targetPath := "/api/actions/submit-task"
@@ -548,7 +546,7 @@ func TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation(t *testing.T) {
 	})
 
 	// Use go-restclient to execute and validate
-	rc, err := restclient.NewClient(restclient.WithBaseURL(UnimockBaseURL))
+	rc, err := restclient.NewClient(restclient.WithBaseURL(getBaseURL()))
 	require.NoError(t, err, "Failed to create go-restclient instance")
 
 	resps, err := rc.ExecuteFile(context.Background(), "testdata/http/scen_sh_005.http")

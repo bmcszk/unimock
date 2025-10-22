@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:8080
+@baseUrl = {{$processEnv UNIMOCK_BASE_URL}}
 @primaryId = e2e-static-prod-001
 @secondaryId = SKU-E2E-STATIC-001
 @scenarioId = {{$uuid}}

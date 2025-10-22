@@ -1,15 +1,9 @@
-//go:build e2e
-
 package e2e_test
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
-	"os"
-	"os/exec"
-	"syscall"
 	"testing"
 	"time"
 
@@ -17,15 +11,8 @@ import (
 )
 
 func TestUniversalClientE2E(t *testing.T) {
-	// Start a Unimock server for testing
-	serverPort, serverProcess := startUnimockServer(t)
-	defer stopUnimockServer(t, serverProcess)
-
-	// Wait for server to be ready
-	waitForServer(t, serverPort)
-
 	// Create client
-	baseURL := fmt.Sprintf("http://localhost:%s", serverPort)
+	baseURL := getBaseURL()
 	c, err := client.NewClient(baseURL)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -101,8 +88,8 @@ func testJSONOperationsE2E(ctx context.Context, t *testing.T, c *client.Client) 
 func testCreateUserE2E(ctx context.Context, t *testing.T, c *client.Client) {
 	t.Helper()
 	userData := map[string]any{
-		"id":   "test-user-001",
-		"name": "Test User",
+		"id":    "test-user-001",
+		"name":  "Test User",
 		"email": "test@example.com",
 	}
 
@@ -135,8 +122,8 @@ func testCreateUserE2E(ctx context.Context, t *testing.T, c *client.Client) {
 func testUpdateUserE2E(ctx context.Context, t *testing.T, c *client.Client) {
 	t.Helper()
 	updatedData := map[string]any{
-		"id":   "test-user-001",
-		"name": "Updated Test User",
+		"id":    "test-user-001",
+		"name":  "Updated Test User",
 		"email": "updated@example.com",
 	}
 
@@ -261,93 +248,4 @@ func deleteAllUsers(ctx context.Context, t *testing.T, c *client.Client) {
 	}
 }
 
-// Helper functions for server management
-
-func startUnimockServer(t *testing.T) (string, *os.Process) {
-	t.Helper()
-
-	// Find an available port
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("Failed to find available port: %v", err)
-	}
-	port := fmt.Sprintf("%d", listener.Addr().(*net.TCPAddr).Port)
-	listener.Close()
-
-	// Set environment variables for the server
-	env := os.Environ()
-	env = append(env, "UNIMOCK_PORT="+port)
-	env = append(env, "UNIMOCK_LOG_LEVEL=error") // Reduce log noise during tests
-
-	// Start the server process  
-	cmd := exec.Command("go", "run", "/home/blaze/work/unimock/main.go")
-	cmd.Dir = "/home/blaze/work/unimock"
-	cmd.Env = env
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	
-	// Capture output for debugging
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("Failed to start Unimock server: %v", err)
-	}
-
-	return port, cmd.Process
-}
-
-func stopUnimockServer(t *testing.T, process *os.Process) {
-	t.Helper()
-	if process != nil {
-		// Send SIGTERM to the process group
-		syscall.Kill(-process.Pid, syscall.SIGTERM)
-		
-		// Wait for the process to exit
-		done := make(chan error, 1)
-		go func() {
-			_, err := process.Wait()
-			done <- err
-		}()
-
-		select {
-		case <-done:
-			// Process exited gracefully
-		case <-time.After(5 * time.Second):
-			// Force kill if it doesn't exit gracefully
-			syscall.Kill(-process.Pid, syscall.SIGKILL)
-			process.Wait()
-		}
-	}
-}
-
-func waitForServer(t *testing.T, port string) {
-	t.Helper()
-	
-	// Create a client to test server readiness
-	c, err := client.NewClient(fmt.Sprintf("http://localhost:%s", port))
-	if err != nil {
-		t.Fatalf("Failed to create client for health check: %v", err)
-	}
-
-	// Wait up to 10 seconds for the server to start
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	for {
-		if isServerReady(c) {
-			return
-		}
-		
-		select {
-		case <-ctx.Done():
-			t.Fatal("Timeout waiting for server to start")
-		case <-time.After(100 * time.Millisecond):
-			// Continue checking
-		}
-	}
-}
-
-func isServerReady(c *client.Client) bool {
-	resp, err := c.Get(context.Background(), "/_uni/health", nil)
-	return err == nil && resp.StatusCode == 200
-}
+// No helper functions needed anymore, server is managed by Docker Compose
