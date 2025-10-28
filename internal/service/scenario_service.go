@@ -69,7 +69,6 @@ func (*ScenarioService) parseRequestPath(requestPath string) (method, path strin
 }
 
 // checkExactMatch checks if scenario matches exact path and updates exactMatch if needed
-//nolint:revive // flag parameters are appropriate for tracking match state
 func (*ScenarioService) checkExactMatch(
 	scenario, exactMatch model.Scenario, hasExactMatch bool, scenarioPath, path string,
 ) (model.Scenario, bool) {
@@ -78,8 +77,6 @@ func (*ScenarioService) checkExactMatch(
 	}
 	return exactMatch, hasExactMatch
 }
-
-//nolint:revive // flag parameters are appropriate for tracking match state
 
 // checkWildcardMatch checks if scenario matches wildcard path and updates wildcardMatch if needed
 func (s *ScenarioService) checkWildcardMatch(
@@ -92,9 +89,8 @@ func (s *ScenarioService) checkWildcardMatch(
 }
 
 // selectBestMatch returns the best match, preferring exact over wildcard
-//nolint:revive // flag parameters are appropriate for tracking match state
 func (*ScenarioService) selectBestMatch(
-	exactMatch model.Scenario, hasExactMatch bool, 
+	exactMatch model.Scenario, hasExactMatch bool,
 	wildcardMatch model.Scenario, hasWildcardMatch bool,
 ) (model.Scenario, bool) {
 	if hasExactMatch {
@@ -107,7 +103,6 @@ func (*ScenarioService) selectBestMatch(
 }
 
 // handleWildcardMatch processes wildcard scenario matching
-//nolint:revive // flag parameters are appropriate for tracking match state
 func (s *ScenarioService) handleWildcardMatch(
 	scenario, wildcardMatch model.Scenario, hasWildcardMatch bool, scenarioPath, path string,
 ) (model.Scenario, bool) {

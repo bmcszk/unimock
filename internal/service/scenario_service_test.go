@@ -141,7 +141,6 @@ func getScenarioByPathTestCases() []struct {
 	}
 }
 
-
 func TestScenarioService_GetScenarioByPath(t *testing.T) {
 	// Create service
 	store := storage.NewScenarioStorage()
@@ -316,7 +315,7 @@ func getScenarioTestCases() []struct {
 }
 
 // Helper function to validate GetScenario response
-func validateGetScenarioResponse( //nolint:revive
+func validateGetScenarioResponse(
 	t *testing.T, scenario model.Scenario, err error, expectedStatus int, expectedData string,
 	expectError bool, errorContains string,
 ) {
@@ -471,7 +470,7 @@ func getCreateScenarioTestCases() []struct {
 }
 
 // Helper function to validate error response
-func validateErrorResponse(t *testing.T, err error, expectError bool, errorContains string) bool { //nolint:revive
+func validateErrorResponse(t *testing.T, err error, expectError bool, errorContains string) bool {
 	t.Helper()
 	if expectError {
 		if err == nil {
@@ -501,7 +500,7 @@ func validateScenarioData(t *testing.T, scenario model.Scenario, expectedStatus 
 }
 
 // Helper function to validate CreateScenario response
-func validateCreateScenarioResponse( //nolint:revive
+func validateCreateScenarioResponse(
 	t *testing.T, _ *service.ScenarioService, _ model.Scenario, err error,
 	_ int, _ string, expectError bool, errorContains string,
 ) {
@@ -650,7 +649,7 @@ func getUpdateScenarioTestCases() []struct {
 }
 
 // Helper function to validate UpdateScenario response
-func validateUpdateScenarioResponse( //nolint:revive
+func validateUpdateScenarioResponse(
 	t *testing.T, scenarioSvc *service.ScenarioService, scenario model.Scenario, err error,
 	expectedStatus int, expectedData string, expectError bool, errorContains string,
 ) {
@@ -746,7 +745,7 @@ func getDeleteScenarioTestCases() []struct {
 }
 
 // Helper function to validate DeleteScenario response
-func validateDeleteScenarioResponse( //nolint:revive
+func validateDeleteScenarioResponse(
 	t *testing.T, scenarioSvc *service.ScenarioService, uuid string, err error,
 	expectError bool, errorContains string,
 ) {

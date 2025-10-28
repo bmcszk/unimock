@@ -429,52 +429,12 @@ scenarios:
 	return configFile
 }
 
-func createTempConfigFile(t *testing.T, _ string) string {
+func createTempConfigFile(t *testing.T, content string) string {
 	t.Helper()
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.yaml")
 
-	// The content is always the same configContent from scenarios_only_test.go
-	configContent := `
-scenarios:
-  - uuid: "test-user-get"
-    method: "GET"
-    path: "/api/users/123"
-    status_code: 200
-    content_type: "application/json"
-    data: |
-      {
-        "id": "123",
-        "name": "Test User",
-        "email": "test@example.com"
-      }
-
-  - uuid: "test-product-post"
-    method: "POST"
-    path: "/api/products"
-    status_code: 201
-    content_type: "application/json"
-    location: "/api/products/456"
-    data: |
-      {
-        "id": "456",
-        "name": "Test Product",
-        "price": 99.99
-      }
-
-  - uuid: "test-error-scenario"
-    method: "GET"
-    path: "/api/error"
-    status_code: 500
-    content_type: "application/json"
-    data: |
-      {
-        "error": "Internal server error",
-        "code": "SERVER_ERROR"
-      }
-`
-
-	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	err := os.WriteFile(configFile, []byte(content), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
 	}
