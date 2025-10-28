@@ -590,7 +590,11 @@ func executeHeadTest(t *testing.T, deps uniHandlerDeps, tt headTestCase) {
 	}
 
 	checkExpectedHeaders(t, w, tt.expectHeaders)
-	checkBodyPresence(t, w, tt.expectBody)
+	if tt.expectBody {
+		checkBodyIsPresent(t, w)
+	} else {
+		checkBodyIsAbsent(t, w)
+	}
 }
 
 func checkExpectedHeaders(t *testing.T, w *httptest.ResponseRecorder, expectHeaders map[string]string) {
@@ -599,15 +603,6 @@ func checkExpectedHeaders(t *testing.T, w *httptest.ResponseRecorder, expectHead
 		if actualValue := w.Header().Get(key); actualValue != expectedValue {
 			t.Errorf("expected header %s: %s, got: %s", key, expectedValue, actualValue)
 		}
-	}
-}
-
-func checkBodyPresence(t *testing.T, w *httptest.ResponseRecorder, expectBody bool) {
-	t.Helper()
-	if expectBody {
-		checkBodyIsPresent(t, w)
-	} else {
-		checkBodyIsAbsent(t, w)
 	}
 }
 

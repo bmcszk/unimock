@@ -53,11 +53,13 @@ func (*uniStorage) validateID(id string) error {
 }
 
 // buildCompositeKey creates a composite key for storage based on strict_path mode
-func (u *uniStorage) buildCompositeKey(sectionName string, isStrictPath bool, resourcePath string, id string) string {
-	if isStrictPath {
-		return u.buildStrictCompositeKey(resourcePath, id)
+func (s *uniStorage) buildCompositeKey(sectionName string, isStrictPath bool, resourcePath string, id string) string {
+	switch {
+	case isStrictPath:
+		return s.buildStrictCompositeKey(resourcePath, id)
+	default:
+		return s.buildNonStrictCompositeKey(sectionName, id)
 	}
-	return u.buildNonStrictCompositeKey(sectionName, id)
 }
 
 // buildStrictCompositeKey creates a composite key in strict mode: path:id

@@ -434,6 +434,12 @@ func createTempConfigFile(t *testing.T, content string) string {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.yaml")
 
+	// Use the provided content parameter to allow for different configurations
+	// Note: Content varies across different test functions in scenarios_only_test.go
+	if content == "" {
+		t.Fatal("content parameter cannot be empty")
+	}
+
 	err := os.WriteFile(configFile, []byte(content), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
