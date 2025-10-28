@@ -434,9 +434,9 @@ func createTempConfigFile(t *testing.T, content string) string {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.yaml")
 
-	// Use the provided content parameter to allow for different configurations
-	// Note: Content varies across different test functions in scenarios_only_test.go
-	if content == "" {
+	// Validate and use the provided content parameter to allow for different configurations
+	// Content varies across different test functions in scenarios_only_test.go
+	if len(content) == 0 {
 		t.Fatal("content parameter cannot be empty")
 	}
 

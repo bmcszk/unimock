@@ -320,10 +320,29 @@ func validateGetScenarioResponse(
 	expectError bool, errorContains string,
 ) {
 	t.Helper()
-	if validateErrorResponse(t, err, expectError, errorContains) {
+	if expectError {
+		validateErrorResponse(t, err, errorContains)
 		return
 	}
 
+	validateNoError(t, err)
+	validateScenarioData(t, scenario, expectedStatus, expectedData)
+}
+
+// validateGetScenarioResponseWithError validates that an error occurred as expected
+func validateGetScenarioResponseWithError(
+	t *testing.T, err error, errorContains string,
+) {
+	t.Helper()
+	validateErrorResponse(t, err, errorContains)
+}
+
+// validateGetScenarioResponseWithSuccess validates successful scenario retrieval
+func validateGetScenarioResponseWithSuccess(
+	t *testing.T, scenario model.Scenario, err error, expectedStatus int, expectedData string,
+) {
+	t.Helper()
+	validateNoError(t, err)
 	validateScenarioData(t, scenario, expectedStatus, expectedData)
 }
 
@@ -470,22 +489,21 @@ func getCreateScenarioTestCases() []struct {
 }
 
 // Helper function to validate error response
-func validateErrorResponse(t *testing.T, err error, expectError bool, errorContains string) bool {
+func validateErrorResponse(t *testing.T, err error, errorContains string) {
 	t.Helper()
-	if expectError {
-		if err == nil {
-			t.Error("expected error, got nil")
-		} else if errorContains != "" && !bytes.Contains([]byte(err.Error()), []byte(errorContains)) {
-			t.Errorf("error message %q does not contain %q", err.Error(), errorContains)
-		}
-		return true
+	if err == nil {
+		t.Error("expected error, got nil")
+	} else if errorContains != "" && !bytes.Contains([]byte(err.Error()), []byte(errorContains)) {
+		t.Errorf("error message %q does not contain %q", err.Error(), errorContains)
 	}
+}
 
+// Helper function to validate no error occurred
+func validateNoError(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
-		return true
 	}
-	return false
 }
 
 // Helper function to validate scenario data
@@ -505,13 +523,15 @@ func validateCreateScenarioResponse(
 	_ int, _ string, expectError bool, errorContains string,
 ) {
 	t.Helper()
-	if validateErrorResponse(t, err, expectError, errorContains) {
+	if expectError {
+		validateErrorResponse(t, err, errorContains)
 		return
 	}
 
 	// For successful creation, just verify no error occurred
 	// UUID generation happens inside CreateScenario so we can't easily verify the stored scenario
 	// The main validation is that no error occurred during creation
+	validateNoError(t, err)
 }
 
 func TestScenarioService_CreateScenario(t *testing.T) {
@@ -654,9 +674,12 @@ func validateUpdateScenarioResponse(
 	expectedStatus int, expectedData string, expectError bool, errorContains string,
 ) {
 	t.Helper()
-	if validateErrorResponse(t, err, expectError, errorContains) {
+	if expectError {
+		validateErrorResponse(t, err, errorContains)
 		return
 	}
+
+	validateNoError(t, err)
 
 	// Verify scenario was updated
 	updatedScenario, err := scenarioSvc.GetScenario(context.Background(), scenario.UUID)
@@ -750,9 +773,12 @@ func validateDeleteScenarioResponse(
 	expectError bool, errorContains string,
 ) {
 	t.Helper()
-	if validateErrorResponse(t, err, expectError, errorContains) {
+	if expectError {
+		validateErrorResponse(t, err, errorContains)
 		return
 	}
+
+	validateNoError(t, err)
 
 	// Verify scenario was deleted
 	if _, err = scenarioSvc.GetScenario(context.Background(), uuid); err == nil {
