@@ -161,7 +161,7 @@ func getBaseURL() string {
 	if url := os.Getenv("UNIMOCK_BASE_URL"); url != "" {
 		return url
 	}
-	return "http://localhost:28080" // Default to Docker Compose exposed port
+	return "http://localhost:28080" // Default to Docker Compose exposed port (defined in docker-compose.yml)
 }
 
 func (p *parts) cleanupAllScenarios() {
@@ -425,7 +425,7 @@ scenarios:
 	return configFile
 }
 
-func createTempConfigFile(t *testing.T, content string) string { //nolint:unparam
+func createTempConfigFile(t *testing.T, content string) string {
 	t.Helper()
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.yaml")

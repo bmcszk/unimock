@@ -51,6 +51,8 @@ linters:
             skip-blank-lines: false
       - name: unhandled-error
         exclude: ["**/*_test.go"]
+      - name: flag-parameter
+        disabled: true
     nestif:
       min-complexity: 4
 

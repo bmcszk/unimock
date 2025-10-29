@@ -8,7 +8,7 @@ func TestScenariosOnlyConfiguration_GET_ScenarioReturnsExpectedResponse(t *testi
 	// given
 	configContent := `
 scenarios:
-  - uuid: "test-user-get"
+  - uuid: "test-user-get-001"
     method: "GET"
     path: "/api/users/123"
     status_code: 200
@@ -59,7 +59,7 @@ func TestScenariosOnlyConfiguration_POST_ScenarioReturnsExpectedResponseWithLoca
 	// given
 	configContent := `
 scenarios:
-  - uuid: "test-user-get"
+  - uuid: "test-user-create-002"
     method: "GET"
     path: "/api/users/123"
     status_code: 200
@@ -110,7 +110,7 @@ func TestScenariosOnlyConfiguration_ErrorScenarioReturnsExpectedErrorResponse(t 
 	// given
 	configContent := `
 scenarios:
-  - uuid: "test-user-get"
+  - uuid: "test-error-003"
     method: "GET"
     path: "/api/users/123"
     status_code: 200
@@ -161,7 +161,7 @@ func TestScenariosOnlyConfiguration_NonScenarioPathReturns404(t *testing.T) {
 	// given
 	configContent := `
 scenarios:
-  - uuid: "test-user-get"
+  - uuid: "test-notfound-004"
     method: "GET"
     path: "/api/users/123"
     status_code: 200
@@ -212,7 +212,7 @@ func TestScenariosOnlyConfiguration_HealthEndpointStillWorks(t *testing.T) {
 	// given
 	configContent := `
 scenarios:
-  - uuid: "test-user-get"
+  - uuid: "test-health-005"
     method: "GET"
     path: "/api/users/123"
     status_code: 200
