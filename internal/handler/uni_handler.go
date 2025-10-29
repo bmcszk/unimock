@@ -138,49 +138,55 @@ func (h *UniHandler) processPostRequest(
 
 // HandleGET processes GET requests step by step
 func (h *UniHandler) HandleGET(ctx context.Context, req *http.Request) (*http.Response, error) {
-	return h.handleGetOrHead(ctx, req, false)
+	return h.handleGetRequest(ctx, req)
 }
 
 // HandleHEAD processes HEAD requests (same as GET but no body)
 func (h *UniHandler) HandleHEAD(ctx context.Context, req *http.Request) (*http.Response, error) {
-	return h.handleGetOrHead(ctx, req, true)
+	return h.handleHEADRequest(ctx, req)
 }
 
-// handleGetOrHead processes GET and HEAD requests with optional body suppression
-//
-//nolint:revive // suppressBody flag is appropriate for differentiating GET vs HEAD behavior
-func (h *UniHandler) handleGetOrHead(
-	ctx context.Context, req *http.Request, suppressBody bool,
-) (*http.Response, error) {
-	methodName := "GET"
-	if suppressBody {
-		methodName = "HEAD"
-	}
-	h.logger.Debug("starting "+methodName+" request processing", "path", req.URL.Path)
+// handleGetRequest processes GET requests with body
+func (h *UniHandler) handleGetRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
+	h.logger.Debug("starting GET request processing", "path", req.URL.Path)
 
 	// Step 1: Find matching configuration section
 	section, sectionName, err := h.findSection(req.URL.Path)
 	if err != nil {
-		h.logger.Warn("no matching section for "+methodName, "path", req.URL.Path, "error", err)
+		h.logger.Warn("no matching section for GET", "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusNotFound, err.Error()), nil
 	}
 
 	// Step 2: Try to get individual resource first
 	individualResp := h.tryGetIndividualResource(ctx, req, section, sectionName)
 	if individualResp != nil {
-		if suppressBody {
-			return h.suppressResponseBody(individualResp), nil
-		}
 		return individualResp, nil
 	}
 
 	// Step 3: Get collection of resources
-	resp := h.getResourceCollection(ctx, req, section, sectionName)
+	return h.getResourceCollection(ctx, req, section, sectionName), nil
+}
 
-	if suppressBody {
-		return h.suppressResponseBody(resp), nil
+// handleHEADRequest processes HEAD requests without body
+func (h *UniHandler) handleHEADRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
+	h.logger.Debug("starting HEAD request processing", "path", req.URL.Path)
+
+	// Step 1: Find matching configuration section
+	section, sectionName, err := h.findSection(req.URL.Path)
+	if err != nil {
+		h.logger.Warn("no matching section for HEAD", "path", req.URL.Path, "error", err)
+		return h.errorResponse(http.StatusNotFound, err.Error()), nil
 	}
-	return resp, nil
+
+	// Step 2: Try to get individual resource first
+	individualResp := h.tryGetIndividualResource(ctx, req, section, sectionName)
+	if individualResp != nil {
+		return h.suppressResponseBody(individualResp), nil
+	}
+
+	// Step 3: Get collection of resources
+	resp := h.getResourceCollection(ctx, req, section, sectionName)
+	return h.suppressResponseBody(resp), nil
 }
 
 // tryGetIndividualResource attempts to get an individual resource

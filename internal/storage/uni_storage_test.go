@@ -10,11 +10,19 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
-func TestUniStorage_CRUD(t *testing.T) { //nolint:revive
+func TestUniStorage_CRUD(t *testing.T) {
 	testStorage := storage.NewUniStorage()
+	testData := createTestDataSet()
 
-	// Test data with mixed content types
-	testData := []model.UniData{
+	testCreateOperations(t, testStorage, testData)
+	testGetOperations(t, testStorage, testData)
+	testGetByPathOperations(t, testStorage)
+	testUpdateOperation(t, testStorage)
+	testDeleteOperation(t, testStorage)
+}
+
+func createTestDataSet() []model.UniData {
+	return []model.UniData{
 		{
 			Path:        "/test/123",
 			ContentType: "application/json",
@@ -31,19 +39,22 @@ func TestUniStorage_CRUD(t *testing.T) { //nolint:revive
 			Body:        []byte("binary data"),
 		},
 	}
+}
 
-	// Test Create
+func testCreateOperations(t *testing.T, testStorage storage.UniStorage, testData []model.UniData) {
+	t.Helper()
 	for _, data := range testData {
 		id := data.Path[strings.LastIndex(data.Path, "/")+1:]
-		// Set IDs in UniData
 		data.IDs = []string{id}
 		err := testStorage.Create("test", false, data)
 		if err != nil {
 			t.Errorf("Failed to store data: %v", err)
 		}
 	}
+}
 
-	// Test Get
+func testGetOperations(t *testing.T, testStorage storage.UniStorage, testData []model.UniData) {
+	t.Helper()
 	for _, data := range testData {
 		id := data.Path[strings.LastIndex(data.Path, "/")+1:]
 		retrieved, err := testStorage.Get("test", false, id)
@@ -54,8 +65,18 @@ func TestUniStorage_CRUD(t *testing.T) { //nolint:revive
 			t.Errorf("Expected body %s, got %s", string(data.Body), string(retrieved.Body))
 		}
 	}
+}
 
-	// Test GetByPath
+func testGetByPathOperations(t *testing.T, testStorage storage.UniStorage) {
+	t.Helper()
+	testBasicGetByPath(t, testStorage)
+	testTrailingSlashGetByPath(t, testStorage)
+	testCaseSensitivityGetByPath(t, testStorage)
+	testEmptyCollectionGetByPath(t, testStorage)
+}
+
+func testBasicGetByPath(t *testing.T, testStorage storage.UniStorage) {
+	t.Helper()
 	items, err := testStorage.GetByPath("/test")
 	if err != nil {
 		t.Fatalf("Failed to get by path: %v", err)
@@ -63,45 +84,55 @@ func TestUniStorage_CRUD(t *testing.T) { //nolint:revive
 	if len(items) != 3 {
 		t.Fatalf("Expected 3 items, got %d", len(items))
 	}
+}
 
-	// Test GetByPath with trailing slash
-	items, err = testStorage.GetByPath("/test/")
+func testTrailingSlashGetByPath(t *testing.T, testStorage storage.UniStorage) {
+	t.Helper()
+	items, err := testStorage.GetByPath("/test/")
 	if err != nil {
 		t.Fatalf("Failed to get by path with trailing slash: %v", err)
 	}
 	if len(items) != 3 {
 		t.Fatalf("Expected 3 items, got %d", len(items))
 	}
+}
 
-	// Test GetByPath with case sensitivity
-	_, err = testStorage.GetByPath("/Test")
+func testCaseSensitivityGetByPath(t *testing.T, testStorage storage.UniStorage) {
+	t.Helper()
+	_, err := testStorage.GetByPath("/Test")
 	if err == nil {
 		t.Error("Expected error for case-sensitive path mismatch, got nil")
 	} else if !strings.Contains(err.Error(), "resource not found") {
 		t.Errorf("Expected 'resource not found' error, got %v", err)
 	}
+}
 
-	// Test GetByPath with empty collection
-	_, err = testStorage.GetByPath("/empty")
+func testEmptyCollectionGetByPath(t *testing.T, testStorage storage.UniStorage) {
+	t.Helper()
+	_, err := testStorage.GetByPath("/empty")
 	if err == nil {
 		t.Error("Expected error for empty collection, got nil")
 	} else if !strings.Contains(err.Error(), "resource not found") {
 		t.Errorf("Expected 'resource not found' error, got %v", err)
 	}
+}
 
-	// Test Update
+func testUpdateOperation(t *testing.T, testStorage storage.UniStorage) {
+	t.Helper()
 	updatedData := model.UniData{
 		Path:        "/test/123",
 		ContentType: "application/json",
 		Body:        []byte(`{"id": "123", "updated": true}`),
 	}
-	err = testStorage.Update("test", false, "123", updatedData)
+	err := testStorage.Update("test", false, "123", updatedData)
 	if err != nil {
 		t.Fatalf("Failed to update data: %v", err)
 	}
+}
 
-	// Test Delete
-	err = testStorage.Delete("test", false, "123")
+func testDeleteOperation(t *testing.T, testStorage storage.UniStorage) {
+	t.Helper()
+	err := testStorage.Delete("test", false, "123")
 	if err != nil {
 		t.Fatalf("Failed to delete data: %v", err)
 	}
@@ -133,7 +164,8 @@ func createConcurrentTestData(t *testing.T, testStorage storage.UniStorage, i in
 func verifyConcurrentTestData(t *testing.T, testStorage storage.UniStorage) {
 	t.Helper()
 	// Verify all data was stored
-	for i := 0; i < 10; i++ { //nolint:mnd
+	const testIterations = 10
+	for i := 0; i < testIterations; i++ {
 		id := fmt.Sprintf("test%d", i)
 		_, err := testStorage.Get("test", false, id)
 		if err != nil {
@@ -147,7 +179,8 @@ func TestUniStorage_ConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Test concurrent writes
-	for i := 0; i < 10; i++ { //nolint:mnd
+	const concurrentWrites = 10
+	for i := 0; i < concurrentWrites; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -267,7 +300,7 @@ func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance storage.U
 }
 
 // Helper function to test update by one ID affects single resource
-func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storage.UniStorage) { //nolint:revive
+func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storage.UniStorage) {
 	t.Helper()
 	multiIdData3 := model.UniData{
 		Path:        "/multi/data3",

@@ -417,256 +417,31 @@ func WaitForHTMXEvent(eventName string) chromedp.Action {
 ### Clean Test Structure Patterns (ENHANCED)
 
 #### Fluent Test Builder Pattern
-**Based on TVN-cue-crab reference implementation - use fluent interfaces for readable test composition:**
 
-```go
-package e2e_test
+**📖 See [Fluent Testing Guidelines](fluent-testing.md#fluent-test-builder-pattern) for comprehensive fluent test builder patterns and examples.**
 
-import (
-    "testing"
-    "github.com/stretchr/testify/assert"
-)
+The Fluent Testing Guidelines document contains complete implementation details including:
+- ✅ **Fluent Test Builder Pattern** - Complete parts struct implementation
+- ✅ **Test Usage Examples** - Real-world test composition patterns
+- ✅ **Asynchronous Check Pattern** - Robust retry logic for eventual consistency
+- ✅ **Template-Based Test Data** - Clean test data management
+- ✅ **Advanced Patterns** - All sophisticated testing techniques
 
-type parts struct {
-    *testing.T
-    responseCode int
-    responseBody []byte
-    videoID      string
-    checks       *checks
-}
+All fluent E2E tests MUST follow the patterns documented in the separate Fluent Testing Guidelines.
 
-func newParts(t *testing.T) (*parts, *parts, *parts) {
-    t.Helper()
-    
-    parts := &parts{
-        T:      t,
-        checks: newChecks(),
-    }
-    
-    // Setup test environment
-    parts.setupTestEnvironment()
-    
-    return parts, parts, parts  // given, when, then
-}
+## Fluent Test Design Standards
 
-// Fluent chaining methods
-func (p *parts) and() *parts {
-    return p
-}
+**📖 See [Fluent Testing Guidelines](fluent-testing.md) for comprehensive E2E test design standards.**
 
-func (p *parts) uploadVideoFile(filename, title string) *parts {
-    // Implementation
-    return p
-}
+All E2E tests MUST follow the Given/When/Then fluent pattern documented in the separate Fluent Testing Guidelines. This includes:
 
-func (p *parts) videoUploadedSuccessfully() *parts {
-    assert.Equal(p.T, http.StatusCreated, p.responseCode)
-    return p
-}
+- ✅ **Mandatory** Given/When/Then structure
+- ✅ **Mandatory** fluent method chaining format
+- ✅ **Mandatory** variable declaration rules
+- ✅ **Mandatory** response handling patterns
+- ✅ **Mandatory** anti-pattern avoidance
 
-func (p *parts) noError() *parts {
-    assert.NoError(p.T, p.checks.repeatRun())
-    return p
-}
-```
-
-#### Test Usage Example
-**Clean, readable test structure with fluent chaining:**
-
-```go
-func TestVideoUploadAndRetrieval(t *testing.T) {
-    videoFilePath := "./assets/test-video.mp4"
-    given, when, then := newParts(t)
-
-    when.
-        uploadVideoFile(videoFilePath, "E2E Test Video")
-
-    then.
-        videoUploadedSuccessfully().and().
-        getVideoByID(then.videoID).and().
-        videoFoundSuccessfully()
-}
-
-func TestAssetEventProcessing(t *testing.T) {
-    videoFilePath := "./assets/test-video.mp4"
-    given, when, then := newParts(t)
-
-    given.
-        uploadVideoFile(videoFilePath, "Asset Event E2E Test Video").and().
-        videoUploadedSuccessfully().and().
-        getVideoByID(given.videoID)
-
-    when.
-        sendAssetEvent("ACTIVATE", given.videoID).and().
-        messageSentSuccessfully()
-
-    then.
-        videoHasStatus("ready").and().
-        videoHasAssets(2).and().
-        noError()
-}
-```
-
-#### Asynchronous Check Pattern
-**Robust pattern for testing eventual consistency with retry logic:**
-
-```go
-type checks struct {
-    interval time.Duration
-    timeout  time.Duration
-    checks   []*check
-}
-
-type check struct {
-    f   func() error
-    ok  bool
-    err error
-}
-
-func newChecks() *checks {
-    // CI-aware defaults
-    interval := 500 * time.Millisecond
-    timeout := 20 * time.Second
-    
-    if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
-        interval = 2 * time.Second
-        timeout = 60 * time.Second
-    }
-    
-    return &checks{
-        interval: interval,
-        timeout:  timeout,
-        checks:   make([]*check, 0, 10),
-    }
-}
-
-func (cs *checks) add(f func() error) {
-    cs.checks = append(cs.checks, &check{f: f})
-}
-
-func (cs *checks) repeatRun() error {
-    tick := time.Tick(cs.interval)
-    limit := time.After(cs.timeout)
-    
-    for {
-        select {
-        case <-limit:
-            return cs.error()
-        case <-tick:
-            cs.run()
-            if cs.ok() {
-                return nil
-            }
-        }
-    }
-}
-
-// Usage in test methods
-func (p *parts) videoHasStatus(expectedStatus string) *parts {
-    p.checks.add(func() error {
-        resp, err := p.httpClient.Get("http://" + p.envs.ServiceAddress + "/videos/" + p.videoID)
-        if err != nil {
-            return fmt.Errorf("get video by ID request: %w", err)
-        }
-        defer resp.Body.Close()
-        
-        // Parse and validate status
-        var videoResp struct { Status string `json:"status"` }
-        if err := json.NewDecoder(resp.Body).Decode(&videoResp); err != nil {
-            return fmt.Errorf("parse video response: %w", err)
-        }
-        
-        if videoResp.Status != expectedStatus {
-            return fmt.Errorf("expected status %s, got %s", expectedStatus, videoResp.Status)
-        }
-        
-        return nil
-    })
-    return p
-}
-```
-
-#### Template-Based Test Data Pattern
-**Clean approach for managing complex test data with templates:**
-
-```go
-// Template files in templates/ directory
-// templates/asset_event.json
-{
-    "Type": "{{.Type}}",
-    "TenantUUID": "{{.TenantUUID}}",
-    "ExternalUUID": "{{.ExternalUUID}}",
-    "Name": "{{.Name}}",
-    "Active": {{.Active}},
-    "Since": "{{.Since}}",
-    "TechnicalTags": "{{.TechnicalTags}}"
-}
-
-// Test method using templates
-func (p *parts) sendAssetEvent(eventType, videoID string) *parts {
-    eventTime := time.Now().Add(1 * time.Second).Format(time.RFC3339)
-    return p.sendMessageFromTemplate("asset_event.json", map[string]any{
-        "Type":          eventType,
-        "TenantUUID":    "test-tenant-uuid",
-        "ExternalUUID":  videoID,
-        "Name":          "E2E Test Video",
-        "Active":        true,
-        "Since":         eventTime,
-        "TechnicalTags": "",
-    })
-}
-
-func (p *parts) sendMessageFromTemplate(templateFile string, data map[string]any) *parts {
-    tmpl, err := template.ParseFiles(filepath.Join("templates", templateFile))
-    assert.NoError(p.T, err, "parse template file")
-
-    var buf bytes.Buffer
-    err = tmpl.Execute(&buf, data)
-    assert.NoError(p.T, err, "execute template")
-
-    return p.sendSQSMessage(buf.String())
-}
-```
-
-### Test Helper Functions
-**ONLY helper functions MUST use `t.Helper()` (NOT test functions).** All helpers should follow Given/When/Then structure:
-
-```go
-func setupTestData(t *testing.T) TestData {
-    t.Helper()
-    
-    // given
-    data := TestData{
-        Field1: "value1",
-        Field2: "value2",
-    }
-    
-    return data
-}
-
-// Enhanced fluent helper
-func (p *parts) cleanupDatabase() *parts {
-    if p.db == nil {
-        p.Log("Warning: database connection is nil, skipping cleanup")
-        return p
-    }
-
-    queries := []string{
-        "DELETE FROM crab.assets",
-        "DELETE FROM crab.transcodings", 
-        "DELETE FROM crab.videos",
-    }
-
-    for _, query := range queries {
-        _, err := p.db.Exec(query)
-        if err != nil {
-            p.Logf("Warning: failed to cleanup table with query '%s': %v", query, err)
-        }
-    }
-    
-    return p
-}
-```
+The guidelines cover everything from basic test structure to advanced patterns like asynchronous checks and template-based test data management.
 
 ## Running Tests
 

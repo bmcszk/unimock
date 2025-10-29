@@ -590,7 +590,11 @@ func executeHeadTest(t *testing.T, deps uniHandlerDeps, tt headTestCase) {
 	}
 
 	checkExpectedHeaders(t, w, tt.expectHeaders)
-	checkBodyPresence(t, w, tt.expectBody)
+	if tt.expectBody {
+		checkBodyIsPresent(t, w)
+	} else {
+		checkBodyIsAbsent(t, w)
+	}
 }
 
 func checkExpectedHeaders(t *testing.T, w *httptest.ResponseRecorder, expectHeaders map[string]string) {
@@ -602,22 +606,26 @@ func checkExpectedHeaders(t *testing.T, w *httptest.ResponseRecorder, expectHead
 	}
 }
 
-//nolint:revive // expectBody flag is appropriate for test validation
-func checkBodyPresence(t *testing.T, w *httptest.ResponseRecorder, expectBody bool) {
+func checkBodyIsPresent(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+	body, err := io.ReadAll(w.Body)
+	if err != nil {
+		t.Fatalf("failed to read response body: %v", err)
+	}
+	if len(body) == 0 {
+		t.Error("expected body but got empty response")
+	}
+}
+
+func checkBodyIsAbsent(t *testing.T, w *httptest.ResponseRecorder) {
 	t.Helper()
 	body, err := io.ReadAll(w.Body)
 	if err != nil {
 		t.Fatalf("failed to read response body: %v", err)
 	}
 
-	if expectBody {
-		if len(body) == 0 {
-			t.Error("expected response body but got empty body")
-		}
-	} else {
-		if len(body) != 0 {
-			t.Errorf("expected empty body but got: %s", string(body))
-		}
+	if len(body) != 0 {
+		t.Errorf("expected empty body but got: %s", string(body))
 	}
 }
 

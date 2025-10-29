@@ -34,7 +34,8 @@ func TestTechService_GetHealthStatus(t *testing.T) {
 	}
 
 	// Wait a bit and check again
-	time.Sleep(100 * time.Millisecond) //nolint:gomnd
+	const healthCheckDelay = 100 * time.Millisecond
+	time.Sleep(healthCheckDelay)
 	status = techSvc.GetHealthStatus(context.Background())
 
 	// Check status again
@@ -110,7 +111,8 @@ func TestTechService_GetMetrics(t *testing.T) {
 	metrics = techSvc.GetMetrics(context.Background())
 
 	// Check total request count
-	if metrics["request_count"] != int64(4) { //nolint:gomnd
+	const expectedTotalRequests = 4
+	if metrics["request_count"] != int64(expectedTotalRequests) {
 		t.Errorf("request_count = %d, want %d", metrics["request_count"], 4)
 	}
 
@@ -122,8 +124,9 @@ func TestTechService_GetMetrics(t *testing.T) {
 	}
 
 	// Check specific endpoint counts
+	const expectedUsersRequests = 3
 	expectedCounts := map[string]int64{
-		"/api/users":  3, //nolint:gomnd
+		"/api/users":  int64(expectedUsersRequests),
 		"/api/orders": 1,
 	}
 
@@ -159,19 +162,19 @@ func getIncrementRequestCountTestCases() []struct {
 			name:          "different endpoint",
 			endpoint:      "/api/orders",
 			expectedCount: 1,
-			expectedTotal: 3, //nolint:mnd
+			expectedTotal: 3,
 		},
 		{
 			name:          "empty endpoint",
 			endpoint:      "",
 			expectedCount: 1,
-			expectedTotal: 4, //nolint:mnd
+			expectedTotal: 4,
 		},
 		{
 			name:          "case-sensitive endpoint",
 			endpoint:      "/API/users",
 			expectedCount: 1,
-			expectedTotal: 5, //nolint:mnd
+			expectedTotal: 5,
 		},
 	}
 }
