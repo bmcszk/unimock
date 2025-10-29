@@ -314,31 +314,16 @@ func getScenarioTestCases() []struct {
 	}
 }
 
-// Helper function to validate GetScenario response
-func validateGetScenarioResponse(
-	t *testing.T, scenario model.Scenario, err error, expectedStatus int, expectedData string,
-	expectError bool, errorContains string,
-) {
-	t.Helper()
-	if expectError {
-		validateErrorResponse(t, err, errorContains)
-		return
-	}
-
-	validateNoError(t, err)
-	validateScenarioData(t, scenario, expectedStatus, expectedData)
-}
-
-// validateGetScenarioResponseWithError validates that an error occurred as expected
-func validateGetScenarioResponseWithError(
+// Helper function to validate GetScenario response (error case)
+func validateGetScenarioErrorResponse(
 	t *testing.T, err error, errorContains string,
 ) {
 	t.Helper()
 	validateErrorResponse(t, err, errorContains)
 }
 
-// validateGetScenarioResponseWithSuccess validates successful scenario retrieval
-func validateGetScenarioResponseWithSuccess(
+// Helper function to validate GetScenario response (success case)
+func validateGetScenarioResponse(
 	t *testing.T, scenario model.Scenario, err error, expectedStatus int, expectedData string,
 ) {
 	t.Helper()
@@ -359,9 +344,11 @@ func TestScenarioService_GetScenario(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			scenario, err := scenarioSvc.GetScenario(context.Background(), tt.uuid)
-			validateGetScenarioResponse(
-				t, scenario, err, tt.expectedStatus, tt.expectedData, tt.expectError, tt.errorContains,
-			)
+			if tt.expectError {
+				validateGetScenarioErrorResponse(t, err, tt.errorContains)
+			} else {
+				validateGetScenarioResponse(t, scenario, err, tt.expectedStatus, tt.expectedData)
+			}
 		})
 	}
 }
@@ -517,17 +504,19 @@ func validateScenarioData(t *testing.T, scenario model.Scenario, expectedStatus 
 	}
 }
 
-// Helper function to validate CreateScenario response
-func validateCreateScenarioResponse(
-	t *testing.T, _ *service.ScenarioService, _ model.Scenario, err error,
-	_ int, _ string, expectError bool, errorContains string,
+// Helper function to validate CreateScenario response (error case)
+func validateCreateScenarioErrorResponse(
+	t *testing.T, err error, errorContains string,
 ) {
 	t.Helper()
-	if expectError {
-		validateErrorResponse(t, err, errorContains)
-		return
-	}
+	validateErrorResponse(t, err, errorContains)
+}
 
+// Helper function to validate CreateScenario response (success case)
+func validateCreateScenarioResponse(
+	t *testing.T, err error,
+) {
+	t.Helper()
 	// For successful creation, just verify no error occurred
 	// UUID generation happens inside CreateScenario so we can't easily verify the stored scenario
 	// The main validation is that no error occurred during creation
@@ -547,10 +536,11 @@ func TestScenarioService_CreateScenario(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := scenarioSvc.CreateScenario(context.Background(), tt.scenario)
-			validateCreateScenarioResponse(
-				t, scenarioSvc, tt.scenario, err, tt.expectedStatus, tt.expectedData,
-				tt.expectError, tt.errorContains,
-			)
+			if tt.expectError {
+				validateCreateScenarioErrorResponse(t, err, tt.errorContains)
+			} else {
+				validateCreateScenarioResponse(t, err)
+			}
 		})
 	}
 }
@@ -668,17 +658,20 @@ func getUpdateScenarioTestCases() []struct {
 	}
 }
 
-// Helper function to validate UpdateScenario response
-func validateUpdateScenarioResponse(
-	t *testing.T, scenarioSvc *service.ScenarioService, scenario model.Scenario, err error,
-	expectedStatus int, expectedData string, expectError bool, errorContains string,
+// Helper function to validate UpdateScenario response (error case)
+func validateUpdateScenarioErrorResponse(
+	t *testing.T, err error, errorContains string,
 ) {
 	t.Helper()
-	if expectError {
-		validateErrorResponse(t, err, errorContains)
-		return
-	}
+	validateErrorResponse(t, err, errorContains)
+}
 
+// Helper function to validate UpdateScenario response (success case)
+func validateUpdateScenarioResponse(
+	t *testing.T, scenarioSvc *service.ScenarioService, scenario model.Scenario, err error,
+	expectedStatus int, expectedData string,
+) {
+	t.Helper()
 	validateNoError(t, err)
 
 	// Verify scenario was updated
@@ -704,10 +697,11 @@ func TestScenarioService_UpdateScenario(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := scenarioSvc.UpdateScenario(context.Background(), tt.scenario.UUID, tt.scenario)
-			validateUpdateScenarioResponse(
-				t, scenarioSvc, tt.scenario, err, tt.expectedStatus, tt.expectedData,
-				tt.expectError, tt.errorContains,
-			)
+			if tt.expectError {
+				validateUpdateScenarioErrorResponse(t, err, tt.errorContains)
+			} else {
+				validateUpdateScenarioResponse(t, scenarioSvc, tt.scenario, err, tt.expectedStatus, tt.expectedData)
+			}
 		})
 	}
 }
@@ -767,17 +761,19 @@ func getDeleteScenarioTestCases() []struct {
 	}
 }
 
-// Helper function to validate DeleteScenario response
-func validateDeleteScenarioResponse(
-	t *testing.T, scenarioSvc *service.ScenarioService, uuid string, err error,
-	expectError bool, errorContains string,
+// Helper function to validate DeleteScenario response (error case)
+func validateDeleteScenarioErrorResponse(
+	t *testing.T, err error, errorContains string,
 ) {
 	t.Helper()
-	if expectError {
-		validateErrorResponse(t, err, errorContains)
-		return
-	}
+	validateErrorResponse(t, err, errorContains)
+}
 
+// Helper function to validate DeleteScenario response (success case)
+func validateDeleteScenarioResponse(
+	t *testing.T, scenarioSvc *service.ScenarioService, uuid string, err error,
+) {
+	t.Helper()
 	validateNoError(t, err)
 
 	// Verify scenario was deleted
@@ -801,7 +797,11 @@ func TestScenarioService_DeleteScenario(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := scenarioSvc.DeleteScenario(context.Background(), tt.uuid)
-			validateDeleteScenarioResponse(t, scenarioSvc, tt.uuid, err, tt.expectError, tt.errorContains)
+			if tt.expectError {
+				validateDeleteScenarioErrorResponse(t, err, tt.errorContains)
+			} else {
+				validateDeleteScenarioResponse(t, scenarioSvc, tt.uuid, err)
+			}
 		})
 	}
 }

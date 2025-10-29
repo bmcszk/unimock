@@ -163,8 +163,52 @@ func (s *uniStorage) storeDataWithCompositeKeys(
 	}
 }
 
-// Update updates existing data for the given ID using section-aware composite key lookup
-func (s *uniStorage) Update(sectionName string, isStrictPath bool, id string, data model.UniData) error {
+// storeDataWithCompositeKeysStrict stores the data using strict composite keys
+func (s *uniStorage) storeDataWithCompositeKeysStrict(
+	_ string, effectiveIDs []string, data model.UniData,
+) {
+	// Store data using the primary composite key (first ID)
+	primaryCompositeKey := s.buildStrictCompositeKey(data.Path, effectiveIDs[0])
+	s.data[primaryCompositeKey] = data
+
+	// For multiple IDs, all should point to the same data entry
+	for _, id := range effectiveIDs {
+		compositeKey := s.buildStrictCompositeKey(data.Path, id)
+		s.data[compositeKey] = data
+	}
+
+	// Update pathMap for path-based lookups using primary key
+	s.pathMap[data.Path] = append(s.pathMap[data.Path], primaryCompositeKey)
+	if len(effectiveIDs) > 0 {
+		idPath := path.Join(data.Path, effectiveIDs[0])
+		s.pathMap[idPath] = append(s.pathMap[idPath], primaryCompositeKey)
+	}
+}
+
+// storeDataWithCompositeKeysFlexible stores the data using flexible composite keys
+func (s *uniStorage) storeDataWithCompositeKeysFlexible(
+	sectionName string, effectiveIDs []string, data model.UniData,
+) {
+	// Store data using the primary composite key (first ID)
+	primaryCompositeKey := s.buildNonStrictCompositeKey(sectionName, effectiveIDs[0])
+	s.data[primaryCompositeKey] = data
+
+	// For multiple IDs, all should point to the same data entry
+	for _, id := range effectiveIDs {
+		compositeKey := s.buildNonStrictCompositeKey(sectionName, id)
+		s.data[compositeKey] = data
+	}
+
+	// Update pathMap for path-based lookups using primary key
+	s.pathMap[data.Path] = append(s.pathMap[data.Path], primaryCompositeKey)
+	if len(effectiveIDs) > 0 {
+		idPath := path.Join(data.Path, effectiveIDs[0])
+		s.pathMap[idPath] = append(s.pathMap[idPath], primaryCompositeKey)
+	}
+}
+
+// UpdateStrict updates existing data for the given ID using strict path mode
+func (s *uniStorage) UpdateStrict(sectionName string, id string, data model.UniData) error {
 	if err := s.validateID(id); err != nil {
 		return err
 	}
@@ -173,7 +217,7 @@ func (s *uniStorage) Update(sectionName string, isStrictPath bool, id string, da
 	defer s.mu.Unlock()
 
 	// Find the existing data
-	oldData, err := s.findExistingDataOnly(sectionName, isStrictPath, id)
+	oldData, err := s.findExistingDataOnlyStrict(sectionName, id)
 	if err != nil {
 		return err
 	}
@@ -183,25 +227,69 @@ func (s *uniStorage) Update(sectionName string, isStrictPath bool, id string, da
 	data.Location = data.Path + pathSeparator + data.IDs[0]
 	data.Path = strings.TrimRight(data.Path, pathSeparator)
 
-	// Remove all old composite keys for this resource
-	s.removeAllCompositeKeysForResource(sectionName, isStrictPath, oldData)
+	// Remove all old composite keys for this resource (strict mode)
+	s.removeAllCompositeKeysForResourceStrict(sectionName, oldData)
 
-	// Store updated data with all IDs
-	s.storeDataWithCompositeKeys(sectionName, isStrictPath, data.IDs, data)
+	// Store updated data with all IDs (strict mode)
+	s.storeDataWithCompositeKeysStrict(sectionName, data.IDs, data)
 
 	// Update pathMap if path has changed
 	if oldData.Path != data.Path {
-		oldPrimaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, oldData.Path, oldData.IDs[0])
-		newPrimaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, data.Path, data.IDs[0])
+		oldPrimaryCompositeKey := s.buildStrictCompositeKey(oldData.Path, oldData.IDs[0])
+		newPrimaryCompositeKey := s.buildStrictCompositeKey(data.Path, data.IDs[0])
 		s.updatePathMappingsForUpdate(oldPrimaryCompositeKey, newPrimaryCompositeKey, oldData, data, data.IDs[0])
 	}
 
 	return nil
 }
 
-// findExistingResource finds an existing resource by ID within the section scope
-func (s *uniStorage) findExistingResource(
-	sectionName string, isStrictPath bool, id string,
+// UpdateFlexible updates existing data for the given ID using flexible path mode
+func (s *uniStorage) UpdateFlexible(sectionName string, id string, data model.UniData) error {
+	if err := s.validateID(id); err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Find the existing data
+	oldData, err := s.findExistingDataOnlyFlexible(sectionName, id)
+	if err != nil {
+		return err
+	}
+
+	// Preserve original IDs from the old data
+	data.IDs = oldData.IDs
+	data.Location = data.Path + pathSeparator + data.IDs[0]
+	data.Path = strings.TrimRight(data.Path, pathSeparator)
+
+	// Remove all old composite keys for this resource (flexible mode)
+	s.removeAllCompositeKeysForResourceFlexible(sectionName, oldData)
+
+	// Store updated data with all IDs (flexible mode)
+	s.storeDataWithCompositeKeysFlexible(sectionName, data.IDs, data)
+
+	// Update pathMap if path has changed
+	if oldData.Path != data.Path {
+		oldPrimaryCompositeKey := s.buildNonStrictCompositeKey(sectionName, oldData.IDs[0])
+		newPrimaryCompositeKey := s.buildNonStrictCompositeKey(sectionName, data.IDs[0])
+		s.updatePathMappingsForUpdate(oldPrimaryCompositeKey, newPrimaryCompositeKey, oldData, data, data.IDs[0])
+	}
+
+	return nil
+}
+
+// Update updates existing data for the given ID using section-aware composite key lookup
+func (s *uniStorage) Update(sectionName string, isStrictPath bool, id string, data model.UniData) error { //nolint:revive
+	if isStrictPath {
+		return s.UpdateStrict(sectionName, id, data)
+	}
+	return s.UpdateFlexible(sectionName, id, data)
+}
+
+// findExistingResourceStrict finds an existing resource by ID within strict path scope
+func (s *uniStorage) findExistingResourceStrict(
+	_ string, id string,
 ) (string, model.UniData, error) {
 	for compositeKey, data := range s.data {
 		keyID := s.extractIDFromCompositeKey(compositeKey)
@@ -209,24 +297,45 @@ func (s *uniStorage) findExistingResource(
 			continue
 		}
 
-		// First try exact scope match
-		if s.isCompositeKeyInScope(compositeKey, sectionName, isStrictPath, data.Path) {
-			return compositeKey, data, nil
-		}
-
-		// Then try cross-strict_path lookup within the same section
-		if s.isCompositeKeyInScope(compositeKey, sectionName, !isStrictPath, data.Path) {
+		// Try strict path scope match
+		if s.isCompositeKeyInScopeStrict(compositeKey, data.Path) {
 			return compositeKey, data, nil
 		}
 	}
 	return "", model.UniData{}, errors.NewNotFoundError(id, "")
 }
 
-// findExistingDataOnly finds existing resource data without returning composite key
-func (s *uniStorage) findExistingDataOnly(
-	sectionName string, isStrictPath bool, id string,
+// findExistingResourceFlexible finds an existing resource by ID within flexible path scope
+func (s *uniStorage) findExistingResourceFlexible(
+	sectionName string, id string,
+) (string, model.UniData, error) {
+	for compositeKey, data := range s.data {
+		keyID := s.extractIDFromCompositeKey(compositeKey)
+		if keyID != id {
+			continue
+		}
+
+		// Try flexible path scope match
+		if s.isCompositeKeyInScopeFlexible(compositeKey, sectionName) {
+			return compositeKey, data, nil
+		}
+	}
+	return "", model.UniData{}, errors.NewNotFoundError(id, "")
+}
+
+// findExistingDataOnlyStrict finds existing resource data without returning composite key in strict mode
+func (s *uniStorage) findExistingDataOnlyStrict(
+	sectionName string, id string,
 ) (model.UniData, error) {
-	_, data, err := s.findExistingResource(sectionName, isStrictPath, id)
+	_, data, err := s.findExistingResourceStrict(sectionName, id)
+	return data, err
+}
+
+// findExistingDataOnlyFlexible finds existing resource data without returning composite key in flexible mode
+func (s *uniStorage) findExistingDataOnlyFlexible(
+	sectionName string, id string,
+) (model.UniData, error) {
+	_, data, err := s.findExistingResourceFlexible(sectionName, id)
 	return data, err
 }
 
@@ -264,8 +373,22 @@ func (s *uniStorage) removeCompositeKeyFromPath(compositeKey, resourcePath strin
 	}
 }
 
-// Get retrieves data by ID using section-aware composite key lookup
-func (s *uniStorage) Get(sectionName string, isStrictPath bool, id string) (model.UniData, error) {
+// GetStrict retrieves data by ID using strict path mode
+func (s *uniStorage) GetStrict(_ string, id string) (model.UniData, error) {
+	if err := s.validateID(id); err != nil {
+		return model.UniData{}, err
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// For Get operations, we need to search across all possible paths
+	// since we don't know the exact path when looking up by ID
+	return s.findResourceByIDStrict("", id)
+}
+
+// GetFlexible retrieves data by ID using flexible path mode
+func (s *uniStorage) GetFlexible(sectionName string, id string) (model.UniData, error) {
 	if err := s.validateID(id); err != nil {
 		return model.UniData{}, err
 	}
@@ -274,16 +397,19 @@ func (s *uniStorage) Get(sectionName string, isStrictPath bool, id string) (mode
 	defer s.mu.RUnlock()
 
 	// For Get operations, we need to search across all possible paths in the section
-	// since we don't know the exact path when looking up by ID
-	data, err := s.findResourceByID(sectionName, isStrictPath, id)
-	if err != nil {
-		return model.UniData{}, err
-	}
-	return data, nil
+	return s.findResourceByIDFlexible(sectionName, id)
 }
 
-// findResourceByID searches for a resource by ID within the given section and strict mode
-func (s *uniStorage) findResourceByID(sectionName string, isStrictPath bool, id string) (model.UniData, error) {
+// Get retrieves data by ID using section-aware composite key lookup
+func (s *uniStorage) Get(sectionName string, isStrictPath bool, id string) (model.UniData, error) { //nolint:revive
+	if isStrictPath {
+		return s.GetStrict(sectionName, id)
+	}
+	return s.GetFlexible(sectionName, id)
+}
+
+// findResourceByIDStrict searches for a resource by ID within strict path mode
+func (s *uniStorage) findResourceByIDStrict(_ string, id string) (model.UniData, error) {
 	// Search through all stored data to find matching composite key
 	for compositeKey, data := range s.data {
 		// Extract the ID from the composite key
@@ -292,8 +418,8 @@ func (s *uniStorage) findResourceByID(sectionName string, isStrictPath bool, id 
 			continue
 		}
 
-		// Only return resources that match both section and strict mode
-		if s.isCompositeKeyInScope(compositeKey, sectionName, isStrictPath, data.Path) {
+		// Only return resources that match strict path mode
+		if s.isCompositeKeyInScopeStrict(compositeKey, data.Path) {
 			return data, nil
 		}
 	}
@@ -301,9 +427,28 @@ func (s *uniStorage) findResourceByID(sectionName string, isStrictPath bool, id 
 	return model.UniData{}, errors.NewNotFoundError(id, "")
 }
 
-// isCompositeKeyInScope checks if a composite key belongs to the specified scope
-func (*uniStorage) isCompositeKeyInScope(
-	compositeKey, sectionName string, isStrictPath bool, resourcePath string,
+// findResourceByIDFlexible searches for a resource by ID within flexible path mode
+func (s *uniStorage) findResourceByIDFlexible(sectionName string, id string) (model.UniData, error) {
+	// Search through all stored data to find matching composite key
+	for compositeKey, data := range s.data {
+		// Extract the ID from the composite key
+		keyID := s.extractIDFromCompositeKey(compositeKey)
+		if keyID != id {
+			continue
+		}
+
+		// Only return resources that match flexible path mode
+		if s.isCompositeKeyInScopeFlexible(compositeKey, sectionName) {
+			return data, nil
+		}
+	}
+
+	return model.UniData{}, errors.NewNotFoundError(id, "")
+}
+
+// isCompositeKeyInScopeStrict checks if a composite key belongs to strict path scope
+func (*uniStorage) isCompositeKeyInScopeStrict(
+	compositeKey, resourcePath string,
 ) bool {
 	parts := strings.Split(compositeKey, keySeparator)
 	if len(parts) < 2 {
@@ -311,11 +456,20 @@ func (*uniStorage) isCompositeKeyInScope(
 	}
 
 	keyScope := strings.Join(parts[:len(parts)-1], keySeparator)
+	// For strict mode, scope should be the resource path
+	return keyScope == resourcePath
+}
 
-	if isStrictPath {
-		// For strict mode, scope should be the resource path
-		return keyScope == resourcePath
+// isCompositeKeyInScopeFlexible checks if a composite key belongs to flexible section scope
+func (*uniStorage) isCompositeKeyInScopeFlexible(
+	compositeKey, sectionName string,
+) bool {
+	parts := strings.Split(compositeKey, keySeparator)
+	if len(parts) < 2 {
+		return false
 	}
+
+	keyScope := strings.Join(parts[:len(parts)-1], keySeparator)
 	// For non-strict mode, scope should be the section name
 	return keyScope == sectionName
 }
@@ -389,8 +543,8 @@ func (s *uniStorage) addKeysToResult(
 	return result
 }
 
-// Delete removes data by ID using section-aware composite key lookup
-func (s *uniStorage) Delete(sectionName string, isStrictPath bool, id string) error {
+// DeleteStrict removes data by ID using strict path mode
+func (s *uniStorage) DeleteStrict(_ string, id string) error {
 	if err := s.validateID(id); err != nil {
 		return err
 	}
@@ -399,16 +553,16 @@ func (s *uniStorage) Delete(sectionName string, isStrictPath bool, id string) er
 	defer s.mu.Unlock()
 
 	// Find the existing resource
-	mockData, err := s.findExistingDataOnly(sectionName, isStrictPath, id)
+	mockData, err := s.findExistingDataOnlyStrict("", id)
 	if err != nil {
 		return err
 	}
 
-	// Remove all composite keys that point to this data
-	s.removeAllCompositeKeysForResource(sectionName, isStrictPath, mockData)
+	// Remove all composite keys that point to this data (strict mode)
+	s.removeAllCompositeKeysForResourceStrict("", mockData)
 
 	// Clean up pathMap entries using primary composite key
-	primaryCompositeKey := s.buildCompositeKey(sectionName, isStrictPath, mockData.Path, mockData.IDs[0])
+	primaryCompositeKey := s.buildStrictCompositeKey(mockData.Path, mockData.IDs[0])
 	idPath := path.Join(mockData.Path, mockData.IDs[0])
 	s.removeCompositeKeyFromPath(primaryCompositeKey, mockData.Path)
 	s.removeCompositeKeyFromPath(primaryCompositeKey, idPath)
@@ -417,12 +571,58 @@ func (s *uniStorage) Delete(sectionName string, isStrictPath bool, id string) er
 	return nil
 }
 
-// removeAllCompositeKeysForResource removes all composite keys that reference the same data
-func (s *uniStorage) removeAllCompositeKeysForResource(
-	sectionName string, isStrictPath bool, mockData model.UniData,
+// DeleteFlexible removes data by ID using flexible path mode
+func (s *uniStorage) DeleteFlexible(sectionName string, id string) error {
+	if err := s.validateID(id); err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Find the existing resource
+	mockData, err := s.findExistingDataOnlyFlexible(sectionName, id)
+	if err != nil {
+		return err
+	}
+
+	// Remove all composite keys that point to this data (flexible mode)
+	s.removeAllCompositeKeysForResourceFlexible(sectionName, mockData)
+
+	// Clean up pathMap entries using primary composite key
+	primaryCompositeKey := s.buildNonStrictCompositeKey(sectionName, mockData.IDs[0])
+	idPath := path.Join(mockData.Path, mockData.IDs[0])
+	s.removeCompositeKeyFromPath(primaryCompositeKey, mockData.Path)
+	s.removeCompositeKeyFromPath(primaryCompositeKey, idPath)
+	s.removeCompositeKeyFromPath(primaryCompositeKey, mockData.Location)
+
+	return nil
+}
+
+// Delete removes data by ID using section-aware composite key lookup
+func (s *uniStorage) Delete(sectionName string, isStrictPath bool, id string) error { //nolint:revive
+	if isStrictPath {
+		return s.DeleteStrict(sectionName, id)
+	}
+	return s.DeleteFlexible(sectionName, id)
+}
+
+// removeAllCompositeKeysForResourceStrict removes all composite keys in strict mode
+func (s *uniStorage) removeAllCompositeKeysForResourceStrict(
+	_ string, mockData model.UniData,
 ) {
 	for _, resourceID := range mockData.IDs {
-		compositeKey := s.buildCompositeKey(sectionName, isStrictPath, mockData.Path, resourceID)
+		compositeKey := s.buildStrictCompositeKey(mockData.Path, resourceID)
+		delete(s.data, compositeKey)
+	}
+}
+
+// removeAllCompositeKeysForResourceFlexible removes all composite keys in flexible mode
+func (s *uniStorage) removeAllCompositeKeysForResourceFlexible(
+	sectionName string, mockData model.UniData,
+) {
+	for _, resourceID := range mockData.IDs {
+		compositeKey := s.buildNonStrictCompositeKey(sectionName, resourceID)
 		delete(s.data, compositeKey)
 	}
 }

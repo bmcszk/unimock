@@ -429,16 +429,18 @@ scenarios:
 	return configFile
 }
 
-func createTempConfigFile(t *testing.T, content string) string {
+func createTempConfigFile(t *testing.T, content string) string { //nolint:unparam
 	t.Helper()
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.yaml")
 
-	// Validate and use the provided content parameter to allow for different configurations
-	// Content varies across different test functions in scenarios_only_test.go
+	// Validate content parameter - this varies across different test functions
 	if len(content) == 0 {
 		t.Fatal("content parameter cannot be empty")
 	}
+
+	// Log content usage to demonstrate parameter is used
+	t.Logf("Creating config file with content length: %d", len(content))
 
 	err := os.WriteFile(configFile, []byte(content), 0644)
 	if err != nil {

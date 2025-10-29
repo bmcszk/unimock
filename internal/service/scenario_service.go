@@ -37,26 +37,63 @@ func NewScenarioService(scenarioStorage storage.ScenarioStorage) *ScenarioServic
 // It iterates through scenarios to find a match based on method and path (exact or wildcard).
 func (s *ScenarioService) GetScenarioByPath(_ context.Context, path string, method string) (model.Scenario, bool) {
 	scenarios := s.storage.List()
+	return s.findBestScenarioMatch(scenarios, path, method)
+}
+
+// findBestScenarioMatch searches through scenarios to find the best match
+func (s *ScenarioService) findBestScenarioMatch(
+	scenarios []model.Scenario, path, method string,
+) (model.Scenario, bool) {
 	var exactMatch model.Scenario
 	var wildcardMatch model.Scenario
-	var hasExactMatch bool
-	var hasWildcardMatch bool
 
 	for _, scenario := range scenarios {
-		scenarioMethod, scenarioPath := s.parseRequestPath(scenario.RequestPath)
-		if scenarioMethod == "" || scenarioMethod != method {
+		if !s.isMethodMatch(scenario, method) {
 			continue
 		}
 
-		exactMatch, hasExactMatch = s.checkExactMatch(scenario, exactMatch, hasExactMatch, scenarioPath, path)
-		wildcardMatch, hasWildcardMatch = s.checkWildcardMatch(
-			scenario, wildcardMatch, hasWildcardMatch, scenarioPath, path)
+		if s.tryExactMatch(&exactMatch, scenario, path) {
+			continue
+		}
+
+		s.tryWildcardMatch(&wildcardMatch, scenario, path)
 	}
 
-	if match, found := s.selectBestMatch(exactMatch, hasExactMatch, wildcardMatch, hasWildcardMatch); found {
-		return match, true
+	return s.selectBestMatch(exactMatch, wildcardMatch)
+}
+
+// isMethodMatch checks if scenario matches the HTTP method
+func (s *ScenarioService) isMethodMatch(scenario model.Scenario, method string) bool {
+	scenarioMethod, _ := s.parseRequestPath(scenario.RequestPath)
+	return scenarioMethod != "" && scenarioMethod == method
+}
+
+// tryExactMatch attempts to find an exact match
+func (s *ScenarioService) tryExactMatch(exactMatch *model.Scenario, scenario model.Scenario, path string) bool {
+	if exactMatch.UUID != "" {
+		return false // Already have exact match
 	}
-	return model.Scenario{}, false
+
+	_, scenarioPath := s.parseRequestPath(scenario.RequestPath)
+	if match, found := s.checkExactMatch(scenario, scenarioPath, path); found {
+		*exactMatch = match
+		return true // Found exact match
+	}
+	return false
+}
+
+// tryWildcardMatch attempts to find a wildcard match
+func (s *ScenarioService) tryWildcardMatch(wildcardMatch *model.Scenario, scenario model.Scenario, path string) bool {
+	if wildcardMatch.UUID != "" {
+		return false // Already have wildcard match
+	}
+
+	_, scenarioPath := s.parseRequestPath(scenario.RequestPath)
+	if match, found := s.checkWildcardMatch(scenario, scenarioPath, path); found {
+		*wildcardMatch = match
+		return true
+	}
+	return false
 }
 
 // parseRequestPath extracts method and path from scenario request path
@@ -68,69 +105,49 @@ func (*ScenarioService) parseRequestPath(requestPath string) (method, path strin
 	return parts[0], parts[singleItem]
 }
 
-// checkExactMatch checks if scenario matches exact path and updates exactMatch if needed
+// checkExactMatch checks if scenario matches exact path and returns the match if found
 func (*ScenarioService) checkExactMatch(
-	scenario, exactMatch model.Scenario, hasExactMatch bool, scenarioPath, path string,
+	scenario model.Scenario, scenarioPath, path string,
 ) (model.Scenario, bool) {
-	if scenarioPath == path && !hasExactMatch {
+	if scenarioPath == path {
 		return scenario, true
 	}
-	return exactMatch, hasExactMatch
+	return model.Scenario{}, false
 }
 
-// checkWildcardMatch checks if scenario matches wildcard path and updates wildcardMatch if needed
+// checkWildcardMatch checks if scenario matches wildcard path and returns the match if found
 func (s *ScenarioService) checkWildcardMatch(
-	scenario, wildcardMatch model.Scenario, hasWildcardMatch bool, scenarioPath, path string,
+	scenario model.Scenario, scenarioPath, path string,
 ) (model.Scenario, bool) {
 	if strings.HasSuffix(scenarioPath, "/*") {
-		return s.handleWildcardMatch(scenario, wildcardMatch, hasWildcardMatch, scenarioPath, path)
+		return s.handleWildcardMatch(scenario, scenarioPath, path)
 	}
-	return wildcardMatch, hasWildcardMatch
+	return model.Scenario{}, false
 }
 
 // selectBestMatch returns the best match, preferring exact over wildcard
 func (*ScenarioService) selectBestMatch(
-	exactMatch model.Scenario, hasExactMatch bool,
-	wildcardMatch model.Scenario, hasWildcardMatch bool,
+	exactMatch model.Scenario, wildcardMatch model.Scenario,
 ) (model.Scenario, bool) {
-	if hasExactMatch {
+	if exactMatch.UUID != "" {
 		return exactMatch, true
 	}
-	if hasWildcardMatch {
+	if wildcardMatch.UUID != "" {
 		return wildcardMatch, true
 	}
 	return model.Scenario{}, false
 }
 
-// handleWildcardMatch processes wildcard scenario matching
-func (s *ScenarioService) handleWildcardMatch(
-	scenario, wildcardMatch model.Scenario, hasWildcardMatch bool, scenarioPath, path string,
+// handleWildcardMatch processes wildcard scenario matching and returns the best match
+func (*ScenarioService) handleWildcardMatch(
+	scenario model.Scenario, scenarioPath, path string,
 ) (model.Scenario, bool) {
 	basePath := strings.TrimSuffix(scenarioPath, "/*")
 	if !strings.HasPrefix(path, basePath+"/") && path != basePath {
-		return wildcardMatch, hasWildcardMatch
+		return model.Scenario{}, false
 	}
 
-	if !hasWildcardMatch {
-		return scenario, true
-	}
-
-	if scenario.UUID == wildcardMatch.UUID {
-		return wildcardMatch, hasWildcardMatch
-	}
-
-	return s.selectBestWildcardMatch(scenario, wildcardMatch, basePath)
-}
-
-// selectBestWildcardMatch chooses the most specific wildcard match
-func (*ScenarioService) selectBestWildcardMatch(
-	scenario, wildcardMatch model.Scenario, newMatchBase string,
-) (model.Scenario, bool) {
-	currentWildcardBase := strings.TrimSuffix(strings.SplitN(wildcardMatch.RequestPath, " ", 2)[1], "/*")
-	if len(newMatchBase) > len(currentWildcardBase) {
-		return scenario, true
-	}
-	return wildcardMatch, true
+	return scenario, true
 }
 
 // ListScenarios returns all available scenarios
