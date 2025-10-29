@@ -15,7 +15,7 @@ func TestE2E_SCEN_RM_MULTI_ID_001(t *testing.T) {
 
 	// when
 	when.
-		the_resource_is_created_with_multiple_ids("testdata/http/scen_rm_multi_id_001.http")
+		an_http_request_is_made_from_file("testdata/http/scen_rm_multi_id_001.http")
 
 	// then
 	then.
@@ -75,7 +75,7 @@ func TestE2E_SCEN_RM_MULTI_ID_005(t *testing.T) {
 
 	// when
 	when.
-		the_resource_is_created_with_multiple_ids("testdata/http/scen_rm_multi_id_005.http")
+		an_http_request_is_made_from_file("testdata/http/scen_rm_multi_id_005.http")
 
 	// then
 	then.

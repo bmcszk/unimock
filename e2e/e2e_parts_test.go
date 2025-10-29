@@ -106,10 +106,6 @@ func (p *parts) the_response_is_validated_against_file(hrespFile string) *parts 
 	return p
 }
 
-func (p *parts) the_resource_is_created_with_multiple_ids(httpFile string) {
-	p.an_http_request_is_made_from_file(httpFile)
-}
-
 func (p *parts) the_resource_can_be_retrieved_by_either_id(hrespFile string) {
 	p.the_response_is_validated_against_file(hrespFile)
 }
