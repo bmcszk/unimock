@@ -13,6 +13,27 @@ import (
 func TestBackwardCompatibility_VerifiesLegacyAndEnhancedSyntaxWork(t *testing.T) {
 	// Arrange: Create temporary directory with mixed fixture syntax configuration
 	tempDir := t.TempDir()
+	userContent, productContent := setupBackwardCompatibilityFixtures(t, tempDir)
+	configFile := createMixedSyntaxConfig(t, tempDir)
+
+	// Act: Load configuration
+	uniConfig, err := config.LoadFromYAML(configFile)
+	if err != nil {
+		t.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	// Assert: Verify configuration loaded correctly
+	assertBackwardCompatibilityConfiguration(t, uniConfig)
+	assertLegacyFixtureSyntax(t, uniConfig, userContent)
+	assertEnhancedFixtureSyntax(t, uniConfig, productContent)
+	assertInlineFixtureSyntax(t, uniConfig, userContent)
+	assertDirectDataSyntax(t, uniConfig)
+	assertScenarioProperties(t, uniConfig)
+}
+
+// setupBackwardCompatibilityFixtures creates test fixture files for backward compatibility testing
+func setupBackwardCompatibilityFixtures(t *testing.T, tempDir string) (userContent string, productContent string) {
+	t.Helper()
 
 	// Create fixtures directory
 	fixturesDir := filepath.Join(tempDir, "fixtures")
@@ -23,21 +44,26 @@ func TestBackwardCompatibility_VerifiesLegacyAndEnhancedSyntaxWork(t *testing.T)
 
 	// Create test fixture files
 	userFixture := filepath.Join(fixturesDir, "user.json")
-	userContent := `{"id": "123", "name": "Legacy User", "email": "legacy@example.com"}`
+	userContent = `{"id": "123", "name": "Legacy User", "email": "legacy@example.com"}`
 	err = os.WriteFile(userFixture, []byte(userContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create user fixture: %v", err)
 	}
 
 	productFixture := filepath.Join(fixturesDir, "product.json")
-	productContent := `{"id": "456", "name": "New Product", "price": 29.99}`
+	productContent = `{"id": "456", "name": "New Product", "price": 29.99}`
 	err = os.WriteFile(productFixture, []byte(productContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create product fixture: %v", err)
 	}
 
-	// Create configuration file with mixed syntax
-	configFile := filepath.Join(tempDir, "config.yaml")
+	return userContent, productContent
+}
+
+// createMixedSyntaxConfig creates a configuration file with mixed fixture syntax
+func createMixedSyntaxConfig(t *testing.T, tempDir string) string {
+	t.Helper()
+
 	configContent := `
 # Mixed configuration using both legacy and enhanced fixture syntax
 scenarios:
@@ -77,18 +103,20 @@ scenarios:
     headers:
       Content-Type: "application/json"
 `
-	err = os.WriteFile(configFile, []byte(configContent), 0644)
+
+	configFile := filepath.Join(tempDir, "config.yaml")
+	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	// Act: Load configuration
-	uniConfig, err := config.LoadFromYAML(configFile)
-	if err != nil {
-		t.Fatalf("Failed to load configuration: %v", err)
-	}
+	return configFile
+}
 
-	// Assert: Verify configuration loaded correctly
+// assertBackwardCompatibilityConfiguration verifies basic configuration loading
+func assertBackwardCompatibilityConfiguration(t *testing.T, uniConfig *config.UniConfig) {
+	t.Helper()
+
 	if len(uniConfig.Scenarios) != 4 {
 		t.Errorf("Expected 4 scenarios, got %d", len(uniConfig.Scenarios))
 	}
@@ -97,38 +125,61 @@ scenarios:
 	if uniConfig.GetFixtureResolver() == nil {
 		t.Error("Fixture resolver should be initialized")
 	}
+}
 
-	// Test legacy @fixtures syntax
+// assertLegacyFixtureSyntax verifies @fixtures syntax works
+func assertLegacyFixtureSyntax(t *testing.T, uniConfig *config.UniConfig, expectedUserContent string) {
+	t.Helper()
+
 	legacyScenario := uniConfig.Scenarios[0]
 	legacyModel := legacyScenario.ToModelScenario(uniConfig.GetFixtureResolver())
-	if legacyModel.Data != userContent {
-		t.Errorf("Legacy scenario data mismatch\nExpected: %s\nGot: %s", userContent, legacyModel.Data)
+	if legacyModel.Data != expectedUserContent {
+		t.Errorf("Legacy scenario data mismatch\nExpected: %s\nGot: %s", expectedUserContent, legacyModel.Data)
 	}
+}
 
-	// Test enhanced < syntax
+// assertEnhancedFixtureSyntax verifies < syntax works
+func assertEnhancedFixtureSyntax(t *testing.T, uniConfig *config.UniConfig, expectedProductContent string) {
+	t.Helper()
+
 	enhancedScenario := uniConfig.Scenarios[1]
 	enhancedModel := enhancedScenario.ToModelScenario(uniConfig.GetFixtureResolver())
-	if enhancedModel.Data != productContent {
-		t.Errorf("Enhanced scenario data mismatch\nExpected: %s\nGot: %s", productContent, enhancedModel.Data)
+	if enhancedModel.Data != expectedProductContent {
+		t.Errorf("Enhanced scenario data mismatch\nExpected: %s\nGot: %s", expectedProductContent, enhancedModel.Data)
 	}
+}
 
-	// Test inline fixture syntax
+// assertInlineFixtureSyntax verifies inline fixture syntax works
+func assertInlineFixtureSyntax(t *testing.T, uniConfig *config.UniConfig, _ string) {
+	t.Helper()
+
 	inlineScenario := uniConfig.Scenarios[2]
 	inlineModel := inlineScenario.ToModelScenario(uniConfig.GetFixtureResolver())
 	expectedInline := `{"user": {"id": "123", "name": "Legacy User", "email": "legacy@example.com"}, "created": true}`
 	if inlineModel.Data != expectedInline {
 		t.Errorf("Inline scenario data mismatch\nExpected: %s\nGot: %s", expectedInline, inlineModel.Data)
 	}
+}
 
-	// Test direct data (no fixture resolution)
+// assertDirectDataSyntax verifies direct data (no fixture resolution) works
+func assertDirectDataSyntax(t *testing.T, uniConfig *config.UniConfig) {
+	t.Helper()
+
 	directScenario := uniConfig.Scenarios[3]
 	directModel := directScenario.ToModelScenario(uniConfig.GetFixtureResolver())
 	expectedDirect := `{"message": "direct data without fixture"}`
 	if directModel.Data != expectedDirect {
 		t.Errorf("Direct scenario data mismatch\nExpected: %s\nGot: %s", expectedDirect, directModel.Data)
 	}
+}
 
-	// Verify scenario properties are preserved
+// assertScenarioProperties verifies scenario properties are preserved
+func assertScenarioProperties(t *testing.T, uniConfig *config.UniConfig) {
+	t.Helper()
+
+	legacyScenario := uniConfig.Scenarios[0]
+	legacyModel := legacyScenario.ToModelScenario(uniConfig.GetFixtureResolver())
+
 	if legacyModel.UUID != "legacy-user-scenario" {
 		t.Errorf("Expected UUID 'legacy-user-scenario', got '%s'", legacyModel.UUID)
 	}
@@ -182,6 +233,22 @@ func TestBackwardCompatibility_VerifiesConfigurationIntegration(t *testing.T) {
 
 	// Arrange: Create a complete configuration with sections and scenarios
 	tempDir := t.TempDir()
+	orderContent := setupConfigurationIntegrationFixtures(t, tempDir)
+	configFile := createComprehensiveConfig(t, tempDir)
+
+	// Act: Load configuration
+	uniConfig, err := config.LoadFromYAML(configFile)
+	if err != nil {
+		t.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	// Assert: Verify both sections and scenarios work correctly
+	assertConfigurationIntegration(t, uniConfig, orderContent)
+}
+
+// setupConfigurationIntegrationFixtures creates fixtures for integration testing
+func setupConfigurationIntegrationFixtures(t *testing.T, tempDir string) string {
+	t.Helper()
 
 	// Create fixtures directory and files
 	fixturesDir := filepath.Join(tempDir, "fixtures")
@@ -197,8 +264,13 @@ func TestBackwardCompatibility_VerifiesConfigurationIntegration(t *testing.T) {
 		t.Fatalf("Failed to create order fixture: %v", err)
 	}
 
-	// Create comprehensive configuration
-	configFile := filepath.Join(tempDir, "config.yaml")
+	return orderContent
+}
+
+// createComprehensiveConfig creates a complete configuration with sections and scenarios
+func createComprehensiveConfig(t *testing.T, tempDir string) string {
+	t.Helper()
+
 	configContent := `
 # Complete configuration with sections and enhanced scenarios
 sections:
@@ -219,18 +291,21 @@ scenarios:
       Content-Type: "application/json"
       Location: "/api/orders/789"
 `
-	err = os.WriteFile(configFile, []byte(configContent), 0644)
+
+	configFile := filepath.Join(tempDir, "config.yaml")
+	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
 	}
 
-	// Act: Load configuration
-	uniConfig, err := config.LoadFromYAML(configFile)
-	if err != nil {
-		t.Fatalf("Failed to load configuration: %v", err)
-	}
+	return configFile
+}
 
-	// Assert: Verify both sections and scenarios work correctly
+// assertConfigurationIntegration verifies configuration integration works correctly
+func assertConfigurationIntegration(t *testing.T, uniConfig *config.UniConfig, expectedOrderContent string) {
+	t.Helper()
+
+	// Verify section and scenario counts
 	if len(uniConfig.Sections) != 1 {
 		t.Errorf("Expected 1 section, got %d", len(uniConfig.Sections))
 	}
@@ -240,6 +315,19 @@ scenarios:
 	}
 
 	// Verify section configuration
+	assertSectionConfiguration(t, uniConfig)
+
+	// Verify scenario with fixture resolution
+	assertScenarioWithFixtureResolution(t, uniConfig, expectedOrderContent)
+
+	// Verify path matching still works
+	assertPathMatchingIntegration(t, uniConfig)
+}
+
+// assertSectionConfiguration verifies section configuration is correct
+func assertSectionConfiguration(t *testing.T, uniConfig *config.UniConfig) {
+	t.Helper()
+
 	orderSection := uniConfig.Sections["orders"]
 	if orderSection.PathPattern != "/api/orders/*" {
 		t.Errorf("Expected path pattern '/api/orders/*', got '%s'", orderSection.PathPattern)
@@ -247,15 +335,23 @@ scenarios:
 	if !orderSection.ReturnBody {
 		t.Error("Expected ReturnBody to be true")
 	}
+}
 
-	// Verify scenario with fixture resolution
+// assertScenarioWithFixtureResolution verifies scenario fixture resolution works
+func assertScenarioWithFixtureResolution(t *testing.T, uniConfig *config.UniConfig, expectedOrderContent string) {
+	t.Helper()
+
 	scenario := uniConfig.Scenarios[0]
 	model := scenario.ToModelScenario(uniConfig.GetFixtureResolver())
-	if model.Data != orderContent {
-		t.Errorf("Expected resolved fixture data '%s', got '%s'", orderContent, model.Data)
+	if model.Data != expectedOrderContent {
+		t.Errorf("Expected resolved fixture data '%s', got '%s'", expectedOrderContent, model.Data)
 	}
+}
 
-	// Verify path matching still works
+// assertPathMatchingIntegration verifies path matching integration works
+func assertPathMatchingIntegration(t *testing.T, uniConfig *config.UniConfig) {
+	t.Helper()
+
 	sectionName, matchedSection, err := uniConfig.MatchPath("/api/orders/123")
 	if err != nil {
 		t.Errorf("Path matching failed: %v", err)

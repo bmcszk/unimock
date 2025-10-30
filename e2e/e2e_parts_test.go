@@ -526,18 +526,3 @@ func (p *parts) the_response_body_contains_fixtures_data(expectedContent string)
 
 	return p
 }
-
-func (p *parts) the_response_status_is(expectedStatus int) *parts {
-	p.Helper()
-
-	// Use type assertion to get the response with body content
-	responseWithBody, ok := p.responses[0].(struct {
-		*http.Response
-		BodyContent []byte
-	})
-	p.require.True(ok, "Response is not of expected type with body content")
-
-	p.require.Equal(expectedStatus, responseWithBody.StatusCode, "Response status code should match expected status")
-
-	return p
-}
