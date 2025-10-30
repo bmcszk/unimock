@@ -20,6 +20,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// ResponseWithBody stores HTTP response with body content for testing
+type ResponseWithBody struct {
+	*http.Response
+	BodyContent []byte
+}
+
 type parts struct {
 	*testing.T
 	require          *require.Assertions
@@ -261,10 +267,7 @@ func (p *parts) a_get_request_is_made_to(url string) {
 	resp.Body.Close()
 
 	// Store response with body content for later testing
-	responseWithBody := struct {
-		*http.Response
-		BodyContent []byte
-	}{
+	responseWithBody := &ResponseWithBody{
 		Response:    resp,
 		BodyContent: body,
 	}
@@ -282,10 +285,7 @@ func (p *parts) a_post_request_is_made_to(url string) {
 	resp.Body.Close()
 
 	// Store response with body content for later testing
-	responseWithBody := struct {
-		*http.Response
-		BodyContent []byte
-	}{
+	responseWithBody := &ResponseWithBody{
 		Response:    resp,
 		BodyContent: body,
 	}
@@ -305,10 +305,7 @@ func (p *parts) a_head_request_is_made_to(url string) *parts {
 	resp.Body.Close()
 
 	// Store response with body content for later testing
-	responseWithBody := struct {
-		*http.Response
-		BodyContent []byte
-	}{
+	responseWithBody := &ResponseWithBody{
 		Response:    resp,
 		BodyContent: body,
 	}
@@ -319,10 +316,7 @@ func (p *parts) a_head_request_is_made_to(url string) *parts {
 
 func (p *parts) the_response_is_successful() *parts {
 	// Use type assertion to get the response with body content
-	responseWithBody, ok := p.responses[0].(struct {
-		*http.Response
-		BodyContent []byte
-	})
+	responseWithBody, ok := p.responses[0].(*ResponseWithBody)
 	p.require.True(ok, "Response is not of expected type with body content")
 	p.require.Equal(http.StatusOK, responseWithBody.StatusCode)
 	return p
@@ -330,20 +324,14 @@ func (p *parts) the_response_is_successful() *parts {
 
 func (p *parts) the_post_response_is_successful() {
 	// Use type assertion to get the response with body content
-	responseWithBody, ok := p.responses[0].(struct {
-		*http.Response
-		BodyContent []byte
-	})
+	responseWithBody, ok := p.responses[0].(*ResponseWithBody)
 	p.require.True(ok, "Response is not of expected type with body content")
 	p.require.Equal(http.StatusCreated, responseWithBody.StatusCode)
 }
 
 func (p *parts) the_head_response_is_successful() *parts {
 	// Use type assertion to get the response with body content
-	responseWithBody, ok := p.responses[0].(struct {
-		*http.Response
-		BodyContent []byte
-	})
+	responseWithBody, ok := p.responses[0].(*ResponseWithBody)
 	p.require.True(ok, "Response is not of expected type with body content")
 	p.require.Equal(http.StatusOK, responseWithBody.StatusCode)
 	return p
@@ -351,10 +339,7 @@ func (p *parts) the_head_response_is_successful() *parts {
 
 func (p *parts) the_response_is_error() *parts {
 	// Use type assertion to get the response with body content
-	responseWithBody, ok := p.responses[0].(struct {
-		*http.Response
-		BodyContent []byte
-	})
+	responseWithBody, ok := p.responses[0].(*ResponseWithBody)
 	p.require.True(ok, "Response is not of expected type with body content")
 	p.require.Equal(http.StatusInternalServerError, responseWithBody.StatusCode)
 	return p
@@ -362,10 +347,7 @@ func (p *parts) the_response_is_error() *parts {
 
 func (p *parts) the_response_is_not_found() *parts {
 	// Use type assertion to get the response with body content
-	responseWithBody, ok := p.responses[0].(struct {
-		*http.Response
-		BodyContent []byte
-	})
+	responseWithBody, ok := p.responses[0].(*ResponseWithBody)
 	p.require.True(ok, "Response is not of expected type with body content")
 	p.require.Equal(http.StatusNotFound, responseWithBody.StatusCode)
 	return p
@@ -515,10 +497,7 @@ func (p *parts) the_response_body_contains_fixtures_data(expectedContent string)
 	p.Helper()
 
 	// Use type assertion to get the response with body content
-	responseWithBody, ok := p.responses[0].(struct {
-		*http.Response
-		BodyContent []byte
-	})
+	responseWithBody, ok := p.responses[0].(*ResponseWithBody)
 	p.require.True(ok, "Response is not of expected type with body content")
 
 	bodyStr := string(responseWithBody.BodyContent)

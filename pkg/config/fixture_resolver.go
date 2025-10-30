@@ -136,39 +136,11 @@ func (fr *FixtureResolver) processInlineMatch(match string) string {
 	}
 
 	// Try to load the fixture content
-	if content, err := fr.loadFixtureContent(filePath); err == nil {
+	if content, err := fr.loadFixtureFile(filePath); err == nil {
 		return content
 	}
 
 	return match // Return original reference if loading fails
-}
-
-// loadFixtureContent loads and caches fixture file content
-func (fr *FixtureResolver) loadFixtureContent(filePath string) (string, error) {
-	// Check cache first
-	fr.mutex.RLock()
-	if cached, exists := fr.cache[filePath]; exists {
-		fr.mutex.RUnlock()
-		return cached, nil
-	}
-	fr.mutex.RUnlock()
-
-	// Resolve full path relative to base directory
-	fullPath := filepath.Join(fr.baseDir, filePath)
-
-	// Read file content
-	content, err := os.ReadFile(fullPath)
-	if err != nil {
-		return "", err
-	}
-
-	// Cache the result
-	contentStr := string(content)
-	fr.mutex.Lock()
-	fr.cache[filePath] = contentStr
-	fr.mutex.Unlock()
-
-	return contentStr, nil
 }
 
 // validateFilePath ensures the file path is safe and doesn't allow path traversal
@@ -190,12 +162,18 @@ func (fr *FixtureResolver) validateFilePath(filePath string) error {
 
 // checkAbsolutePath validates against absolute paths
 func (*FixtureResolver) checkAbsolutePath(filePath string) error {
-	// Check for absolute paths (Unix and Windows style)
-	if filepath.IsAbs(filePath) || strings.HasPrefix(filePath, "/") ||
+	// Check for absolute paths (filepath.IsAbs handles both Unix and Windows)
+	if filepath.IsAbs(filePath) {
+		return &InvalidFixturePathError{Path: filePath, Reason: "absolute path not allowed"}
+	}
+
+	// Additional checks for patterns that filepath.IsAbs might miss in cross-platform scenarios
+	if strings.HasPrefix(filePath, "/") ||
 		(len(filePath) >= 2 && filePath[1] == ':') || // Windows drive letter (e.g., C:)
 		strings.HasPrefix(filePath, "\\") {
 		return &InvalidFixturePathError{Path: filePath, Reason: "absolute path not allowed"}
 	}
+
 	return nil
 }
 
