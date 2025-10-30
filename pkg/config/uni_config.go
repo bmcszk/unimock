@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/bmcszk/unimock/pkg/model"
@@ -35,6 +36,12 @@ type UniConfig struct {
 
 	// Scenarios contains predefined responses that override normal mock behavior
 	Scenarios []ScenarioConfig `yaml:"scenarios,omitempty" json:"scenarios,omitempty"`
+
+	// baseDir is the directory containing the configuration file (for fixture resolution)
+	baseDir string
+
+	// fixtureResolver handles loading fixture files referenced in configuration
+	fixtureResolver *FixtureResolver
 }
 
 // ScenarioConfig represents a scenario definition in configuration
@@ -66,7 +73,8 @@ type ScenarioConfig struct {
 }
 
 // ToModelScenario converts a ScenarioConfig to a model.Scenario
-func (sf *ScenarioConfig) ToModelScenario() model.Scenario {
+// Optionally accepts a FixtureResolver to resolve fixture references in Data field
+func (sf *ScenarioConfig) ToModelScenario(fixtureResolver *FixtureResolver) model.Scenario {
 	// Set defaults
 	statusCode := sf.StatusCode
 	if statusCode == 0 {
@@ -78,6 +86,16 @@ func (sf *ScenarioConfig) ToModelScenario() model.Scenario {
 		contentType = "application/json"
 	}
 
+	// Resolve fixture references in data if resolver is provided
+	data := sf.Data
+	if fixtureResolver != nil {
+		resolvedData, err := fixtureResolver.ResolveFixture(data)
+		if err == nil {
+			data = resolvedData
+		}
+		// If resolution fails, use original data (backward compatibility)
+	}
+
 	// Combine method and path into RequestPath format
 	requestPath := fmt.Sprintf("%s %s", strings.ToUpper(sf.Method), sf.Path)
 
@@ -87,7 +105,7 @@ func (sf *ScenarioConfig) ToModelScenario() model.Scenario {
 		StatusCode:  statusCode,
 		ContentType: contentType,
 		Location:    sf.Location,
-		Data:        sf.Data,
+		Data:        data,
 		Headers:     sf.Headers,
 	}
 }
@@ -200,6 +218,7 @@ func LoadFromYAML(path string) (*UniConfig, error) {
 	if unifiedErr == nil && (len(config.Sections) > 0 || len(config.Scenarios) > 0) {
 		// Successfully parsed as unified format
 		config.Normalize()
+		config.initializeFixtureResolver(filepath.Dir(path))
 		return config, nil
 	}
 
@@ -225,7 +244,19 @@ func LoadFromYAML(path string) (*UniConfig, error) {
 	}
 
 	config.Sections = legacyConfig.Sections
+	config.initializeFixtureResolver(filepath.Dir(path))
 	return config, nil
+}
+
+// initializeFixtureResolver sets up the fixture resolver with the configuration file's directory
+func (uc *UniConfig) initializeFixtureResolver(baseDir string) {
+	uc.baseDir = baseDir
+	uc.fixtureResolver = NewFixtureResolver(baseDir)
+}
+
+// GetFixtureResolver returns the fixture resolver for this configuration
+func (uc *UniConfig) GetFixtureResolver() *FixtureResolver {
+	return uc.fixtureResolver
 }
 
 // Normalize ensures consistent field values across different configuration formats
