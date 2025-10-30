@@ -10,72 +10,67 @@ import (
 
 // TestFixtureFileSupport_AtSyntax_BasicWorkflow tests basic @fixtures syntax workflow
 func TestFixtureFileSupport_AtSyntax_BasicWorkflow(t *testing.T) {
-	// given
 	configFile := createAtSyntaxFixtureConfig(t)
 	_, when, then := newServerParts(t, configFile)
 
-	// when
-	when.a_get_request_is_made_to("/api/fixtures/user")
+	when.
+		a_get_request_is_made_to("/api/fixtures/user")
 
-	// then
-	then.the_response_is_successful().and().
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Legacy User")
 }
 
 // TestFixtureFileSupport_LessThanSyntax_GoRestClientCompatible tests < syntax workflow
 func TestFixtureFileSupport_LessThanSyntax_GoRestClientCompatible(t *testing.T) {
-	// given
 	configFile := createLessThanSyntaxFixtureConfig(t)
 	_, when, then := newServerParts(t, configFile)
 
-	// when
-	when.a_get_request_is_made_to("/api/fixtures/product")
+	when.
+		a_get_request_is_made_to("/api/fixtures/product")
 
-	// then
-	then.the_response_is_successful().and().
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("New Product")
 }
 
 // TestFixtureFileSupport_LessAtSyntax_VariableSubstitution tests <@ syntax workflow
 func TestFixtureFileSupport_LessAtSyntax_VariableSubstitution(t *testing.T) {
-	// given
 	configFile := createLessAtSyntaxFixtureConfig(t)
 	_, when, then := newServerParts(t, configFile)
 
-	// when
-	when.a_get_request_is_made_to("/api/fixtures/order")
+	when.
+		a_get_request_is_made_to("/api/fixtures/order")
 
-	// then
-	then.the_response_is_successful().and().
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Pending Order")
 }
 
 // TestFixtureFileSupport_InlineFixtures_SingleReference tests inline fixture workflow
 func TestFixtureFileSupport_InlineFixtures_SingleReference(t *testing.T) {
-	// given
 	configFile := createInlineFixtureConfig(t)
 	_, when, then := newServerParts(t, configFile)
 
-	// when
-	when.a_get_request_is_made_to("/api/fixtures/user-with-profile")
+	when.
+		a_get_request_is_made_to("/api/fixtures/user-with-profile")
 
-	// then
-	then.the_response_is_successful().and().
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Test User").and().
 		the_response_body_contains_fixtures_data("Developer Profile")
 }
 
 // TestFixtureFileSupport_InlineFixtures_MultipleReferences tests multiple inline fixtures
 func TestFixtureFileSupport_InlineFixtures_MultipleReferences(t *testing.T) {
-	// given
 	configFile := createMultipleInlineFixtureConfig(t)
 	_, when, then := newServerParts(t, configFile)
 
-	// when
-	when.a_get_request_is_made_to("/api/fixtures/complete-user-data")
+	when.
+		a_get_request_is_made_to("/api/fixtures/complete-user-data")
 
-	// then
-	then.the_response_is_successful().and().
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Test User").and().
 		the_response_body_contains_fixtures_data("\"admin\": true").and().
 		the_response_body_contains_fixtures_data("\"theme\": \"dark\"")
@@ -83,69 +78,88 @@ func TestFixtureFileSupport_InlineFixtures_MultipleReferences(t *testing.T) {
 
 // TestFixtureFileSupport_BackwardCompatibility_MixedSyntax tests mixed syntax in single config
 func TestFixtureFileSupport_BackwardCompatibility_MixedSyntax(t *testing.T) {
-	// given
 	configFile := createMixedSyntaxFixtureConfig(t)
 	_, when, then := newServerParts(t, configFile)
 
-	// when/then - test all syntax types work together
-	when.a_get_request_is_made_to("/api/fixtures/legacy")
-	then.the_response_is_successful().and().
+	when.
+		a_get_request_is_made_to("/api/fixtures/legacy")
+
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Legacy Data")
 
-	when.a_get_request_is_made_to("/api/fixtures/enhanced")
-	then.the_response_is_successful().and().
+	when.
+		a_get_request_is_made_to("/api/fixtures/enhanced")
+
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Enhanced Data")
 
-	when.a_get_request_is_made_to("/api/fixtures/inline")
-	then.the_response_is_successful().and().
+	when.
+		a_get_request_is_made_to("/api/fixtures/inline")
+
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Inline Data")
 
-	when.a_get_request_is_made_to("/api/fixtures/direct")
-	then.the_response_is_successful().and().
+	when.
+		a_get_request_is_made_to("/api/fixtures/direct")
+
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Direct Data")
 }
 
 // TestFixtureFileSupport_ErrorHandling_MissingFile tests graceful fallback for missing fixtures
 func TestFixtureFileSupport_ErrorHandling_MissingFile(t *testing.T) {
-	// given
 	configFile := createMissingFixtureConfig(t)
 	_, when, then := newServerParts(t, configFile)
 
-	// when
-	when.a_get_request_is_made_to("/api/fixtures/missing")
+	when.
+		a_get_request_is_made_to("/api/fixtures/missing")
 
-	// then - should return original fixture reference when file doesn't exist
-	then.the_response_is_successful().and().
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("@fixtures/nonexistent.json")
 }
 
 // TestFixtureFileSupport_Security_PathTraversalProtection tests security against path traversal
 func TestFixtureFileSupport_Security_PathTraversalProtection(t *testing.T) {
-	// given - config with path traversal attempt (should be handled gracefully)
 	configFile := createPathTraversalConfig(t)
 	_, when, then := newServerParts(t, configFile)
 
-	// when
-	when.a_get_request_is_made_to("/api/fixtures/traversal")
+	when.
+		a_get_request_is_made_to("/api/fixtures/traversal")
 
-	// then - should return the original path traversal reference (blocked by security)
-	then.the_response_is_successful().and().
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("@fixtures/../../../etc/passwd")
 }
 
 // TestFixtureFileSupport_Performance_CachingTests tests fixture caching performance
 func TestFixtureFileSupport_Performance_CachingTests(t *testing.T) {
-	// given
 	configFile := createPerformanceTestConfig(t)
 	_, when, then := newServerParts(t, configFile)
 
-	// when - make multiple requests to same fixture
-	when.a_get_request_is_made_to("/api/fixtures/cached")
-	when.a_get_request_is_made_to("/api/fixtures/cached")
-	when.a_get_request_is_made_to("/api/fixtures/cached")
+	when.
+		a_get_request_is_made_to("/api/fixtures/cached")
 
-	// then - all responses should be successful and consistent
-	then.the_response_is_successful().and().
+	then.
+		the_response_is_successful().and().
+		the_response_body_contains_fixtures_data("Cached Data")
+
+	when.
+		a_get_request_is_made_to("/api/fixtures/cached")
+
+	then.
+		the_response_is_successful().and().
+		the_response_body_contains_fixtures_data("Cached Data")
+
+	when.
+		a_get_request_is_made_to("/api/fixtures/cached")
+
+	then.
+		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Cached Data")
 }
 
