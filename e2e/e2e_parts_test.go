@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -253,15 +254,43 @@ func (p *parts) setupServerCleanup(srv *http.Server) {
 func (p *parts) a_get_request_is_made_to(url string) {
 	resp, err := http.Get(p.baseURL + url)
 	p.require.NoError(err)
-	defer resp.Body.Close()
-	p.responses = []any{resp}
+
+	// Read body before closing
+	body, err := io.ReadAll(resp.Body)
+	p.require.NoError(err)
+	resp.Body.Close()
+
+	// Store response with body content for later testing
+	responseWithBody := struct {
+		*http.Response
+		BodyContent []byte
+	}{
+		Response:    resp,
+		BodyContent: body,
+	}
+
+	p.responses = []any{responseWithBody}
 }
 
 func (p *parts) a_post_request_is_made_to(url string) {
 	resp, err := http.Post(p.baseURL+url, "application/json", nil)
 	p.require.NoError(err)
-	defer resp.Body.Close()
-	p.responses = []any{resp}
+
+	// Read body before closing
+	body, err := io.ReadAll(resp.Body)
+	p.require.NoError(err)
+	resp.Body.Close()
+
+	// Store response with body content for later testing
+	responseWithBody := struct {
+		*http.Response
+		BodyContent []byte
+	}{
+		Response:    resp,
+		BodyContent: body,
+	}
+
+	p.responses = []any{responseWithBody}
 }
 
 func (p *parts) a_head_request_is_made_to(url string) *parts {
@@ -269,42 +298,76 @@ func (p *parts) a_head_request_is_made_to(url string) *parts {
 	p.require.NoError(err)
 	resp, err := http.DefaultClient.Do(req)
 	p.require.NoError(err)
-	defer resp.Body.Close()
-	p.responses = []any{resp}
+
+	// Read body before closing (though HEAD responses shouldn't have bodies)
+	body, err := io.ReadAll(resp.Body)
+	p.require.NoError(err)
+	resp.Body.Close()
+
+	// Store response with body content for later testing
+	responseWithBody := struct {
+		*http.Response
+		BodyContent []byte
+	}{
+		Response:    resp,
+		BodyContent: body,
+	}
+
+	p.responses = []any{responseWithBody}
 	return p
 }
 
 func (p *parts) the_response_is_successful() *parts {
-	resp, ok := p.responses[0].(*http.Response)
-	p.require.True(ok, "Response is not of type *http.Response")
-	p.require.Equal(http.StatusOK, resp.StatusCode)
+	// Use type assertion to get the response with body content
+	responseWithBody, ok := p.responses[0].(struct {
+		*http.Response
+		BodyContent []byte
+	})
+	p.require.True(ok, "Response is not of expected type with body content")
+	p.require.Equal(http.StatusOK, responseWithBody.StatusCode)
 	return p
 }
 
 func (p *parts) the_post_response_is_successful() {
-	resp, ok := p.responses[0].(*http.Response)
-	p.require.True(ok, "Response is not of type *http.Response")
-	p.require.Equal(http.StatusCreated, resp.StatusCode)
+	// Use type assertion to get the response with body content
+	responseWithBody, ok := p.responses[0].(struct {
+		*http.Response
+		BodyContent []byte
+	})
+	p.require.True(ok, "Response is not of expected type with body content")
+	p.require.Equal(http.StatusCreated, responseWithBody.StatusCode)
 }
 
 func (p *parts) the_head_response_is_successful() *parts {
-	resp, ok := p.responses[0].(*http.Response)
-	p.require.True(ok, "Response is not of type *http.Response")
-	p.require.Equal(http.StatusOK, resp.StatusCode)
+	// Use type assertion to get the response with body content
+	responseWithBody, ok := p.responses[0].(struct {
+		*http.Response
+		BodyContent []byte
+	})
+	p.require.True(ok, "Response is not of expected type with body content")
+	p.require.Equal(http.StatusOK, responseWithBody.StatusCode)
 	return p
 }
 
 func (p *parts) the_response_is_error() *parts {
-	resp, ok := p.responses[0].(*http.Response)
-	p.require.True(ok, "Response is not of type *http.Response")
-	p.require.Equal(http.StatusInternalServerError, resp.StatusCode)
+	// Use type assertion to get the response with body content
+	responseWithBody, ok := p.responses[0].(struct {
+		*http.Response
+		BodyContent []byte
+	})
+	p.require.True(ok, "Response is not of expected type with body content")
+	p.require.Equal(http.StatusInternalServerError, responseWithBody.StatusCode)
 	return p
 }
 
 func (p *parts) the_response_is_not_found() *parts {
-	resp, ok := p.responses[0].(*http.Response)
-	p.require.True(ok, "Response is not of type *http.Response")
-	p.require.Equal(http.StatusNotFound, resp.StatusCode)
+	// Use type assertion to get the response with body content
+	responseWithBody, ok := p.responses[0].(struct {
+		*http.Response
+		BodyContent []byte
+	})
+	p.require.True(ok, "Response is not of expected type with body content")
+	p.require.Equal(http.StatusNotFound, responseWithBody.StatusCode)
 	return p
 }
 
@@ -444,4 +507,37 @@ func createTempConfigFile(t *testing.T, content string) string {
 	}
 
 	return configFile
+}
+
+// Additional helper methods for fixture file support E2E tests
+
+func (p *parts) the_response_body_contains_fixtures_data(expectedContent string) *parts {
+	p.Helper()
+
+	// Use type assertion to get the response with body content
+	responseWithBody, ok := p.responses[0].(struct {
+		*http.Response
+		BodyContent []byte
+	})
+	p.require.True(ok, "Response is not of expected type with body content")
+
+	bodyStr := string(responseWithBody.BodyContent)
+	p.require.Contains(bodyStr, expectedContent, "Response body should contain expected fixture content")
+
+	return p
+}
+
+func (p *parts) the_response_status_is(expectedStatus int) *parts {
+	p.Helper()
+
+	// Use type assertion to get the response with body content
+	responseWithBody, ok := p.responses[0].(struct {
+		*http.Response
+		BodyContent []byte
+	})
+	p.require.True(ok, "Response is not of expected type with body content")
+
+	p.require.Equal(expectedStatus, responseWithBody.StatusCode, "Response status code should match expected status")
+
+	return p
 }
