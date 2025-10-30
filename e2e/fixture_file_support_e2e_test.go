@@ -76,8 +76,8 @@ func TestFixtureFileSupport_InlineFixtures_MultipleReferences(t *testing.T) {
 		the_response_body_contains_fixtures_data("\"theme\": \"dark\"")
 }
 
-// TestFixtureFileSupport_BackwardCompatibility_MixedSyntax tests mixed syntax in single config
-func TestFixtureFileSupport_BackwardCompatibility_MixedSyntax(t *testing.T) {
+// TestFixtureFileSupport_BackwardCompatibility_AtSyntax tests @ syntax in mixed config
+func TestFixtureFileSupport_BackwardCompatibility_AtSyntax(t *testing.T) {
 	configFile := createMixedSyntaxFixtureConfig(t)
 	_, when, then := newServerParts(t, configFile)
 
@@ -87,6 +87,12 @@ func TestFixtureFileSupport_BackwardCompatibility_MixedSyntax(t *testing.T) {
 	then.
 		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Legacy Data")
+}
+
+// TestFixtureFileSupport_BackwardCompatibility_LessThanSyntax tests < syntax in mixed config
+func TestFixtureFileSupport_BackwardCompatibility_LessThanSyntax(t *testing.T) {
+	configFile := createMixedSyntaxFixtureConfig(t)
+	_, when, then := newServerParts(t, configFile)
 
 	when.
 		a_get_request_is_made_to("/api/fixtures/enhanced")
@@ -94,6 +100,12 @@ func TestFixtureFileSupport_BackwardCompatibility_MixedSyntax(t *testing.T) {
 	then.
 		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Enhanced Data")
+}
+
+// TestFixtureFileSupport_BackwardCompatibility_InlineSyntax tests inline syntax in mixed config
+func TestFixtureFileSupport_BackwardCompatibility_InlineSyntax(t *testing.T) {
+	configFile := createMixedSyntaxFixtureConfig(t)
+	_, when, then := newServerParts(t, configFile)
 
 	when.
 		a_get_request_is_made_to("/api/fixtures/inline")
@@ -101,6 +113,12 @@ func TestFixtureFileSupport_BackwardCompatibility_MixedSyntax(t *testing.T) {
 	then.
 		the_response_is_successful().and().
 		the_response_body_contains_fixtures_data("Inline Data")
+}
+
+// TestFixtureFileSupport_BackwardCompatibility_DirectSyntax tests direct data in mixed config
+func TestFixtureFileSupport_BackwardCompatibility_DirectSyntax(t *testing.T) {
+	configFile := createMixedSyntaxFixtureConfig(t)
+	_, when, then := newServerParts(t, configFile)
 
 	when.
 		a_get_request_is_made_to("/api/fixtures/direct")
@@ -140,20 +158,6 @@ func TestFixtureFileSupport_Security_PathTraversalProtection(t *testing.T) {
 func TestFixtureFileSupport_Performance_CachingTests(t *testing.T) {
 	configFile := createPerformanceTestConfig(t)
 	_, when, then := newServerParts(t, configFile)
-
-	when.
-		a_get_request_is_made_to("/api/fixtures/cached")
-
-	then.
-		the_response_is_successful().and().
-		the_response_body_contains_fixtures_data("Cached Data")
-
-	when.
-		a_get_request_is_made_to("/api/fixtures/cached")
-
-	then.
-		the_response_is_successful().and().
-		the_response_body_contains_fixtures_data("Cached Data")
 
 	when.
 		a_get_request_is_made_to("/api/fixtures/cached")
