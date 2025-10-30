@@ -262,13 +262,90 @@ func TestFixtureResolver_ResolveFixture_MissingFile_ReturnsError(t *testing.T) {
 	resolver := config.NewFixtureResolver(tempDir)
 
 	// Act: Try to resolve non-existent fixture
-	_, err := resolver.ResolveFixture("@fixtures/nonexistent.json")
+	result, err := resolver.ResolveFixture("@fixtures/nonexistent.json")
 
-	// Assert: Should return error for missing file
-	if err == nil {
-		t.Error("Expected error for missing file, got nil")
+	// Assert: Should gracefully fallback to original data (no error)
+	if err != nil {
+		t.Errorf("Expected no error for missing file (graceful fallback), got: %v", err)
 	}
-	if !os.IsNotExist(err) {
-		t.Errorf("Expected file not found error, got: %v", err)
+	if result != "@fixtures/nonexistent.json" {
+		t.Errorf("Expected original fixture reference, got: %q", result)
+	}
+}
+
+// TDD-22: Create test for graceful fallback when file not found - email addresses
+func TestFixtureResolver_ResolveFixture_EmailAddress_ReturnsOriginalData(t *testing.T) {
+	// Arrange: Create resolver
+	tempDir := t.TempDir()
+	resolver := config.NewFixtureResolver(tempDir)
+
+	// Act: Try to resolve email address (contains @ but is not a fixture reference)
+	emailData := "user@example.com"
+	result, err := resolver.ResolveFixture(emailData)
+
+	// Assert: Should return original data and no error since it's not a valid fixture path
+	if err != nil {
+		t.Errorf("Expected no error for email address, got: %v", err)
+	}
+	if result != emailData {
+		t.Errorf("Expected original email address %q, got %q", emailData, result)
+	}
+}
+
+// TDD-23: Create test for graceful fallback when fixture file not found
+func TestFixtureResolver_ResolveFixture_InvalidFixturePath_ReturnsOriginalData(t *testing.T) {
+	// Arrange: Create resolver
+	tempDir := t.TempDir()
+	resolver := config.NewFixtureResolver(tempDir)
+
+	// Act: Try to resolve non-existent fixture (should return original data)
+	fixtureData := "@fixtures/nonexistent.json"
+	result, err := resolver.ResolveFixture(fixtureData)
+
+	// Assert: Should return original data when file not found (graceful fallback)
+	if err != nil {
+		t.Errorf("Expected no error for missing fixture (graceful fallback), got: %v", err)
+	}
+	if result != fixtureData {
+		t.Errorf("Expected original fixture reference %q, got %q", fixtureData, result)
+	}
+}
+
+// TDD-24: Create test for graceful fallback with < syntax when file not found
+func TestFixtureResolver_ResolveFixture_LessThanSyntaxMissingFile_ReturnsOriginalData(t *testing.T) {
+	// Arrange: Create resolver
+	tempDir := t.TempDir()
+	resolver := config.NewFixtureResolver(tempDir)
+
+	// Act: Try to resolve non-existent fixture with < syntax
+	fixtureData := "< ./fixtures/nonexistent.json"
+	result, err := resolver.ResolveFixture(fixtureData)
+
+	// Assert: Should return original data when file not found
+	if err != nil {
+		t.Errorf("Expected no error for missing fixture (graceful fallback), got: %v", err)
+	}
+	if result != fixtureData {
+		t.Errorf("Expected original fixture reference %q, got %q", fixtureData, result)
+	}
+}
+
+// TDD-25: Create test for inline fixtures with missing files - should return original reference
+func TestFixtureResolver_ResolveFixture_InlineFixtureMissingFile_ReturnsOriginalData(t *testing.T) {
+	// Arrange: Create resolver
+	tempDir := t.TempDir()
+	resolver := config.NewFixtureResolver(tempDir)
+
+	// Act: Try to resolve inline fixture with missing file
+	inlineData := `{"user": < ./fixtures/nonexistent.json, "status": "active"}`
+	result, err := resolver.ResolveFixture(inlineData)
+
+	// Assert: Should return original inline data when file not found
+	if err != nil {
+		t.Errorf("Expected no error for missing inline fixture (graceful fallback), got: %v", err)
+	}
+	// For inline fixtures, the missing reference should be preserved
+	if !strings.Contains(result, "< ./fixtures/nonexistent.json") {
+		t.Errorf("Expected original inline fixture reference to be preserved, got: %q", result)
 	}
 }

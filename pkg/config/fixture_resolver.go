@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,21 +36,51 @@ func NewFixtureResolver(baseDir string) *FixtureResolver {
 // - <@ ./fixtures/file.ext syntax (future variable substitution)
 // - Inline fixtures: {"key": < ./fixtures/file.json} syntax within body content
 // - Inline data: Returns data as-is when no fixture references are found
+// - Graceful fallback: Returns original data and logs error for file-not-found errors only
 func (fr *FixtureResolver) ResolveFixture(data string) (string, error) {
 	trimmedData := strings.TrimSpace(data)
 
 	// Handle @ syntax (backward compatibility)
 	if strings.HasPrefix(trimmedData, "@") {
-		return fr.resolveAtSyntax(trimmedData)
+		return fr.resolveAtSyntaxWithFallback(trimmedData, data)
 	}
 
 	// Handle < and <@ syntax (go-restclient compatible) - direct replacement
 	if strings.HasPrefix(trimmedData, "<") && !strings.Contains(trimmedData, "}") {
-		return fr.resolveLessThanSyntax(trimmedData)
+		return fr.resolveLessThanSyntaxWithFallback(trimmedData, data)
 	}
 
 	// Handle inline fixture references within body content
 	return fr.resolveInlineFixtures(data), nil
+}
+
+// resolveAtSyntaxWithFallback handles @ syntax with graceful fallback
+func (fr *FixtureResolver) resolveAtSyntaxWithFallback(trimmedData, originalData string) (string, error) {
+	result, err := fr.resolveAtSyntax(trimmedData)
+	if err != nil {
+		return handleResolutionError(err, trimmedData, originalData)
+	}
+	return result, nil
+}
+
+// resolveLessThanSyntaxWithFallback handles < syntax with graceful fallback
+func (fr *FixtureResolver) resolveLessThanSyntaxWithFallback(trimmedData, originalData string) (string, error) {
+	result, err := fr.resolveLessThanSyntax(trimmedData)
+	if err != nil {
+		return handleResolutionError(err, trimmedData, originalData)
+	}
+	return result, nil
+}
+
+// handleResolutionError determines if error should have graceful fallback
+func handleResolutionError(err error, trimmedData, originalData string) (string, error) {
+	// Graceful fallback only for file-not-found errors
+	if os.IsNotExist(err) {
+		log.Printf("fixture file not found %q: %v (falling back to original data)", trimmedData, err)
+		return originalData, nil
+	}
+	// Return security validation and other errors as-is
+	return "", err
 }
 
 // resolveAtSyntax handles @fixtures/file.json syntax

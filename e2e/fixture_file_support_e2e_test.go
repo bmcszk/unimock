@@ -575,3 +575,186 @@ scenarios:
 
 	return configFile
 }
+
+// TestFixtureFileSupport_ErrorHandling_EmailAddressInData tests graceful fallback for email addresses
+func TestFixtureFileSupport_ErrorHandling_EmailAddressInData(t *testing.T) {
+	// given
+	configFile := createEmailAddressConfig(t)
+	_, when, then := newServerParts(t, configFile)
+
+	when.
+		a_get_request_is_made_to("/api/email/user")
+
+	then.
+		the_response_is_successful().and().
+		the_response_body_contains_fixtures_data("user@example.com")
+}
+
+// TestFixtureFileSupport_ErrorHandling_MissingFixtureFallback tests graceful fallback for missing fixtures
+func TestFixtureFileSupport_ErrorHandling_MissingFixtureFallback(t *testing.T) {
+	// given
+	configFile := createMissingFixtureFallbackConfig(t)
+	_, when, then := newServerParts(t, configFile)
+
+	when.
+		a_get_request_is_made_to("/api/fixtures/missing")
+
+	then.
+		the_response_is_successful().and().
+		the_response_body_contains_fixtures_data("@fixtures/nonexistent.json")
+}
+
+// TestFixtureFileSupport_ErrorHandling_LessThanSyntaxFallback tests graceful fallback for < syntax
+func TestFixtureFileSupport_ErrorHandling_LessThanSyntaxFallback(t *testing.T) {
+	// given
+	configFile := createLessThanSyntaxFallbackConfig(t)
+	_, when, then := newServerParts(t, configFile)
+
+	when.
+		a_get_request_is_made_to("/api/fixtures/go-restclient-style")
+
+	then.
+		the_response_is_successful().and().
+		the_response_body_contains_fixtures_data("< ./fixtures/missing.json")
+}
+
+// TestFixtureFileSupport_ErrorHandling_InlineFixtureFallback tests graceful fallback for inline fixtures
+func TestFixtureFileSupport_ErrorHandling_InlineFixtureFallback(t *testing.T) {
+	// given
+	configFile := createInlineFixtureFallbackConfig(t)
+	_, when, then := newServerParts(t, configFile)
+
+	when.
+		a_get_request_is_made_to("/api/fixtures/inline-missing")
+
+	then.
+		the_response_is_successful().and().
+		the_response_body_contains_fixtures_data("< ./fixtures/missing.json")
+}
+
+// Helper functions for error handling test configurations
+
+func createEmailAddressConfig(t *testing.T) string {
+	t.Helper()
+
+	configContent := `
+sections:
+  email:
+    path_pattern: "/api/email/**"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-User-ID"]
+    return_body: true
+
+scenarios:
+  - uuid: "email-scenario"
+    method: "GET"
+    path: "/api/email/user"
+    status_code: 200
+    content_type: "application/json"
+    data: "user@example.com"
+    headers:
+      X-Test-Source: "email-address"
+`
+
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "email-address-config.yaml")
+	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	return configFile
+}
+
+func createMissingFixtureFallbackConfig(t *testing.T) string {
+	t.Helper()
+
+	configContent := `
+sections:
+  fallback:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-Test-ID"]
+    return_body: true
+
+scenarios:
+  - uuid: "missing-fixture-scenario"
+    method: "GET"
+    path: "/api/fixtures/missing"
+    status_code: 200
+    content_type: "application/json"
+    data: "@fixtures/nonexistent.json"
+    headers:
+      X-Test-Source: "missing-fixture-fallback"
+`
+
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "missing-fallback-config.yaml")
+	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	return configFile
+}
+
+func createLessThanSyntaxFallbackConfig(t *testing.T) string {
+	t.Helper()
+
+	configContent := `
+sections:
+  fallback:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-Test-ID"]
+    return_body: true
+
+scenarios:
+  - uuid: "less-than-fallback-scenario"
+    method: "GET"
+    path: "/api/fixtures/go-restclient-style"
+    status_code: 200
+    content_type: "application/json"
+    data: "< ./fixtures/missing.json"
+    headers:
+      X-Test-Source: "less-than-syntax-fallback"
+`
+
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "less-than-fallback-config.yaml")
+	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	return configFile
+}
+
+func createInlineFixtureFallbackConfig(t *testing.T) string {
+	t.Helper()
+
+	configContent := `
+sections:
+  fallback:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-Test-ID"]
+    return_body: true
+
+scenarios:
+  - uuid: "inline-fallback-scenario"
+    method: "GET"
+    path: "/api/fixtures/inline-missing"
+    status_code: 200
+    content_type: "application/json"
+    data: |
+      {
+        "user": < ./fixtures/missing.json,
+        "status": "active",
+        "timestamp": "2024-01-15T10:30:00Z"
+      }
+    headers:
+      X-Test-Source: "inline-fixture-fallback"
+`
+
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "inline-fallback-config.yaml")
+	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	return configFile
+}
