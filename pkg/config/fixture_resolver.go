@@ -48,9 +48,8 @@ func (fr *FixtureResolver) ResolveFixture(data string) (string, error) {
 	}
 
 	// Handle < and <@ syntax (go-restclient compatible) - direct replacement
-	// NOTE: Don't trim for syntax check, as we need to validate space after <
 	if strings.HasPrefix(trimmedData, "<") && !strings.Contains(trimmedData, "}") {
-		return fr.resolveLessThanSyntaxWithFallback(data, data)
+		return fr.resolveLessThanSyntaxWithFallback(trimmedData, data)
 	}
 
 	// Handle inline fixture references within body content

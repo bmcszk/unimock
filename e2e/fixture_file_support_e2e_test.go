@@ -87,7 +87,7 @@ func TestFixtureFileSupport_BackwardCompatibility_AtSyntax(t *testing.T) {
 	given, when, then := newParts(t)
 
 	given.
-		mixedSyntaxFixtureConfig()
+		mixedSyntaxFixtureConfig().and()
 
 	when.
 		a_get_request_is_made_to("/api/fixtures/legacy")

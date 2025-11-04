@@ -656,7 +656,7 @@ scenarios:
 	return p.configFileFromContentWithFixtures(configContent, fixtures)
 }
 
-func (p *parts) mixedSyntaxFixtureConfig() {
+func (p *parts) mixedSyntaxFixtureConfig() *parts {
 	fixtures := map[string]string{
 		"fixtures/mixed/legacy.json":   `{"id": "001", "name": "Legacy Data", "syntax": "@fixtures"}`,
 		"fixtures/mixed/enhanced.json": `{"id": "002", "name": "Enhanced Data", "syntax": "< ./fixtures"}`,
@@ -708,7 +708,7 @@ scenarios:
         "syntax": "direct"
       }
 `
-	p.configFileFromContentWithFixtures(configContent, fixtures)
+	return p.configFileFromContentWithFixtures(configContent, fixtures)
 }
 
 func (p *parts) missingFixtureConfig() *parts {
