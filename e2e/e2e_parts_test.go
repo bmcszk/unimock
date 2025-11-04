@@ -559,7 +559,7 @@ scenarios:
     path: "/api/fixtures/product"
     status_code: 200
     content_type: "application/json"
-    data: "<fixtures/products/product.json"
+    data: "< fixtures/products/product.json"
     headers:
       X-Test-Source: "less-than-syntax"
 `
@@ -569,7 +569,7 @@ scenarios:
 func (p *parts) lessAtSyntaxFixtureConfig() *parts {
 	fixtures := map[string]string{
 		"fixtures/orders/order.json": `{"id": "789", "status": "Pending Order", ` +
-			`"items": [{"name": "Item1", "quantity": 2}], "total": 59.98}`,
+			`"items": [{"name": "Item1", "quantity": 2}], "total": 199.99}`,
 	}
 	configContent := `
 sections:
@@ -585,7 +585,7 @@ scenarios:
     path: "/api/fixtures/order"
     status_code: 200
     content_type: "application/json"
-    data: "<@fixtures/orders/order.json"
+    data: "< @ fixtures/orders/order.json"
     headers:
       X-Test-Source: "less-at-syntax"
 `

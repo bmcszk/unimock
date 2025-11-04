@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
@@ -20,8 +21,9 @@ type FixtureResolver struct {
 
 // NewFixtureResolver creates a new fixture resolver with the given base directory
 func NewFixtureResolver(baseDir string) *FixtureResolver {
-	// Compile regex to match fixture references within content: < ./path/to/file or <@ ./path/to/file
-	inlineFixtureRegex := regexp.MustCompile(`<\s*@?\s*([^\s,}]+)`)
+	// Compile regex to match fixture references within content: < ./path/to/file or < @ ./path/to/file
+	// IMPORTANT: This regex allows optional spaces, but the space after < is REQUIRED and validated separately
+	inlineFixtureRegex := regexp.MustCompile(`<\s+@?\s*([^\s,}]+)`)
 
 	return &FixtureResolver{
 		baseDir:            baseDir,
@@ -32,8 +34,8 @@ func NewFixtureResolver(baseDir string) *FixtureResolver {
 
 // ResolveFixture resolves a data string, supporting multiple fixture reference formats:
 // - @fixtures/file.json syntax (backward compatibility)
-// - < ./fixtures/file.ext syntax (go-restclient compatible)
-// - <@ ./fixtures/file.ext syntax (future variable substitution)
+// - < ./fixtures/file.ext syntax (go-restclient compatible) - SPACE AFTER < IS REQUIRED
+// - < @ ./fixtures/file.ext syntax (future variable substitution) - SPACES AFTER < AND @ ARE REQUIRED
 // - Inline fixtures: {"key": < ./fixtures/file.json} syntax within body content
 // - Inline data: Returns data as-is when no fixture references are found
 // - Graceful fallback: Returns original data and logs error for file-not-found errors only
@@ -46,8 +48,9 @@ func (fr *FixtureResolver) ResolveFixture(data string) (string, error) {
 	}
 
 	// Handle < and <@ syntax (go-restclient compatible) - direct replacement
+	// NOTE: Don't trim for syntax check, as we need to validate space after <
 	if strings.HasPrefix(trimmedData, "<") && !strings.Contains(trimmedData, "}") {
-		return fr.resolveLessThanSyntaxWithFallback(trimmedData, data)
+		return fr.resolveLessThanSyntaxWithFallback(data, data)
 	}
 
 	// Handle inline fixture references within body content
@@ -74,9 +77,14 @@ func (fr *FixtureResolver) resolveLessThanSyntaxWithFallback(trimmedData, origin
 
 // handleResolutionError determines if error should have graceful fallback
 func handleResolutionError(err error, trimmedData, originalData string) (string, error) {
-	// Graceful fallback only for file-not-found errors
+	// Graceful fallback for file-not-found errors
 	if os.IsNotExist(err) {
 		log.Printf("fixture file not found %q: %v (falling back to original data)", trimmedData, err)
+		return originalData, nil
+	}
+	// Graceful fallback for invalid syntax errors (e.g., no space after <)
+	if strings.Contains(err.Error(), "invalid") && strings.Contains(err.Error(), "syntax") {
+		log.Printf("invalid fixture syntax %q: %v (falling back to original data)", trimmedData, err)
 		return originalData, nil
 	}
 	// Return security validation and other errors as-is
@@ -97,12 +105,20 @@ func (fr *FixtureResolver) resolveAtSyntax(data string) (string, error) {
 }
 
 // resolveLessThanSyntax handles < ./fixtures/file.ext and <@ ./fixtures/file.ext syntax
+// IMPORTANT: Space after < is REQUIRED. Syntax without space (e.g., <./fixtures/) should NOT be resolved.
 func (fr *FixtureResolver) resolveLessThanSyntax(data string) (string, error) {
-	// Remove < prefix
-	content := strings.TrimSpace(data[1:])
+	// Check that there's a space after < (required for valid syntax)
+	if len(data) < 2 || data[1] != ' ' {
+		// Invalid syntax: no space after <, return error to trigger fallback
+		return "", errors.New("invalid < syntax: space required after < character")
+	}
 
-	// Remove optional @ prefix
+	// Remove < and space prefix
+	content := strings.TrimSpace(data[2:])
+
+	// Remove optional @ prefix (for <@ syntax)
 	if strings.HasPrefix(content, "@") {
+		// Remove @ and any following spaces
 		content = strings.TrimSpace(content[1:])
 	}
 
