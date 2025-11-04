@@ -41,10 +41,13 @@ func TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle(t *testing.T) {
 	// Part 3: Delete Scenario and Verify
 	httpFile3 := "testdata/http/complex_e2e_scenario_001_part3_steps8-10.http"
 	hrespFile3 := "testdata/http/complex_e2e_scenario_001_part3_steps8-10.hresp"
+
 	given.
 		the_scenario_override_is_deleted()
+
 	when.
 		an_http_request_is_made_from_file(httpFile3)
+
 	then.
 		the_scenario_removal_is_verified(hrespFile3)
 }

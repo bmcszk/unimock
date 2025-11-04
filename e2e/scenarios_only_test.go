@@ -45,14 +45,18 @@ scenarios:
       }
 `
 
-	configFile := createTempConfigFile(t, configContent)
-	_, when, then := newServerParts(t, configFile)
+	given, when, then := newParts(t)
+
+	given.
+		configFileFromContent(configContent)
 
 	// when
-	when.a_get_request_is_made_to("/api/users/123")
+	when.
+		a_get_request_is_made_to("/api/users/123")
 
 	// then
-	then.the_response_is_successful()
+	then.
+		the_response_is_successful()
 }
 
 func TestScenariosOnlyConfiguration_POST_ScenarioReturnsExpectedResponseWithLocationHeader(t *testing.T) {
@@ -96,14 +100,18 @@ scenarios:
       }
 `
 
-	configFile := createTempConfigFile(t, configContent)
-	_, when, then := newServerParts(t, configFile)
+	given, when, then := newParts(t)
+
+	given.
+		configFileFromContent(configContent)
 
 	// when
-	when.a_post_request_is_made_to("/api/products")
+	when.
+		a_post_request_is_made_to("/api/products")
 
 	// then
-	then.the_post_response_is_successful()
+	then.
+		the_post_response_is_successful()
 }
 
 func TestScenariosOnlyConfiguration_ErrorScenarioReturnsExpectedErrorResponse(t *testing.T) {
@@ -147,14 +155,18 @@ scenarios:
       }
 `
 
-	configFile := createTempConfigFile(t, configContent)
-	_, when, then := newServerParts(t, configFile)
+	given, when, then := newParts(t)
+
+	given.
+		configFileFromContent(configContent)
 
 	// when
-	when.a_get_request_is_made_to("/api/error")
+	when.
+		a_get_request_is_made_to("/api/error")
 
 	// then
-	then.the_response_is_error()
+	then.
+		the_response_is_error()
 }
 
 func TestScenariosOnlyConfiguration_NonScenarioPathReturns404(t *testing.T) {
@@ -198,14 +210,18 @@ scenarios:
       }
 `
 
-	configFile := createTempConfigFile(t, configContent)
-	_, when, then := newServerParts(t, configFile)
+	given, when, then := newParts(t)
+
+	given.
+		configFileFromContent(configContent)
 
 	// when
-	when.a_get_request_is_made_to("/api/unknown")
+	when.
+		a_get_request_is_made_to("/api/unknown")
 
 	// then
-	then.the_response_is_not_found()
+	then.
+		the_response_is_not_found()
 }
 
 func TestScenariosOnlyConfiguration_HealthEndpointStillWorks(t *testing.T) {
@@ -249,12 +265,16 @@ scenarios:
       }
 `
 
-	configFile := createTempConfigFile(t, configContent)
-	_, when, then := newServerParts(t, configFile)
+	given, when, then := newParts(t)
+
+	given.
+		configFileFromContent(configContent)
 
 	// when
-	when.a_get_request_is_made_to("/_uni/health")
+	when.
+		a_get_request_is_made_to("/_uni/health")
 
 	// then
-	then.the_response_is_successful()
+	then.
+		the_response_is_successful()
 }
