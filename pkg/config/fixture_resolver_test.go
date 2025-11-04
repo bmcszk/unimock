@@ -90,9 +90,9 @@ func TestFixtureResolver_ResolveFixture_LessAtSyntax_SupportsVariableSubstitutio
 		t.Fatalf("Failed to create fixture file: %v", err)
 	}
 
-	// Act: Create resolver and resolve fixture using < @ syntax (space required after <)
+	// Act: Create resolver and resolve fixture using <@ syntax (@ immediately after <)
 	resolver := config.NewFixtureResolver(tempDir)
-	result, err := resolver.ResolveFixture("< @ ./fixtures/products/product_456.json")
+	result, err := resolver.ResolveFixture("<@ ./fixtures/products/product_456.json")
 
 	// Assert: Should successfully resolve fixture content
 	if err != nil {

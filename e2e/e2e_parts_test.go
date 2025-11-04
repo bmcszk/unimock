@@ -585,7 +585,7 @@ scenarios:
     path: "/api/fixtures/order"
     status_code: 200
     content_type: "application/json"
-    data: "< @ fixtures/orders/order.json"
+    data: "<@ fixtures/orders/order.json"
     headers:
       X-Test-Source: "less-at-syntax"
 `

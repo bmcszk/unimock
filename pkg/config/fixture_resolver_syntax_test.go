@@ -39,23 +39,23 @@ func TestFixtureResolver_ResolveFixture_NoSpaceAfterLessThan_ReturnsAsIs(t *test
 	}
 }
 
-// Test that <@./path (no space after <) is returned as-is
-func TestFixtureResolver_ResolveFixture_NoSpaceAfterLessThanAt_ReturnsAsIs(t *testing.T) {
-	resolver, _ := setupTestResolver(t)
-	input := "<@./fixtures/test.json"
+// Test that <@ ./path (with space after @) resolves file
+func TestFixtureResolver_ResolveFixture_AtSyntax_ResolvesFile(t *testing.T) {
+	resolver, expectedContent := setupTestResolver(t)
+	input := "<@ ./fixtures/test.json"
 	result, err := resolver.ResolveFixture(input)
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
-	if result != input {
-		t.Errorf("Expected %q, got %q", input, result)
+	if result != expectedContent {
+		t.Errorf("Expected %q, got %q", expectedContent, result)
 	}
 }
 
-// Test that <@ ./path (no space after @) is returned as-is
+// Test that <@./path (no space after @) is returned as-is
 func TestFixtureResolver_ResolveFixture_NoSpaceAfterAt_ReturnsAsIs(t *testing.T) {
 	resolver, _ := setupTestResolver(t)
-	input := "<@ ./fixtures/test.json"
+	input := "<@./fixtures/test.json"
 	result, err := resolver.ResolveFixture(input)
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -78,16 +78,16 @@ func TestFixtureResolver_ResolveFixture_SpaceAfterLessThan_ResolvesFile(t *testi
 	}
 }
 
-// Test that < @ ./path (with spaces) resolves file
-func TestFixtureResolver_ResolveFixture_SpaceAfterLessThanAndAt_ResolvesFile(t *testing.T) {
-	resolver, expectedContent := setupTestResolver(t)
-	input := "< @ ./fixtures/test.json"
+// Test that < @./path (space after < but not after @) is returned as-is (invalid)
+func TestFixtureResolver_ResolveFixture_SpaceBeforeAtNoSpaceAfter_ReturnsAsIs(t *testing.T) {
+	resolver, _ := setupTestResolver(t)
+	input := "< @./fixtures/test.json"
 	result, err := resolver.ResolveFixture(input)
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
-	if result != expectedContent {
-		t.Errorf("Expected %q, got %q", expectedContent, result)
+	if result != input {
+		t.Errorf("Expected %q, got %q", input, result)
 	}
 }
 

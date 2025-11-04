@@ -21,9 +21,9 @@ type FixtureResolver struct {
 
 // NewFixtureResolver creates a new fixture resolver with the given base directory
 func NewFixtureResolver(baseDir string) *FixtureResolver {
-	// Compile regex to match fixture references within content: < ./path/to/file or < @ ./path/to/file
-	// IMPORTANT: This regex allows optional spaces, but the space after < is REQUIRED and validated separately
-	inlineFixtureRegex := regexp.MustCompile(`<\s+@?\s*([^\s,}]+)`)
+	// Compile regex to match fixture references within content: < ./path/to/file or <@ ./path/to/file
+	// IMPORTANT: Matches both "< file" and "<@ file" patterns
+	inlineFixtureRegex := regexp.MustCompile(`<(?:\s+|@\s*)([^\s,}]+)`)
 
 	return &FixtureResolver{
 		baseDir:            baseDir,
@@ -35,7 +35,7 @@ func NewFixtureResolver(baseDir string) *FixtureResolver {
 // ResolveFixture resolves a data string, supporting multiple fixture reference formats:
 // - @fixtures/file.json syntax (backward compatibility)
 // - < ./fixtures/file.ext syntax (go-restclient compatible) - SPACE AFTER < IS REQUIRED
-// - < @ ./fixtures/file.ext syntax (future variable substitution) - SPACES AFTER < AND @ ARE REQUIRED
+// - <@ ./fixtures/file.ext syntax (variable substitution) - @ IMMEDIATELY AFTER <, SPACE AFTER @
 // - Inline fixtures: {"key": < ./fixtures/file.json} syntax within body content
 // - Inline data: Returns data as-is when no fixture references are found
 // - Graceful fallback: Returns original data and logs error for file-not-found errors only
@@ -105,31 +105,47 @@ func (fr *FixtureResolver) resolveAtSyntax(data string) (string, error) {
 }
 
 // resolveLessThanSyntax handles < ./fixtures/file.ext and <@ ./fixtures/file.ext syntax
-// IMPORTANT: Space after < is REQUIRED. Syntax without space (e.g., <./fixtures/) should NOT be resolved.
+// IMPORTANT: Valid syntax is:
+//   - "< file" (space after <)
+//   - "<@ file" (@ immediately after <, then space before file)
 func (fr *FixtureResolver) resolveLessThanSyntax(data string) (string, error) {
-	// Check that there's a space after < (required for valid syntax)
-	if len(data) < 2 || data[1] != ' ' {
-		// Invalid syntax: no space after <, return error to trigger fallback
-		return "", errors.New("invalid < syntax: space required after < character")
+	if len(data) < 2 {
+		return "", errors.New("invalid < syntax: insufficient length")
 	}
 
-	// Remove < and space prefix
-	content := strings.TrimSpace(data[2:])
-
-	// Remove optional @ prefix (for <@ syntax)
-	if strings.HasPrefix(content, "@") {
-		// Remove @ and any following spaces
-		content = strings.TrimSpace(content[1:])
+	// Check for <@ syntax (@ immediately after <)
+	if data[1] == '@' {
+		return fr.resolveAtSyntaxAfterLessThan(data)
 	}
 
-	// The remaining content is the file path
-	filePath := strings.TrimSpace(content)
+	// Handle < syntax (space required after <)
+	return fr.resolveSpaceSyntax(data)
+}
 
-	// Validate file path for security
+// resolveAtSyntaxAfterLessThan handles <@ ./file syntax
+func (fr *FixtureResolver) resolveAtSyntaxAfterLessThan(data string) (string, error) {
+	if len(data) < 3 || data[2] != ' ' {
+		return "", errors.New("invalid <@ syntax: space required after @ character")
+	}
+	filePath := strings.TrimSpace(data[3:])
 	if err := fr.validateFilePath(filePath); err != nil {
 		return "", err
 	}
+	return fr.loadFixtureFile(filePath)
+}
 
+// resolveSpaceSyntax handles < ./file syntax
+func (fr *FixtureResolver) resolveSpaceSyntax(data string) (string, error) {
+	if data[1] != ' ' {
+		return "", errors.New("invalid < syntax: space required after < character")
+	}
+	filePath := strings.TrimSpace(data[2:])
+	if strings.HasPrefix(filePath, "@") {
+		return "", errors.New("invalid syntax: use <@ not < @")
+	}
+	if err := fr.validateFilePath(filePath); err != nil {
+		return "", err
+	}
 	return fr.loadFixtureFile(filePath)
 }
 
