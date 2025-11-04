@@ -91,20 +91,76 @@ scenarios:
     data: '{"error": "User not found"}'
 ```
 
-**Fixture File Support**:
+**Fixture File Support** - Three syntax styles (go-restclient compatible):
 ```yaml
-# Refer external files
+# 1. Legacy @ syntax (backward compatibility)
 data: "@fixtures/operations/robots.json"
-# Or inline data
-data: '{"status": "ok"}'
+
+# 2. Space-after-< syntax (SPACE REQUIRED after <)
+data: "< ./fixtures/users/user.json"
+
+# 3. <@ syntax (@ IMMEDIATELY after <, no space between)
+data: "<@ ./fixtures/products/product.json"
+
+# 4. Inline fixture references within JSON/XML
+data: |
+  {
+    "user": < ./fixtures/users/user.json,
+    "permissions": < ./fixtures/permissions.json
+  }
+
+# IMPORTANT: Invalid syntax gracefully falls back to literal string
+# - "<./file" (no space) → returned as-is
+# - "< @./file" (space between < and @) → returned as-is
 ```
+
+**Fixture Resolver Security**:
+- Path traversal protection (no `../` allowed)
+- Absolute path rejection (no `/etc/passwd` or `C:\`)
+- File-not-found errors gracefully fallback to original data
+- Caching for performance (thread-safe)
 
 ## Development Workflow
 
 1. **Always run `make check` before commits** - it's the primary quality gate
-2. **E2E tests start a real server** and make actual HTTP requests
-3. **Configuration-first approach** - behavior defined in YAML, not code
-4. **Test with both unit and E2E levels** - unit for logic, E2E for integration
+2. **Git hooks enforce quality**:
+   - Pre-commit: Runs `make check` (vet, lint, unit tests)
+   - Pre-push: Runs `make test-all` (unit + E2E tests)
+3. **E2E tests start a real server** and make actual HTTP requests
+4. **Configuration-first approach** - behavior defined in YAML, not code
+5. **Test with both unit and E2E levels** - unit for logic, E2E for integration
+
+## E2E Test Pattern (MANDATORY)
+
+All E2E tests MUST use the **fluent Given/When/Then pattern** from `docs/fluent-testing.md`:
+
+```go
+func TestFixtureFileSupport_AtSyntax_BasicWorkflow(t *testing.T) {
+    given, when, then := newParts(t)
+
+    given.
+        atSyntaxFixtureConfig()  // Setup config with fixtures
+
+    when.
+        a_get_request_is_made_to("/api/users/123")
+
+    then.
+        the_response_is_successful().and().
+        the_response_body_contains("John Doe")
+}
+```
+
+**Key patterns**:
+- **Triple return**: `newParts(t)` returns `given, when, then` (all point to same `*parts`)
+- **Method chaining**: All methods return `*parts` for fluent API
+- **Snake_case names**: Test methods use descriptive snake_case (e.g., `a_user_is_created()`)
+- **One When, One Then**: Each test should have exactly one action (when) and verify it (then)
+- **`.and()` for clarity**: Chain multiple assertions with `.and()` for readability
+
+**DO NOT**:
+- Mix Given/When/Then phases
+- Use multiple When blocks in one test
+- Forget to return `*parts` from fluent methods (causes linter errors)
 
 ## Key Implementation Details
 
@@ -137,10 +193,42 @@ data: '{"status": "ok"}'
 
 ## Testing Strategy
 
-**Unit Tests**: Fast tests for individual components and logic
-**E2E Tests**: Integration tests with full HTTP server lifecycle
+**Unit Tests**: Fast tests for individual components and logic (in `pkg/` and `internal/`)
+**E2E Tests**: Integration tests with full HTTP server lifecycle (in `e2e/`)
 **Configuration Tests**: Validate YAML parsing and behavior
 **Performance Tests**: Concurrent request handling and storage operations
 
 Always test both the happy path and error conditions for new features.
+
+## TDD/BDD Workflow (REQUIRED)
+
+Follow **Test-Driven Development** for all new features:
+
+1. **Red**: Write failing test first
+2. **Green**: Implement minimum code to pass
+3. **Refactor**: Clean up while keeping tests green
+4. **Commit**: Run `make check` and commit
+
+**Example TDD cycle**:
+```bash
+# 1. Write failing test
+go test ./pkg/config -v -run TestNewFeature  # ❌ FAIL
+
+# 2. Implement feature
+# Edit pkg/config/feature.go
+
+# 3. Verify test passes
+go test ./pkg/config -v -run TestNewFeature  # ✅ PASS
+
+# 4. Run full quality check
+make check  # Must pass before commit
+
+# 5. Commit (pre-commit hook runs make check automatically)
+git add . && git commit -m "feat: add new feature"
+```
+
+**Important**:
+- NEVER commit to `master` or `main` branches (use feature branches)
+- NEVER use `//nolint` comments (fix linter issues properly)
+- NEVER bypass git hooks (`--no-verify`)
 
