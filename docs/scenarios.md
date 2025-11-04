@@ -144,7 +144,7 @@ docker run -p 8080:8080 \
 | `path` | Yes | Request path to match (supports wildcards with `*`) |
 | `status_code` | Yes | HTTP status code to return |
 | `content_type` | Yes | Response content type |
-| `data` | No | Response body data |
+| `data` | No | Response body data (supports **fixture file references**) |
 | `location` | No | Location header value |
 | `headers` | No | Additional response headers |
 
@@ -164,6 +164,121 @@ scenarios:
     path: "/api/orders/*"
     # matches: GET /api/orders/456, GET /api/orders/789, etc.
 ```
+
+## Fixture File Support
+
+Scenarios support loading response data from external fixture files, enabling better separation of configuration and test data. This makes configurations cleaner and more maintainable by keeping large response payloads in separate files.
+
+### Supported Syntax
+
+Unimock supports multiple fixture reference syntaxes for maximum compatibility:
+
+#### 1. Backward Compatibility Syntax (`@fixtures/`)
+
+```yaml
+scenarios:
+  - uuid: "robots-list"
+    method: "GET"
+    path: "/internal/robots"
+    status_code: 200
+    content_type: "application/json"
+    data: "@fixtures/operations/robots.json"
+```
+
+#### 2. Go-Restclient Compatible Syntax (`< ./fixtures/`)
+
+```yaml
+scenarios:
+  - uuid: "user-profile"
+    method: "GET"
+    path: "/api/users/123"
+    status_code: 200
+    content_type: "application/json"
+    data: "< ./fixtures/users/user_123.json"
+```
+
+#### 3. Variable Substitution Ready Syntax (`<@ ./fixtures/`)
+
+```yaml
+scenarios:
+  - uuid: "product-details"
+    method: "GET"
+    path: "/api/products/456"
+    status_code: 200
+    content_type: "application/json"
+    data: "<@ ./fixtures/products/product_456.json"
+```
+
+#### 4. Inline Fixture References
+
+For complex responses, you can mix inline data with fixture references:
+
+```yaml
+scenarios:
+  - uuid: "complete-user-data"
+    method: "GET"
+    path: "/api/users/123/complete"
+    data: |
+      {
+        "user": < ./fixtures/users/user_123.json,
+        "profile": < ./fixtures/users/user_123_profile.json,
+        "permissions": < ./fixtures/permissions/user_123.json,
+        "metadata": {
+          "timestamp": "2024-01-15T10:30:00Z",
+          "endpoint": "complete-user-data"
+        }
+      }
+
+  - uuid: "complex-response"
+    method: "POST"
+    path: "/api/reports/generate"
+    data: |
+      {
+        "response": {
+          "user_data": < ./fixtures/users/user_123.json,
+          "report_data": < ./fixtures/reports/monthly_summary.json,
+          "system_info": {
+            "generated_at": "2024-01-15T10:30:00Z",
+            "version": "v2.1"
+          }
+        }
+      }
+```
+
+### File Structure
+
+Fixture files are resolved relative to the configuration file location:
+
+```
+config.yaml                 # Main configuration file
+fixtures/                    # Fixture files directory
+  operations/
+    robots.json             # @fixtures/operations/robots.json
+    status_C10190.json      # @fixtures/operations/status_C10190.json
+  users/
+    user_123.json           # < ./fixtures/users/user_123.json
+    user_123_profile.json   # < ./fixtures/users/user_123_profile.json
+  products/
+    product_456.json        # <@ ./fixtures/products/product_456.json
+```
+
+### Supported File Types
+
+- **JSON files** (`.json`) - For structured data
+- **XML files** (`.xml`) - For XML responses
+- **Text files** (`.txt`) - For plain text responses
+
+### Error Handling
+
+- **Missing files**: If a fixture file is not found, Unimock gracefully falls back to using the original data value as-is
+- **Invalid paths**: Security validation prevents path traversal attacks and absolute paths
+- **Logging**: File loading errors are logged for debugging purposes
+
+### Performance Features
+
+- **Caching**: Fixture files are cached after first load for improved performance
+- **Thread-safe**: Caching is safe for concurrent access
+- **Relative paths**: All paths are resolved relative to the configuration file directory
 
 ## Managing Scenarios
 

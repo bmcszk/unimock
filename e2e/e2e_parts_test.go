@@ -61,18 +61,40 @@ func newParts(t *testing.T) (given *parts, when *parts, then *parts) {
 	return p, p, p
 }
 
-func newServerParts(t *testing.T, configFile string) (given *parts, when *parts, then *parts) {
-	t.Helper()
+// configFileFromContent creates a config file from YAML content and sets up the server
+func (p *parts) configFileFromContent(yamlContent string) *parts {
+	p.Helper()
+	tempDir := p.TempDir()
+	configFile := filepath.Join(tempDir, "test-config.yaml")
+	err := os.WriteFile(configFile, []byte(yamlContent), 0644)
+	p.require.NoError(err, "Failed to create config file")
+	p.configFile = configFile
+	p.setupScenarioTestServer(configFile)
+	return p
+}
 
-	p := &parts{
-		T:          t,
-		require:    require.New(t),
-		configFile: configFile,
+// configFileFromContentWithFixtures creates config file with fixture files and sets up server
+func (p *parts) configFileFromContentWithFixtures(yamlContent string, fixtures map[string]string) *parts {
+	p.Helper()
+	tempDir := p.TempDir()
+
+	// Create fixture files
+	for relativePath, content := range fixtures {
+		fullPath := filepath.Join(tempDir, relativePath)
+		dir := filepath.Dir(fullPath)
+		err := os.MkdirAll(dir, 0755)
+		p.require.NoError(err, "Failed to create fixture directory: %s", dir)
+		err = os.WriteFile(fullPath, []byte(content), 0644)
+		p.require.NoError(err, "Failed to write fixture file: %s", fullPath)
 	}
 
+	// Create config file
+	configFile := filepath.Join(tempDir, "test-config.yaml")
+	err := os.WriteFile(configFile, []byte(yamlContent), 0644)
+	p.require.NoError(err, "Failed to create config file")
+	p.configFile = configFile
 	p.setupScenarioTestServer(configFile)
-
-	return p, p, p
+	return p
 }
 
 func (p *parts) and() *parts {
@@ -378,10 +400,9 @@ func (p *parts) the_file_scenario_still_works() *parts {
 	return p
 }
 
-// Config file creation helpers
-func createTestUnifiedConfigFile(t *testing.T) string {
-	t.Helper()
-	unifiedConfigYAML := `
+// Config file creation helper
+func (*parts) createUnifiedConfigFileContent() string {
+	return `
 sections:
   test_scenarios:
     path_pattern: "/test-scenarios/**"
@@ -427,18 +448,24 @@ scenarios:
       X-User-ID: "789"
       Last-Modified: "Wed, 21 Oct 2015 07:28:00 GMT"
 `
-
-	tempDir := t.TempDir()
-	configFile := filepath.Join(tempDir, "test-unified-config.yaml")
-	err := os.WriteFile(configFile, []byte(unifiedConfigYAML), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create unified config file: %v", err)
-	}
-	return configFile
 }
 
-func createIntegrationUnifiedConfigFile(t *testing.T) string {
-	t.Helper()
+// Terminal version - no return value for standalone use
+func (p *parts) unifiedConfigFile() {
+	p.Helper()
+	unifiedConfigYAML := p.createUnifiedConfigFileContent()
+
+	tempDir := p.TempDir()
+	configFile := filepath.Join(tempDir, "test-unified-config.yaml")
+	err := os.WriteFile(configFile, []byte(unifiedConfigYAML), 0644)
+	p.require.NoError(err, "Failed to create unified config file")
+	p.configFile = configFile
+	p.setupScenarioTestServer(configFile)
+}
+
+// Terminal version - no return value for standalone use
+func (p *parts) integrationUnifiedConfigFile() *parts {
+	p.Helper()
 	unifiedConfigYAML := `
 sections:
   integration_test:
@@ -461,34 +488,13 @@ scenarios:
       }
 `
 
-	tempDir := t.TempDir()
+	tempDir := p.TempDir()
 	configFile := filepath.Join(tempDir, "integration-unified-config.yaml")
 	err := os.WriteFile(configFile, []byte(unifiedConfigYAML), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create unified config file: %v", err)
-	}
-	return configFile
-}
-
-func createTempConfigFile(t *testing.T, content string) string {
-	t.Helper()
-	tmpDir := t.TempDir()
-	configFile := filepath.Join(tmpDir, "config.yaml")
-
-	// Validate content parameter - this varies across different test functions
-	if len(content) == 0 {
-		t.Fatal("content parameter cannot be empty")
-	}
-
-	// Log content usage to demonstrate parameter is used
-	t.Logf("Creating config file with content length: %d", len(content))
-
-	err := os.WriteFile(configFile, []byte(content), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
-	return configFile
+	p.require.NoError(err, "Failed to create unified config file")
+	p.configFile = configFile
+	p.setupScenarioTestServer(configFile)
+	return p
 }
 
 // Additional helper methods for fixture file support E2E tests
@@ -504,4 +510,263 @@ func (p *parts) the_response_body_contains_fixtures_data(expectedContent string)
 	p.require.Contains(bodyStr, expectedContent, "Response body should contain expected fixture content")
 
 	return p
+}
+
+// Fluent config methods for fixture file support tests
+
+func (p *parts) atSyntaxFixtureConfig() *parts {
+	fixtures := map[string]string{
+		"fixtures/users/user.json": `{"id": "123", "name": "Legacy User", ` +
+			`"email": "legacy@example.com", "role": "customer"}`,
+	}
+	configContent := `
+sections:
+  fixtures:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-User-ID"]
+    return_body: true
+
+scenarios:
+  - uuid: "at-syntax-test"
+    method: "GET"
+    path: "/api/fixtures/user"
+    status_code: 200
+    content_type: "application/json"
+    data: "@fixtures/users/user.json"
+    headers:
+      X-Test-Source: "at-syntax"
+`
+	return p.configFileFromContentWithFixtures(configContent, fixtures)
+}
+
+func (p *parts) lessThanSyntaxFixtureConfig() *parts {
+	fixtures := map[string]string{
+		"fixtures/products/product.json": `{"id": "456", "name": "New Product", ` +
+			`"price": 29.99, "category": "electronics"}`,
+	}
+	configContent := `
+sections:
+  fixtures:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-Product-ID"]
+    return_body: true
+
+scenarios:
+  - uuid: "less-than-syntax-test"
+    method: "GET"
+    path: "/api/fixtures/product"
+    status_code: 200
+    content_type: "application/json"
+    data: "< fixtures/products/product.json"
+    headers:
+      X-Test-Source: "less-than-syntax"
+`
+	return p.configFileFromContentWithFixtures(configContent, fixtures)
+}
+
+func (p *parts) lessAtSyntaxFixtureConfig() *parts {
+	fixtures := map[string]string{
+		"fixtures/orders/order.json": `{"id": "789", "status": "Pending Order", ` +
+			`"items": [{"name": "Item1", "quantity": 2}], "total": 199.99}`,
+	}
+	configContent := `
+sections:
+  fixtures:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-Order-ID"]
+    return_body: true
+
+scenarios:
+  - uuid: "less-at-syntax-test"
+    method: "GET"
+    path: "/api/fixtures/order"
+    status_code: 200
+    content_type: "application/json"
+    data: "<@ fixtures/orders/order.json"
+    headers:
+      X-Test-Source: "less-at-syntax"
+`
+	return p.configFileFromContentWithFixtures(configContent, fixtures)
+}
+
+func (p *parts) inlineFixtureConfig() *parts {
+	fixtures := map[string]string{
+		"fixtures/user.json":    `{"id": "123", "name": "Test User", "email": "test@example.com"}`,
+		"fixtures/profile.json": `{"title": "Developer Profile", "level": "Senior", "department": "Engineering"}`,
+	}
+	configContent := `
+sections:
+  fixtures:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-User-ID"]
+    return_body: true
+
+scenarios:
+  - uuid: "inline-fixture-test"
+    method: "GET"
+    path: "/api/fixtures/user-with-profile"
+    status_code: 200
+    content_type: "application/json"
+    data: |
+      {
+        "user": < ./fixtures/user.json,
+        "profile": < ./fixtures/profile.json,
+        "combined": true
+      }
+    headers:
+      X-Test-Source: "inline-fixture"
+`
+	return p.configFileFromContentWithFixtures(configContent, fixtures)
+}
+
+func (p *parts) multipleInlineFixtureConfig() *parts {
+	fixtures := map[string]string{
+		"fixtures/user.json":        `{"id": "123", "name": "Test User", "role": "admin"}`,
+		"fixtures/permissions.json": `{"admin": true, "read": true, "write": true, "delete": false}`,
+		"fixtures/settings.json":    `{"theme": "dark", "notifications": true, "language": "en"}`,
+	}
+	configContent := `
+sections:
+  fixtures:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-User-ID"]
+    return_body: true
+
+scenarios:
+  - uuid: "multiple-inline-fixture-test"
+    method: "GET"
+    path: "/api/fixtures/complete-user-data"
+    status_code: 200
+    content_type: "application/json"
+    data: |
+      {
+        "user": < ./fixtures/user.json,
+        "permissions": < ./fixtures/permissions.json,
+        "settings": < ./fixtures/settings.json,
+        "timestamp": "2024-01-01T12:00:00Z"
+      }
+    headers:
+      X-Test-Source: "multiple-inline-fixture"
+`
+	return p.configFileFromContentWithFixtures(configContent, fixtures)
+}
+
+func (p *parts) mixedSyntaxFixtureConfig() *parts {
+	fixtures := map[string]string{
+		"fixtures/mixed/legacy.json":   `{"id": "001", "name": "Legacy Data", "syntax": "@fixtures"}`,
+		"fixtures/mixed/enhanced.json": `{"id": "002", "name": "Enhanced Data", "syntax": "< ./fixtures"}`,
+		"fixtures/mixed/inline.json":   `{"id": "003", "name": "Inline Data", "syntax": "inline fixtures"}`,
+	}
+	configContent := `
+sections:
+  fixtures:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    header_id_names: ["X-Test-ID"]
+    return_body: true
+
+scenarios:
+  - uuid: "legacy-syntax-test"
+    method: "GET"
+    path: "/api/fixtures/legacy"
+    status_code: 200
+    content_type: "application/json"
+    data: "@fixtures/mixed/legacy.json"
+
+  - uuid: "enhanced-syntax-test"
+    method: "GET"
+    path: "/api/fixtures/enhanced"
+    status_code: 200
+    content_type: "application/json"
+    data: "< ./fixtures/mixed/enhanced.json"
+
+  - uuid: "inline-syntax-test"
+    method: "GET"
+    path: "/api/fixtures/inline"
+    status_code: 200
+    content_type: "application/json"
+    data: |
+      {
+        "data": < ./fixtures/mixed/inline.json,
+        "syntax": "inline"
+      }
+
+  - uuid: "direct-syntax-test"
+    method: "GET"
+    path: "/api/fixtures/direct"
+    status_code: 200
+    content_type: "application/json"
+    data: |
+      {
+        "id": "004",
+        "name": "Direct Data",
+        "syntax": "direct"
+      }
+`
+	return p.configFileFromContentWithFixtures(configContent, fixtures)
+}
+
+func (p *parts) missingFixtureConfig() *parts {
+	configContent := `
+sections:
+  fixtures:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    return_body: true
+
+scenarios:
+  - uuid: "missing-fixture-test"
+    method: "GET"
+    path: "/api/fixtures/missing"
+    status_code: 200
+    content_type: "application/json"
+    data: "@fixtures/nonexistent.json"
+`
+	return p.configFileFromContent(configContent)
+}
+
+func (p *parts) pathTraversalConfig() *parts {
+	configContent := `
+sections:
+  fixtures:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    return_body: true
+
+scenarios:
+  - uuid: "path-traversal-test"
+    method: "GET"
+    path: "/api/fixtures/traversal"
+    status_code: 200
+    content_type: "application/json"
+    data: "@fixtures/../../../etc/passwd"
+`
+	return p.configFileFromContent(configContent)
+}
+
+func (p *parts) performanceTestConfig() *parts {
+	fixtures := map[string]string{
+		"fixtures/performance/cached.json": `{"data": "Cached Data", "timestamp": "2024-01-01T00:00:00Z"}`,
+	}
+	configContent := `
+sections:
+  fixtures:
+    path_pattern: "/api/fixtures/**"
+    body_id_paths: ["/id"]
+    return_body: true
+
+scenarios:
+  - uuid: "performance-test"
+    method: "GET"
+    path: "/api/fixtures/cached"
+    status_code: 200
+    content_type: "application/json"
+    data: "@fixtures/performance/cached.json"
+`
+	return p.configFileFromContentWithFixtures(configContent, fixtures)
 }

@@ -21,18 +21,26 @@ func TestUniversalClientE2E(t *testing.T) {
 	})
 
 	t.Run("JSONOperations", func(_ *testing.T) {
-		given.a_user_is_created()
+		given.
+			a_user_is_created()
+
 		when.
 			the_user_is_updated().and().
 			the_user_is_patched()
+
 		then.
 			the_user_is_deleted()
 	})
 
 	t.Run("UniDataLifecycle", func(_ *testing.T) {
-		given.multiple_users_are_created()
-		when.the_users_collection_is_retrieved()
-		then.all_users_are_deleted()
+		given.
+			multiple_users_are_created()
+
+		when.
+			the_users_collection_is_retrieved()
+
+		then.
+			all_users_are_deleted()
 	})
 }
 

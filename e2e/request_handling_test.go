@@ -12,19 +12,17 @@ import (
 func TestSCEN_RH_001_GetExistingResource(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
-	given.a_scenario(model.Scenario{
-		RequestPath: "GET /test/resource/item123",
-		StatusCode:  http.StatusOK,
-		ContentType: "application/json",
-		Data:        `{"id": "item123", "data": "sample data"}`,
-	})
+	given.
+		a_scenario(model.Scenario{
+			RequestPath: "GET /test/resource/item123",
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json",
+			Data:        `{"id": "item123", "data": "sample data"}`,
+		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rh_001.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_rh_001.hresp")
 }
@@ -120,19 +118,17 @@ func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 func TestSCEN_RH_005_GetIndividualResourceEndpoint(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
-	given.a_scenario(model.Scenario{
-		RequestPath: "GET /mocks/specific-mock-id",
-		StatusCode:  http.StatusOK,
-		ContentType: "application/json",
-		Data:        `{"mockId": "specific-mock-id", "value": "This is a specific mock."}`,
-	})
+	given.
+		a_scenario(model.Scenario{
+			RequestPath: "GET /mocks/specific-mock-id",
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json",
+			Data:        `{"mockId": "specific-mock-id", "value": "This is a specific mock."}`,
+		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rh_005.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_rh_005.hresp")
 }
@@ -142,13 +138,14 @@ func TestSCEN_RH_005_GetIndividualResourceEndpoint(t *testing.T) {
 func TestSCEN_RH_006_GetCollectionEndpoint(t *testing.T) {
 	given, when, then := newParts(t)
 
-	given.a_scenario(model.Scenario{
-		RequestPath: "GET /mocks",
-		StatusCode:  http.StatusOK,
-		ContentType: "application/json",
-		Data: `[{"mockId":"mock1","value":"First mock in collection"},` +
-			`{"mockId":"mock2","value":"Second mock in collection"}]`,
-	})
+	given.
+		a_scenario(model.Scenario{
+			RequestPath: "GET /mocks",
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json",
+			Data: `[{"mockId":"mock1","value":"First mock in collection"},` +
+				`{"mockId":"mock2","value":"Second mock in collection"}]`,
+		})
 
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rh_006.http")
@@ -217,19 +214,17 @@ func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
 func TestSCEN_RH_010_WildcardPathMatching(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
-	given.a_scenario(model.Scenario{
-		RequestPath: "GET /users/*",
-		StatusCode:  http.StatusOK,
-		ContentType: "application/json",
-		Data:        `{"status": "matched by wildcard"}`,
-	})
+	given.
+		a_scenario(model.Scenario{
+			RequestPath: "GET /users/*",
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json",
+			Data:        `{"status": "matched by wildcard"}`,
+		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rh_010.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_rh_010.hresp")
 }
@@ -239,19 +234,17 @@ func TestSCEN_RH_010_WildcardPathMatching(t *testing.T) {
 func TestSCEN_SH_001_ExactPathScenarioMatch(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
-	given.a_scenario(model.Scenario{
-		RequestPath: "GET /custom/scenario/exact",
-		StatusCode:  http.StatusOK,
-		ContentType: "application/json",
-		Data:        `{"message": "exact scenario matched"}`,
-	})
+	given.
+		a_scenario(model.Scenario{
+			RequestPath: "GET /custom/scenario/exact",
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json",
+			Data:        `{"message": "exact scenario matched"}`,
+		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_sh_001.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_sh_001.hresp")
 }
@@ -261,19 +254,17 @@ func TestSCEN_SH_001_ExactPathScenarioMatch(t *testing.T) {
 func TestSCEN_SH_002_WildcardPathScenarioMatch(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
-	given.a_scenario(model.Scenario{
-		RequestPath: "POST /custom/scenario/*",
-		StatusCode:  http.StatusCreated,
-		ContentType: "text/plain",
-		Data:        "wildcard scenario matched",
-	})
+	given.
+		a_scenario(model.Scenario{
+			RequestPath: "POST /custom/scenario/*",
+			StatusCode:  http.StatusCreated,
+			ContentType: "text/plain",
+			Data:        "wildcard scenario matched",
+		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_sh_002.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_sh_002.hresp")
 }
@@ -283,19 +274,17 @@ func TestSCEN_SH_002_WildcardPathScenarioMatch(t *testing.T) {
 func TestSCEN_SH_003_ScenarioSkipsMockHandling(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
-	given.a_scenario(model.Scenario{
-		RequestPath: "GET /api/users/override-put-id-e2e-003",
-		StatusCode:  http.StatusTeapot,
-		ContentType: "application/vnd.custom.teapot",
-		Data:        `{"message": "I am a teapot because of the scenario!"}`,
-	})
+	given.
+		a_scenario(model.Scenario{
+			RequestPath: "GET /api/users/override-put-id-e2e-003",
+			StatusCode:  http.StatusTeapot,
+			ContentType: "application/vnd.custom.teapot",
+			Data:        `{"message": "I am a teapot because of the scenario!"}`,
+		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_sh_003.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_sh_003.hresp")
 }
@@ -305,19 +294,17 @@ func TestSCEN_SH_003_ScenarioSkipsMockHandling(t *testing.T) {
 func TestSCEN_SH_004_ScenarioMethodMismatch(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
-	given.a_scenario(model.Scenario{
-		RequestPath: "GET /api/test/method-specific",
-		StatusCode:  http.StatusOK,
-		ContentType: "text/plain",
-		Data:        "GET scenario response for SCEN-SH-004",
-	})
+	given.
+		a_scenario(model.Scenario{
+			RequestPath: "GET /api/test/method-specific",
+			StatusCode:  http.StatusOK,
+			ContentType: "text/plain",
+			Data:        "GET scenario response for SCEN-SH-004",
+		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_sh_004.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_sh_004.hresp")
 }
@@ -327,18 +314,16 @@ func TestSCEN_SH_004_ScenarioMethodMismatch(t *testing.T) {
 func TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
-	given.a_scenario(model.Scenario{
-		RequestPath: "POST /api/actions/submit-task",
-		StatusCode:  http.StatusCreated,
-		Location:    "/tasks/status/new-task-123",
-	})
+	given.
+		a_scenario(model.Scenario{
+			RequestPath: "POST /api/actions/submit-task",
+			StatusCode:  http.StatusCreated,
+			Location:    "/tasks/status/new-task-123",
+		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_sh_005.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_sh_005.hresp")
 }
