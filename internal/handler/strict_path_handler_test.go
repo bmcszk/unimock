@@ -74,7 +74,7 @@ type strictPathTestCase struct {
 	path               string
 	body               string
 	contentType        string
-	setupData          func(storage.UniStorage)
+	setupData          func(*storage.UniStorage)
 	expectedStatus     int
 	expectedBodyContains string
 	description        string
@@ -294,7 +294,7 @@ func validateNoMatch(t *testing.T, w *httptest.ResponseRecorder) {
 
 type strictPathHandlerDeps struct {
 	handler *handler.UniHandler
-	store   storage.UniStorage
+	store   *storage.UniStorage
 	config  *config.UniConfig
 	logger  *slog.Logger
 }
@@ -356,7 +356,7 @@ func setupWildcardHandler(t *testing.T, pathPattern string) strictPathHandlerDep
 	}
 }
 
-func setupUsersCollection(store storage.UniStorage) {
+func setupUsersCollection(store *storage.UniStorage) {
 	testData := model.UniData{
 		Path:        "/users/123",
 		IDs:         []string{"123"},

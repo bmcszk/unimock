@@ -13,12 +13,12 @@ import (
 
 // UniService handles the core uni functionality for CRUD operations
 type UniService struct {
-	storage storage.UniStorage
+	storage *storage.UniStorage
 	uniCfg *config.UniConfig
 }
 
 // NewUniService creates a new instance of UniService
-func NewUniService(uniStorage storage.UniStorage, cfg *config.UniConfig) *UniService {
+func NewUniService(uniStorage *storage.UniStorage, cfg *config.UniConfig) *UniService {
 	return &UniService{
 		storage: uniStorage,
 		uniCfg: cfg,
@@ -37,7 +37,7 @@ func (s *UniService) GetResource(
 		if _, ok := err.(*errs.InvalidRequestError); ok {
 			return model.UniData{}, err
 		}
-		return model.UniData{}, fmt.Errorf("failed to get resource: %v", err)
+		return model.UniData{}, fmt.Errorf("failed to get resource: %w", err)
 	}
 	return data, nil
 }
@@ -53,7 +53,7 @@ func (s *UniService) GetResourcesByPath(_ context.Context, path string) ([]model
 		if _, ok := err.(*errs.InvalidRequestError); ok {
 			return nil, err
 		}
-		return nil, fmt.Errorf("failed to get resources: %v", err)
+		return nil, fmt.Errorf("failed to get resources: %w", err)
 	}
 	return data, nil
 }
@@ -75,7 +75,7 @@ func (s *UniService) CreateResource(
 		if _, ok := err.(*errs.InvalidRequestError); ok {
 			return err
 		}
-		return fmt.Errorf("failed to create resource: %v", err)
+		return fmt.Errorf("failed to create resource: %w", err)
 	}
 	return nil
 }
@@ -142,7 +142,7 @@ func (s *UniService) DeleteResource(_ context.Context, sectionName string, isStr
 		if _, ok := err.(*errs.InvalidRequestError); ok {
 			return err
 		}
-		return fmt.Errorf("failed to delete resource: %v", err)
+		return fmt.Errorf("failed to delete resource: %w", err)
 	}
 	return nil
 }

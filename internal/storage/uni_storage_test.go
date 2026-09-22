@@ -41,7 +41,7 @@ func createTestDataSet() []model.UniData {
 	}
 }
 
-func testCreateOperations(t *testing.T, testStorage storage.UniStorage, testData []model.UniData) {
+func testCreateOperations(t *testing.T, testStorage *storage.UniStorage, testData []model.UniData) {
 	t.Helper()
 	for _, data := range testData {
 		id := data.Path[strings.LastIndex(data.Path, "/")+1:]
@@ -53,7 +53,7 @@ func testCreateOperations(t *testing.T, testStorage storage.UniStorage, testData
 	}
 }
 
-func testGetOperations(t *testing.T, testStorage storage.UniStorage, testData []model.UniData) {
+func testGetOperations(t *testing.T, testStorage *storage.UniStorage, testData []model.UniData) {
 	t.Helper()
 	for _, data := range testData {
 		id := data.Path[strings.LastIndex(data.Path, "/")+1:]
@@ -67,7 +67,7 @@ func testGetOperations(t *testing.T, testStorage storage.UniStorage, testData []
 	}
 }
 
-func testGetByPathOperations(t *testing.T, testStorage storage.UniStorage) {
+func testGetByPathOperations(t *testing.T, testStorage *storage.UniStorage) {
 	t.Helper()
 	testBasicGetByPath(t, testStorage)
 	testTrailingSlashGetByPath(t, testStorage)
@@ -75,7 +75,7 @@ func testGetByPathOperations(t *testing.T, testStorage storage.UniStorage) {
 	testEmptyCollectionGetByPath(t, testStorage)
 }
 
-func testBasicGetByPath(t *testing.T, testStorage storage.UniStorage) {
+func testBasicGetByPath(t *testing.T, testStorage *storage.UniStorage) {
 	t.Helper()
 	items, err := testStorage.GetByPath("/test")
 	if err != nil {
@@ -86,7 +86,7 @@ func testBasicGetByPath(t *testing.T, testStorage storage.UniStorage) {
 	}
 }
 
-func testTrailingSlashGetByPath(t *testing.T, testStorage storage.UniStorage) {
+func testTrailingSlashGetByPath(t *testing.T, testStorage *storage.UniStorage) {
 	t.Helper()
 	items, err := testStorage.GetByPath("/test/")
 	if err != nil {
@@ -97,7 +97,7 @@ func testTrailingSlashGetByPath(t *testing.T, testStorage storage.UniStorage) {
 	}
 }
 
-func testCaseSensitivityGetByPath(t *testing.T, testStorage storage.UniStorage) {
+func testCaseSensitivityGetByPath(t *testing.T, testStorage *storage.UniStorage) {
 	t.Helper()
 	_, err := testStorage.GetByPath("/Test")
 	if err == nil {
@@ -107,7 +107,7 @@ func testCaseSensitivityGetByPath(t *testing.T, testStorage storage.UniStorage) 
 	}
 }
 
-func testEmptyCollectionGetByPath(t *testing.T, testStorage storage.UniStorage) {
+func testEmptyCollectionGetByPath(t *testing.T, testStorage *storage.UniStorage) {
 	t.Helper()
 	_, err := testStorage.GetByPath("/empty")
 	if err == nil {
@@ -117,7 +117,7 @@ func testEmptyCollectionGetByPath(t *testing.T, testStorage storage.UniStorage) 
 	}
 }
 
-func testUpdateOperation(t *testing.T, testStorage storage.UniStorage) {
+func testUpdateOperation(t *testing.T, testStorage *storage.UniStorage) {
 	t.Helper()
 	updatedData := model.UniData{
 		Path:        "/test/123",
@@ -130,7 +130,7 @@ func testUpdateOperation(t *testing.T, testStorage storage.UniStorage) {
 	}
 }
 
-func testDeleteOperation(t *testing.T, testStorage storage.UniStorage) {
+func testDeleteOperation(t *testing.T, testStorage *storage.UniStorage) {
 	t.Helper()
 	err := testStorage.Delete("test", false, "123")
 	if err != nil {
@@ -145,7 +145,7 @@ func testDeleteOperation(t *testing.T, testStorage storage.UniStorage) {
 }
 
 // Helper function to create concurrent test data
-func createConcurrentTestData(t *testing.T, testStorage storage.UniStorage, i int) {
+func createConcurrentTestData(t *testing.T, testStorage *storage.UniStorage, i int) {
 	t.Helper()
 	id := fmt.Sprintf("test%d", i)
 	data := model.UniData{
@@ -161,7 +161,7 @@ func createConcurrentTestData(t *testing.T, testStorage storage.UniStorage, i in
 }
 
 // Helper function to verify concurrent test data
-func verifyConcurrentTestData(t *testing.T, testStorage storage.UniStorage) {
+func verifyConcurrentTestData(t *testing.T, testStorage *storage.UniStorage) {
 	t.Helper()
 	// Verify all data was stored
 	const testIterations = 10
@@ -242,7 +242,7 @@ func TestUniStorage_ErrorCases(t *testing.T) {
 }
 
 // Helper function to test create with multiple IDs
-func testCreateWithMultipleIDs(t *testing.T, storageInstance storage.UniStorage) {
+func testCreateWithMultipleIDs(t *testing.T, storageInstance *storage.UniStorage) {
 	t.Helper()
 	multiIdData1 := model.UniData{
 		Path:        "/multi/data1",
@@ -271,7 +271,7 @@ func testCreateWithMultipleIDs(t *testing.T, storageInstance storage.UniStorage)
 }
 
 // Helper function to test delete by one ID removes all mappings
-func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance storage.UniStorage) {
+func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance *storage.UniStorage) {
 	t.Helper()
 	multiIdData2 := model.UniData{
 		Path:        "/multi/data2",
@@ -299,7 +299,7 @@ func testDeleteByOneIDRemovesAllMappings(t *testing.T, storageInstance storage.U
 }
 
 // Helper function to test update by one ID affects single resource
-func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storage.UniStorage) {
+func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance *storage.UniStorage) {
 	t.Helper()
 	multiIdData3 := model.UniData{
 		Path:        "/multi/data3",
@@ -339,7 +339,7 @@ func testUpdateByOneIDAffectsSingleResource(t *testing.T, storageInstance storag
 }
 
 // Helper function to test conflict on create with existing external ID
-func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance storage.UniStorage) {
+func testConflictOnCreateWithExistingExternalID(t *testing.T, storageInstance *storage.UniStorage) {
 	t.Helper()
 	conflictData1 := model.UniData{
 		Path:        "/conflict/data1",

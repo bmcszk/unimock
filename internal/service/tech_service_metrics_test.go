@@ -43,7 +43,7 @@ func TestTechService_ComprehensiveMetrics(t *testing.T) {
 	// Verify status code stats
 	statusCodeStats, ok := metrics["status_code_stats"].(map[string]map[string]int64)
 	require.True(t, ok, "status_code_stats should be map[string]map[string]int64")
-	
+
 	pathStats := statusCodeStats[testPath]
 	assert.Equal(t, int64(3), pathStats["200"], "Expected 3 responses with status 200")
 	assert.Equal(t, int64(3), pathStats["404"], "Expected 3 responses with status 404")

@@ -71,7 +71,7 @@ func validateResponseBody(t *testing.T, w *httptest.ResponseRecorder, expectedBo
 // uniHandlerDeps holds the dependencies for uni handler testing
 type uniHandlerDeps struct {
 	handler *handler.UniHandler
-	store   storage.UniStorage
+	store   *storage.UniStorage
 	config  *config.UniConfig
 	logger  *slog.Logger
 }
@@ -127,7 +127,7 @@ func getTestData() []model.UniData {
 }
 
 // populateTestData adds test data to the storage
-func populateTestData(store storage.UniStorage, testData []model.UniData) {
+func populateTestData(store *storage.UniStorage, testData []model.UniData) {
 	for _, data := range testData {
 		ids := []string{data.Path[strings.LastIndex(data.Path, "/")+1:]}
 		data.IDs = ids
