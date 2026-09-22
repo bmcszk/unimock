@@ -5,7 +5,7 @@ package storage_test
 import (
 	"testing"
 
-	"github.com/bmcszk/unimock/internal/errors"
+	"github.com/bmcszk/unimock/internal/errs"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/model"
 	"github.com/stretchr/testify/assert"
@@ -129,7 +129,7 @@ func TestCompositeKeyConflictDetection(t *testing.T) {
 			
 			if tt.expectConflict {
 				assert.Error(t, err, tt.description)
-				assert.IsType(t, &errors.ConflictError{}, err, "Should return ConflictError")
+				assert.IsType(t, &errs.ConflictError{}, err, "Should return ConflictError")
 			} else {
 				assert.NoError(t, err, tt.description)
 			}
@@ -286,7 +286,7 @@ func TestResourceUpdateConflictDetection(t *testing.T) {
 	
 	err = store.Update("users", true, "999", nonExistentData)
 	assert.Error(t, err, "Should not be able to update non-existent resource")
-	assert.IsType(t, &errors.NotFoundError{}, err)
+	assert.IsType(t, &errs.NotFoundError{}, err)
 }
 
 // TestResourceDeletionWithScoping tests deletion works correctly with section scoping
@@ -353,5 +353,5 @@ func TestNonStrictModeIDUniquenessPerSection(t *testing.T) {
 	}
 	err = store.Create("users", false, secondData)
 	assert.Error(t, err, "Should not allow duplicate ID in same section for non-strict mode")
-	assert.IsType(t, &errors.ConflictError{}, err)
+	assert.IsType(t, &errs.ConflictError{}, err)
 }

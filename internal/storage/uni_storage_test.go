@@ -181,11 +181,10 @@ func TestUniStorage_ConcurrentAccess(t *testing.T) {
 	// Test concurrent writes
 	const concurrentWrites = 10
 	for i := 0; i < concurrentWrites; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
+		i := i
+		wg.Go(func() {
 			createConcurrentTestData(t, testStorage, i)
-		}(i)
+		})
 	}
 
 	wg.Wait()

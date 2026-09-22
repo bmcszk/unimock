@@ -3,7 +3,7 @@ package storage
 import (
 	"sync"
 
-	"github.com/bmcszk/unimock/internal/errors"
+	"github.com/bmcszk/unimock/internal/errs"
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
@@ -37,7 +37,7 @@ func NewScenarioStorage() ScenarioStorage {
 
 func (s *scenarioStorage) Create(id string, scenario model.Scenario) error {
 	if id == "" {
-		return errors.NewInvalidRequestError(errScenarioIDEmpty)
+		return errs.NewInvalidRequestError(errScenarioIDEmpty)
 	}
 
 	s.mu.Lock()
@@ -45,7 +45,7 @@ func (s *scenarioStorage) Create(id string, scenario model.Scenario) error {
 
 	// Check if scenario already exists
 	if _, exists := s.scenarios[id]; exists {
-		return errors.NewConflictError(id)
+		return errs.NewConflictError(id)
 	}
 
 	// Store the scenario
@@ -56,7 +56,7 @@ func (s *scenarioStorage) Create(id string, scenario model.Scenario) error {
 
 func (s *scenarioStorage) Get(id string) (model.Scenario, error) {
 	if id == "" {
-		return model.Scenario{}, errors.NewInvalidRequestError(errScenarioIDEmpty)
+		return model.Scenario{}, errs.NewInvalidRequestError(errScenarioIDEmpty)
 	}
 
 	s.mu.RLock()
@@ -64,7 +64,7 @@ func (s *scenarioStorage) Get(id string) (model.Scenario, error) {
 
 	scenario, exists := s.scenarios[id]
 	if !exists {
-		return model.Scenario{}, errors.NewNotFoundError(id, "")
+		return model.Scenario{}, errs.NewNotFoundError(id, "")
 	}
 
 	return scenario, nil
@@ -72,7 +72,7 @@ func (s *scenarioStorage) Get(id string) (model.Scenario, error) {
 
 func (s *scenarioStorage) Update(id string, scenario model.Scenario) error {
 	if id == "" {
-		return errors.NewInvalidRequestError(errScenarioIDEmpty)
+		return errs.NewInvalidRequestError(errScenarioIDEmpty)
 	}
 
 	s.mu.Lock()
@@ -80,7 +80,7 @@ func (s *scenarioStorage) Update(id string, scenario model.Scenario) error {
 
 	// Check if scenario exists
 	if _, exists := s.scenarios[id]; !exists {
-		return errors.NewNotFoundError(id, "")
+		return errs.NewNotFoundError(id, "")
 	}
 
 	// Update the scenario
@@ -91,7 +91,7 @@ func (s *scenarioStorage) Update(id string, scenario model.Scenario) error {
 
 func (s *scenarioStorage) Delete(id string) error {
 	if id == "" {
-		return errors.NewInvalidRequestError(errScenarioIDEmpty)
+		return errs.NewInvalidRequestError(errScenarioIDEmpty)
 	}
 
 	s.mu.Lock()
@@ -99,7 +99,7 @@ func (s *scenarioStorage) Delete(id string) error {
 
 	// Check if scenario exists
 	if _, exists := s.scenarios[id]; !exists {
-		return errors.NewNotFoundError(id, "")
+		return errs.NewNotFoundError(id, "")
 	}
 
 	// Remove scenario

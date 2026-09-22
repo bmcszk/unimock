@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bmcszk/unimock/internal/errors"
+	"github.com/bmcszk/unimock/internal/errs"
 	"github.com/bmcszk/unimock/pkg/model"
 
 	"github.com/google/uuid"
@@ -55,7 +55,7 @@ func NewUniStorage() UniStorage {
 // validateID checks if the ID is valid
 func (*uniStorage) validateID(id string) error {
 	if id == "" {
-		return errors.NewInvalidRequestError("ID cannot be empty")
+		return errs.NewInvalidRequestError("ID cannot be empty")
 	}
 	return nil
 }
@@ -120,7 +120,7 @@ func (s *uniStorage) prepareIDsWithConflictCheck(
 	for _, id := range effectiveIDs {
 		compositeKey := s.buildCompositeKey(sectionName, isStrictPath, data.Path, id)
 		if _, exists := s.data[compositeKey]; exists {
-			return nil, errors.NewConflictError(id)
+			return nil, errs.NewConflictError(id)
 		}
 	}
 
@@ -386,7 +386,7 @@ func (s *uniStorage) findExistingResourceStrict(
 			return compositeKey, data, nil
 		}
 	}
-	return "", model.UniData{}, errors.NewNotFoundError(id, "")
+	return "", model.UniData{}, errs.NewNotFoundError(id, "")
 }
 
 // findExistingResourceFlexible finds an existing resource by ID within flexible path scope
@@ -404,7 +404,7 @@ func (s *uniStorage) findExistingResourceFlexible(
 			return compositeKey, data, nil
 		}
 	}
-	return "", model.UniData{}, errors.NewNotFoundError(id, "")
+	return "", model.UniData{}, errs.NewNotFoundError(id, "")
 }
 
 // findExistingDataOnlyStrict finds existing resource data without returning composite key in strict mode
@@ -472,7 +472,7 @@ func (s *uniStorage) GetStrict(sectionName string, id string) (model.UniData, er
 	// Only consider strictly-stored resources
 	data, err := s.selectStrictResource(strictMatches)
 	if err != nil {
-		return model.UniData{}, errors.NewNotFoundError(id, "")
+		return model.UniData{}, errs.NewNotFoundError(id, "")
 	}
 	return data, nil
 }
@@ -492,7 +492,7 @@ func (s *uniStorage) GetFlexible(sectionName string, id string) (model.UniData, 
 	// Only consider flexibly-stored resources
 	data, err := s.selectFlexibleResource(flexibleMatches)
 	if err != nil {
-		return model.UniData{}, errors.NewNotFoundError(id, "")
+		return model.UniData{}, errs.NewNotFoundError(id, "")
 	}
 	return data, nil
 }
@@ -543,7 +543,7 @@ func (*uniStorage) selectStrictResource(strictMatches []model.UniData) (model.Un
 	if len(strictMatches) > 0 {
 		return strictMatches[0], nil
 	}
-	return model.UniData{}, errors.NewNotFoundError("", "")
+	return model.UniData{}, errs.NewNotFoundError("", "")
 }
 
 // selectFlexibleResource selects from flexible matches only
@@ -551,7 +551,7 @@ func (*uniStorage) selectFlexibleResource(flexibleMatches []model.UniData) (mode
 	if len(flexibleMatches) > 0 {
 		return flexibleMatches[0], nil
 	}
-	return model.UniData{}, errors.NewNotFoundError("", "")
+	return model.UniData{}, errs.NewNotFoundError("", "")
 }
 
 // Get retrieves data by ID with validation processing context
@@ -619,7 +619,7 @@ func (*uniStorage) isCompositeKeyInScopeFlexible(
 // GetByPath retrieves all data stored at the given path
 func (s *uniStorage) GetByPath(requestPath string) ([]model.UniData, error) {
 	if requestPath == "" {
-		return nil, errors.NewInvalidRequestError("path cannot be empty")
+		return nil, errs.NewInvalidRequestError("path cannot be empty")
 	}
 
 	s.mu.RLock()
@@ -638,7 +638,7 @@ func (s *uniStorage) GetByPath(requestPath string) ([]model.UniData, error) {
 		return result, nil
 	}
 
-	return nil, errors.NewNotFoundError("resource not found", requestPath)
+	return nil, errs.NewNotFoundError("resource not found", requestPath)
 }
 
 // getExactPathMatches finds resources with exact path matches
@@ -789,7 +789,7 @@ func (s *uniStorage) findResourcesForDelete(sectionName, id string) ([]struct {
 }, error) {
 	matches := s.collectDeleteMatches(sectionName, id)
 	if len(matches) == 0 {
-		return nil, errors.NewNotFoundError(id, "")
+		return nil, errs.NewNotFoundError(id, "")
 	}
 	return matches, nil
 }
@@ -919,7 +919,7 @@ func (s *uniStorage) removeAllCompositeKeysForResourceFlexible(
 // The 'id' passed to the callback function is the composite key (section:id or path:id)
 func (s *uniStorage) ForEach(fn func(id string, data model.UniData) error) error {
 	if fn == nil {
-		return errors.NewInvalidRequestError("callback function cannot be nil")
+		return errs.NewInvalidRequestError("callback function cannot be nil")
 	}
 
 	s.mu.RLock()
@@ -927,7 +927,7 @@ func (s *uniStorage) ForEach(fn func(id string, data model.UniData) error) error
 
 	for compositeKey, data := range s.data {
 		if err := fn(compositeKey, data); err != nil {
-			return errors.NewStorageError("forEach", err)
+			return errs.NewStorageError("forEach", err)
 		}
 	}
 
