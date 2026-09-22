@@ -479,20 +479,7 @@ func (h *UniHandler) applyRequestTransformations(
 	if section.Transformations == nil || !section.Transformations.HasRequestTransforms() {
 		return data, nil
 	}
-
-	currentData := data
-	for i, transform := range section.Transformations.RequestTransforms {
-		h.logger.Debug("applying request transformation", "section", sectionName, "index", i)
-
-		transformedData, err := transform(currentData)
-		if err != nil {
-			return model.UniData{}, fmt.Errorf("request transformation %d failed: %w", i, err)
-		}
-
-		currentData = transformedData
-	}
-
-	return currentData, nil
+	return runTransforms(h, data, section.Transformations.RequestTransforms, sectionName, "request")
 }
 
 // applyResponseTransformations applies response transformations if configured
@@ -504,14 +491,23 @@ func (h *UniHandler) applyResponseTransformations(
 	if section.Transformations == nil || !section.Transformations.HasResponseTransforms() {
 		return data, nil
 	}
+	return runTransforms(h, data, section.Transformations.ResponseTransforms, sectionName, "response")
+}
 
+// runTransforms iterates the supplied transform slice, preserving per-kind log and error text.
+func runTransforms[T ~func(model.UniData) (model.UniData, error)](
+	h *UniHandler,
+	data model.UniData,
+	transforms []T,
+	sectionName, kind string,
+) (model.UniData, error) {
 	currentData := data
-	for i, transform := range section.Transformations.ResponseTransforms {
-		h.logger.Debug("applying response transformation", "section", sectionName, "index", i)
+	for i, transform := range transforms {
+		h.logger.Debug("applying "+kind+" transformation", "section", sectionName, "index", i)
 
 		transformedData, err := transform(currentData)
 		if err != nil {
-			return model.UniData{}, fmt.Errorf("response transformation %d failed: %w", i, err)
+			return model.UniData{}, fmt.Errorf("%s transformation %d failed: %w", kind, i, err)
 		}
 
 		currentData = transformedData
@@ -914,7 +910,3 @@ func (*UniHandler) suppressResponseBody(resp *http.Response) *http.Response {
 	return newResp
 }
 
-// GetConfig returns the mock configuration
-func (h *UniHandler) GetConfig() *config.UniConfig {
-	return h.uniCfg
-}
