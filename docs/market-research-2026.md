@@ -63,8 +63,11 @@ YAML-native, self-hosted, agent-friendly". The trap is competing on protocol bre
 - CircleCI 2026: integration is THE bottleneck; AI-written code raises failure rates;
   MTTR 72min. Anything that makes contract drift visible early sells.
 - Star benchmarks: Mockoon 8.4k, WireMock 7.4k, Prism 5.0k, Hoverfly 2.5k,
-  Microcks 2.0k (CNCF incubating 2026-05), unimock 1. Growth to 500-2k stars is a
-  realistic ceiling for a focused niche tool with good DX + agent story.
+  Microcks 2.0k (CNCF incubating 2026-05), unimock 1. Category winners cap at
+  5–8k stars after 10–15 years — stars are a bad KPI; the real currencies are
+  downloads (WireMock 6M/mo), container pulls, and distribution channels
+  (Testcontainers modules, Helm). Growth to 500–2k stars is a realistic niche
+  ceiling; distribution beats stars.
 
 ## 4. Threats
 - Microcks owns multi-protocol + K8s + contract testing (CNCF gravity).
@@ -81,6 +84,13 @@ Near-term cheap wins: scoped state reset endpoints; hot reload; load-time valida
 w/ precise errors; machine-readable unmatched-request reports; agents.md; Testcontainers
 Go module (exists for MockServer, not for unimock — free distribution channel).
 Roadmap (biggest objection removers): partial OpenAPI import (sections+scenarios from
-spec), .http-request-file fixture ecosystem alignment (go-restclient already there).
-Do NOT chase: gRPC/GraphQL/Kafka/AsyncAPI protocol breadth, hosted SaaS, GUI —
-outgunned; the niche doesn't need it.
+spec; 82% of orgs are now somewhat/fully API-first, +12% YoY — import is a cheap
+complement, not a repositioning), .http-request-file fixture ecosystem alignment
+(go-restclient already there), outbound webhook/callback triggering from scenario
+matches (WireMock has it as an extension; zero incumbents in the OSS YAML mid tier;
+HTTP-native so no protocol war needed), IoT/device-simulator beachhead (validated
+pattern — Nordic Semiconductor publicly uses Microcks this way — but no targeted
+competitor).
+Do NOT chase: gRPC/GraphQL/Kafka/AsyncAPI protocol breadth, hosted SaaS, GUI,
+record/proxy as headline feature (Hoverfly's MITM complexity is the cautionary tale) —
+outgunned or wrong buyers; the niche doesn't need them.
