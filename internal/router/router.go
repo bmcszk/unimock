@@ -56,7 +56,6 @@ func (r *Router) setupRoutes() {
 	
 	// Add middleware
 	r.router.Use(middleware.RequestID)
-	r.router.Use(middleware.RealIP)
 	r.router.Use(r.loggingMiddleware)
 	r.router.Use(r.metricsMiddleware)
 	r.router.Use(middleware.Recoverer)

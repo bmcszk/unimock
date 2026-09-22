@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	unimockerrors "github.com/bmcszk/unimock/internal/errors"
+	"github.com/bmcszk/unimock/internal/errs"
 	"github.com/bmcszk/unimock/internal/storage"
 	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/bmcszk/unimock/pkg/model"
@@ -13,12 +13,12 @@ import (
 
 // UniService handles the core uni functionality for CRUD operations
 type UniService struct {
-	storage storage.UniStorage
+	storage *storage.UniStorage
 	uniCfg *config.UniConfig
 }
 
 // NewUniService creates a new instance of UniService
-func NewUniService(uniStorage storage.UniStorage, cfg *config.UniConfig) *UniService {
+func NewUniService(uniStorage *storage.UniStorage, cfg *config.UniConfig) *UniService {
 	return &UniService{
 		storage: uniStorage,
 		uniCfg: cfg,
@@ -31,13 +31,13 @@ func (s *UniService) GetResource(
 ) (model.UniData, error) {
 	data, err := s.storage.Get(sectionName, isStrictPath, id)
 	if err != nil {
-		if _, ok := err.(*unimockerrors.NotFoundError); ok {
+		if _, ok := err.(*errs.NotFoundError); ok {
 			return model.UniData{}, errors.New("resource not found")
 		}
-		if _, ok := err.(*unimockerrors.InvalidRequestError); ok {
+		if _, ok := err.(*errs.InvalidRequestError); ok {
 			return model.UniData{}, err
 		}
-		return model.UniData{}, fmt.Errorf("failed to get resource: %v", err)
+		return model.UniData{}, fmt.Errorf("failed to get resource: %w", err)
 	}
 	return data, nil
 }
@@ -46,14 +46,14 @@ func (s *UniService) GetResource(
 func (s *UniService) GetResourcesByPath(_ context.Context, path string) ([]model.UniData, error) {
 	data, err := s.storage.GetByPath(path)
 	if err != nil {
-		if _, ok := err.(*unimockerrors.NotFoundError); ok {
+		if _, ok := err.(*errs.NotFoundError); ok {
 			// Return empty array instead of error for collection endpoints
 			return []model.UniData{}, nil
 		}
-		if _, ok := err.(*unimockerrors.InvalidRequestError); ok {
+		if _, ok := err.(*errs.InvalidRequestError); ok {
 			return nil, err
 		}
-		return nil, fmt.Errorf("failed to get resources: %v", err)
+		return nil, fmt.Errorf("failed to get resources: %w", err)
 	}
 	return data, nil
 }
@@ -63,19 +63,19 @@ func (s *UniService) CreateResource(
 	_ context.Context, sectionName string, isStrictPath bool, ids []string, data model.UniData,
 ) error {
 	if len(ids) == 0 {
-		return unimockerrors.NewInvalidRequestError("no IDs found in request")
+		return errs.NewInvalidRequestError("no IDs found in request")
 	}
 	// Ensure UniData has the IDs set
 	data.IDs = ids
 	err := s.storage.Create(sectionName, isStrictPath, data)
 	if err != nil {
-		if _, ok := err.(*unimockerrors.ConflictError); ok {
+		if _, ok := err.(*errs.ConflictError); ok {
 			return errors.New("resource already exists")
 		}
-		if _, ok := err.(*unimockerrors.InvalidRequestError); ok {
+		if _, ok := err.(*errs.InvalidRequestError); ok {
 			return err
 		}
-		return fmt.Errorf("failed to create resource: %v", err)
+		return fmt.Errorf("failed to create resource: %w", err)
 	}
 	return nil
 }
@@ -95,10 +95,10 @@ func (s *UniService) UpdateResource(
 func (s *UniService) handleUpdateError(
 	err error, sectionName string, isStrictPath bool, id string, data model.UniData,
 ) error {
-	if _, ok := err.(*unimockerrors.NotFoundError); ok {
+	if _, ok := err.(*errs.NotFoundError); ok {
 		return s.handleNotFoundUpdate(sectionName, isStrictPath, id, data)
 	}
-	if _, ok := err.(*unimockerrors.InvalidRequestError); ok {
+	if _, ok := err.(*errs.InvalidRequestError); ok {
 		return err
 	}
 	return fmt.Errorf("failed to update resource: %w", err)
@@ -121,7 +121,7 @@ func (s *UniService) handleNotFoundUpdate(
 func (s *UniService) handleCreateConflict(
 	createErr error, sectionName string, isStrictPath bool, id string, data model.UniData,
 ) error {
-	if _, conflictOk := createErr.(*unimockerrors.ConflictError); !conflictOk {
+	if _, conflictOk := createErr.(*errs.ConflictError); !conflictOk {
 		return fmt.Errorf("failed to create resource after not found on update: %w", createErr)
 	}
 
@@ -136,13 +136,13 @@ func (s *UniService) handleCreateConflict(
 func (s *UniService) DeleteResource(_ context.Context, sectionName string, isStrictPath bool, id string) error {
 	err := s.storage.Delete(sectionName, isStrictPath, id)
 	if err != nil {
-		if _, ok := err.(*unimockerrors.NotFoundError); ok {
+		if _, ok := err.(*errs.NotFoundError); ok {
 			return errors.New("resource not found")
 		}
-		if _, ok := err.(*unimockerrors.InvalidRequestError); ok {
+		if _, ok := err.(*errs.InvalidRequestError); ok {
 			return err
 		}
-		return fmt.Errorf("failed to delete resource: %v", err)
+		return fmt.Errorf("failed to delete resource: %w", err)
 	}
 	return nil
 }

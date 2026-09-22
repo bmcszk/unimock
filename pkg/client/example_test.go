@@ -161,7 +161,7 @@ func ExampleClient_HealthCheck() {
 	if err != nil {
 		log.Fatalf("Health check failed: %v", err)
 	}
-	
+
 	fmt.Printf("Health check status: %d\n", resp.StatusCode)
 	if resp.StatusCode == 200 {
 		fmt.Println("Server is healthy")

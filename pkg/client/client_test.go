@@ -80,7 +80,7 @@ func assertSuccessfulClientCreation(t *testing.T, testClient *client.Client, err
 func validateClientURL(t *testing.T, testClient *client.Client, expectedURL string) {
 	t.Helper()
 	actualURL := testClient.BaseURL.String()
-	
+
 	if expectedURL == "" {
 		if actualURL != "http://localhost:8080" {
 			t.Errorf("expected default base URL, got %s", actualURL)
@@ -173,7 +173,7 @@ func isListScenariosRequest(r *http.Request) bool {
 }
 
 func isGetScenarioRequest(r *http.Request) bool {
-	return r.Method == http.MethodGet && 
+	return r.Method == http.MethodGet &&
 		(r.URL.Path == "/_uni/scenarios/test-uuid" || r.URL.Path == "/_uni/scenarios/not-found")
 }
 
@@ -182,12 +182,12 @@ func isCreateScenarioRequest(r *http.Request) bool {
 }
 
 func isUpdateScenarioRequest(r *http.Request) bool {
-	return r.Method == http.MethodPut && 
+	return r.Method == http.MethodPut &&
 		(r.URL.Path == "/_uni/scenarios/test-uuid" || r.URL.Path == "/_uni/scenarios/not-found")
 }
 
 func isDeleteScenarioRequest(r *http.Request) bool {
-	return r.Method == http.MethodDelete && 
+	return r.Method == http.MethodDelete &&
 		(r.URL.Path == "/_uni/scenarios/test-uuid" || r.URL.Path == "/_uni/scenarios/not-found")
 }
 
@@ -221,7 +221,7 @@ func handleUpdateScenarioRequest(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Not found"))
 		return
 	}
-	
+
 	var scenario model.Scenario
 	if err := json.NewDecoder(r.Body).Decode(&scenario); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -618,7 +618,7 @@ func createHealthCheckTestServer() *httptest.Server {
 func testGetMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
 	t.Helper()
 	headers := map[string]string{"X-Custom-Header": "custom-value"}
-	
+
 	resp, err := apiClient.Get(ctx, "/api/users", headers)
 	if err != nil {
 		t.Fatalf("Failed to make GET request: %v", err)
@@ -632,7 +632,7 @@ func testGetMethod(ctx context.Context, t *testing.T, apiClient *client.Client) 
 func testHeadMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
 	t.Helper()
 	headers := map[string]string{"X-Custom-Header": "custom-value"}
-	
+
 	resp, err := apiClient.Head(ctx, "/api/users", headers)
 	if err != nil {
 		t.Fatalf("Failed to make HEAD request: %v", err)
@@ -650,7 +650,7 @@ func testPostMethod(ctx context.Context, t *testing.T, apiClient *client.Client)
 	t.Helper()
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte(`{"name":"test"}`)
-	
+
 	resp, err := apiClient.Post(ctx, "/api/users", headers, body)
 	if err != nil {
 		t.Fatalf("Failed to make POST request: %v", err)
@@ -665,7 +665,7 @@ func testPutMethod(ctx context.Context, t *testing.T, apiClient *client.Client) 
 	t.Helper()
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte(`{"name":"updated"}`)
-	
+
 	resp, err := apiClient.Put(ctx, "/api/users", headers, body)
 	if err != nil {
 		t.Fatalf("Failed to make PUT request: %v", err)
@@ -679,7 +679,7 @@ func testPutMethod(ctx context.Context, t *testing.T, apiClient *client.Client) 
 func testDeleteMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
 	t.Helper()
 	headers := map[string]string{"X-Custom-Header": "custom-value"}
-	
+
 	resp, err := apiClient.Delete(ctx, "/api/users", headers)
 	if err != nil {
 		t.Fatalf("Failed to make DELETE request: %v", err)
@@ -695,7 +695,7 @@ func testPatchMethod(ctx context.Context, t *testing.T, apiClient *client.Client
 	t.Helper()
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte(`{"name":"patched"}`)
-	
+
 	resp, err := apiClient.Patch(ctx, "/api/users", headers, body)
 	if err != nil {
 		t.Fatalf("Failed to make PATCH request: %v", err)
@@ -709,7 +709,7 @@ func testPatchMethod(ctx context.Context, t *testing.T, apiClient *client.Client
 func testOptionsMethod(ctx context.Context, t *testing.T, apiClient *client.Client) {
 	t.Helper()
 	headers := map[string]string{"X-Custom-Header": "custom-value"}
-	
+
 	resp, err := apiClient.Options(ctx, "/api/users", headers)
 	if err != nil {
 		t.Fatalf("Failed to make OPTIONS request: %v", err)
@@ -717,7 +717,7 @@ func testOptionsMethod(ctx context.Context, t *testing.T, apiClient *client.Clie
 
 	validateBasicResponse(t, resp, 200)
 	validateResponseHeaders(t, resp)
-	
+
 	// Check for Allow header
 	allowHeader := resp.Headers.Get("Allow")
 	if allowHeader == "" {
@@ -731,7 +731,7 @@ func testPostJSONMethod(ctx context.Context, t *testing.T, apiClient *client.Cli
 		"name": "test",
 		"age":  25,
 	}
-	
+
 	resp, err := apiClient.PostJSON(ctx, "/api/users", nil, data)
 	if err != nil {
 		t.Fatalf("Failed to make PostJSON request: %v", err)
@@ -748,7 +748,7 @@ func testPutJSONMethod(ctx context.Context, t *testing.T, apiClient *client.Clie
 		"name": "updated",
 		"age":  30,
 	}
-	
+
 	resp, err := apiClient.PutJSON(ctx, "/api/users", nil, data)
 	if err != nil {
 		t.Fatalf("Failed to make PutJSON request: %v", err)
@@ -764,7 +764,7 @@ func testPatchJSONMethod(ctx context.Context, t *testing.T, apiClient *client.Cl
 	data := map[string]any{
 		"name": "patched",
 	}
-	
+
 	resp, err := apiClient.PatchJSON(ctx, "/api/users", nil, data)
 	if err != nil {
 		t.Fatalf("Failed to make PatchJSON request: %v", err)
@@ -792,7 +792,7 @@ func validateResponseHeaders(t *testing.T, resp *client.Response) {
 	if resp.Headers == nil {
 		t.Fatal("Response headers are nil")
 	}
-	
+
 	testHeader := resp.Headers.Get("X-Test-Header")
 	if testHeader != "test-value" {
 		t.Errorf("Expected X-Test-Header 'test-value', got '%s'", testHeader)
@@ -805,7 +805,7 @@ func validateResponseBody(t *testing.T, resp *client.Response, expectedMethod st
 		t.Error("Expected response body, got empty")
 		return
 	}
-	
+
 	bodyStr := string(resp.Body)
 	if !strings.Contains(bodyStr, expectedMethod) {
 		t.Errorf("Expected response body to contain method '%s', got: %s", expectedMethod, bodyStr)
