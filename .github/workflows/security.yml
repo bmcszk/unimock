@@ -44,7 +44,7 @@ jobs:
           go-version: '1.27'
           check-latest: true
       - name: Run gosec
-        uses: securego/gosec@15d5c61e866bc2e2e8389376a31f1e5e09bde7d8 # v2.22.9
+        uses: securego/gosec@deb54465fea23d19a77f037e11e6589021f8501d # v2.29.0
         env:
           GOTOOLCHAIN: auto
         with:
