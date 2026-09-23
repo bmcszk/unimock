@@ -2,8 +2,8 @@ apiVersion: v2
 name: unimock
 description: A Helm chart for Unimock - Universal HTTP mock server for e2e testing
 type: application
-version: 1.0.0
-appVersion: "1.0.0"
+version: 0.0.8
+appVersion: "0.0.8"
 home: https://github.com/bmcszk/unimock
 sources:
   - https://github.com/bmcszk/unimock
