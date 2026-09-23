@@ -1,5 +1,16 @@
 # Unimock - Universal HTTP Mock Server
 
+[![Pull request tests](https://github.com/bmcszk/unimock/actions/workflows/pr.yml/badge.svg)](https://github.com/bmcszk/unimock/actions/workflows/pr.yml)
+[![Push tests](https://github.com/bmcszk/unimock/actions/workflows/push.yml/badge.svg)](https://github.com/bmcszk/unimock/actions/workflows/push.yml)
+[![Security](https://github.com/bmcszk/unimock/actions/workflows/security.yml/badge.svg?branch=master)](https://github.com/bmcszk/unimock/actions/workflows/security.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/bmcszk/unimock/badge)](https://scorecard.dev/viewer/?uri=github.com/bmcszk/unimock)
+[![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/bmcszk/unimock/gh-pages/badges/coverage.json&cacheSeconds=3600)](https://github.com/bmcszk/unimock/blob/master/.github/workflows/push.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/bmcszk/unimock)](https://goreportcard.com/report/github.com/bmcszk/unimock)
+[![Go Reference](https://pkg.go.dev/badge/github.com/bmcszk/unimock.svg)](https://pkg.go.dev/github.com/bmcszk/unimock/client)
+[![Release](https://img.shields.io/github/v/release/bmcszk/unimock)](https://github.com/bmcszk/unimock/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.26%20%7C%201.27-00ADD8?logo=go)](go.mod)
+
 **Mock any HTTP service for testing. Works with REST, GraphQL, XML, or any HTTP API.**
 
 ## Quick Start
