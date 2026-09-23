@@ -17,6 +17,11 @@ Epic: public-repo-maturity round 2 (user directive). (1) Badges on README: CI (P
 - PR #37 all checks pass
 Residual: merge pending with user
 
+## Review round (PR #37 comments)
+- bmcszk: "remove this doc" (docs/github-rules.md) -> DELETED
+- Scorecard bot: 13x Pinned-Dependencies score 0 -> ALL actions across security.yml/pr.yml/push.yml pinned to commit SHA + version tag (checkout v4.4.0, setup-go v5.5.0, govulncheck v1.1.0, gosec v2.22.9, codeql-action v4.38.1, upload-artifact v4.6.2, golangci-lint-action v8.0.0); SHAs resolved via GitHub API (annotated tags dereferenced to commit SHAs)
+- docker.yml left for a follow-up (release-only workflow, also has unpinned actions)
+
 ## Round 2 (user: gha not configured, no security checks like go-restclient)
 - security.yml ported from go-restclient: govulncheck + gosec SAST + CodeQL + OpenSSF Scorecard (publish_results for public badge); weekly cron + push/PR
 - push.yml: coverage profile + gh-pages badge publish (Go 1.27/master, same script as go-restclient)
