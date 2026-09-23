@@ -47,8 +47,10 @@ func (fr *FixtureResolver) ResolveFixture(data string) (string, error) {
 		return fr.resolveAtSyntaxWithFallback(trimmedData, data)
 	}
 
-	// Handle < and <@ syntax (go-restclient compatible) - direct replacement
-	if strings.HasPrefix(trimmedData, "<") && !strings.Contains(trimmedData, "}") {
+	// Handle < and <@ syntax (go-restclient compatible) - direct replacement.
+	// Only "< " (space) and "<@" are fixture syntax; plain XML like "<?xml ..."
+	// or "<tag>" starts with '<' but is content, not a fixture reference.
+	if strings.HasPrefix(trimmedData, "< ") || strings.HasPrefix(trimmedData, "<@") {
 		return fr.resolveLessThanSyntaxWithFallback(trimmedData, data)
 	}
 
