@@ -25,7 +25,11 @@ the GitHub API.
 
 - **Pull request workflow**: lint (golangci-lint) + build + full e2e suite
   against Docker.
-- **Push workflow**: lint + unit tests on Go 1.26 and 1.27.
+- **Push workflow**: lint + unit tests with coverage on Go 1.26 and 1.27
+  (coverage badge published to `gh-pages` from Go 1.27 on master).
+- **Security workflow** (weekly + on push/PR): govulncheck (call-graph
+  reachable vulns), gosec (SAST), CodeQL, OpenSSF Scorecard — results to the
+  Security tab. Docker images additionally Trivy-scanned on release.
 - `make check` locally mirrors the lint+unit gates; `make test-e2e` mirrors e2e.
 
 ## Release process
