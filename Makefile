@@ -46,7 +46,7 @@ test-e2e-up:
 
 test-e2e-run:
 	@echo "Running E2E tests..."
-	UNIMOCK_BASE_URL=http://localhost:28080 $(GOTEST) $(TEST_E2E_FLAGS) ./e2e/
+	UNIMOCK_BASE_URL=http://localhost:28080 $(GOTEST) $(TEST_E2E_FLAGS) ./tests/e2e/
 
 test-e2e-down:
 	@echo "Stopping unimock Docker containers..."

@@ -12,9 +12,8 @@ A Helm chart for deploying Unimock - Universal HTTP mock server for e2e testing 
 To install the chart with the release name `my-unimock`:
 
 ```bash
-# Add the chart repository (if published)
-helm repo add unimock https://charts.unimock.dev
-helm repo update
+# Install from the OCI registry (published on every release)
+helm install my-unimock oci://ghcr.io/bmcszk/charts/unimock
 
 # Or install directly from source
 git clone https://github.com/bmcszk/unimock.git
@@ -28,8 +27,7 @@ helm install my-unimock ./unimock -f values.yaml
 
 # Install with inline values
 helm install my-unimock ./unimock \
-  --set image.tag=v1.2.0 \
-  --set scenarios.enabled=true
+  --set image.tag=v1.2.0
 ```
 
 ## Uninstalling the Chart
@@ -128,13 +126,23 @@ The following table lists the configurable parameters of the Unimock chart and t
 | `config.sections` | Mock configuration sections (YAML object) | See values.yaml |
 | `config.yaml` | Raw configuration YAML string | `""` |
 
-### Scenarios Configuration
+### Scenarios
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `scenarios.enabled` | Enable predefined scenarios | `false` |
-| `scenarios.data` | Scenarios configuration (YAML object) | See values.yaml |
-| `scenarios.yaml` | Raw scenarios YAML string | `""` |
+Scenarios are part of the unified configuration — a top-level `scenarios:` key in the
+same file as `sections:` (no separate scenarios file, env var, or ConfigMap exists;
+`UNIMOCK_SCENARIOS_FILE` is ignored by the server). Scenarios-only configs (no
+`sections:`) are valid. Define them under `config:` or in the `config.yaml` raw string:
+
+```yaml
+config:
+  scenarios:
+    - uuid: "user-not-found"
+      method: "GET"
+      path: "/api/users/999"
+      status_code: 404
+      content_type: "application/json"
+      data: '{"error": "User not found"}'
+```
 
 ### Health Probes
 
@@ -182,28 +190,26 @@ resources:
 ### With Predefined Scenarios
 
 ```yaml
-# values.yaml
-scenarios:
-  enabled: true
-  data:
-    scenarios:
-      - uuid: "health-check"
-        method: "GET"
-        path: "/_uni/health"
-        status_code: 200
-        content_type: "application/json"
-        data: '{"status":"ok"}'
-      - uuid: "sample-user"
-        method: "GET"
-        path: "/api/users/sample"
-        status_code: 200
-        content_type: "application/json"
-        data: |
-          {
-            "id": "sample",
-            "name": "Sample User",
-            "email": "sample@example.com"
-          }
+# values.yaml — scenarios live INSIDE config (unified format)
+config:
+  scenarios:
+    - uuid: "health-check"
+      method: "GET"
+      path: "/_uni/health"
+      status_code: 200
+      content_type: "application/json"
+      data: '{"status":"ok"}'
+    - uuid: "sample-user"
+      method: "GET"
+      path: "/api/users/sample"
+      status_code: 200
+      content_type: "application/json"
+      data: |
+        {
+          "id": "sample",
+          "name": "Sample User",
+          "email": "sample@example.com"
+        }
 ```
 
 ### With Ingress and TLS
@@ -265,16 +271,13 @@ config:
       return_body: true
       strict_path: false
 
-scenarios:
-  enabled: true
-  data:
-    scenarios:
-      - uuid: "health-check"
-        method: "GET"
-        path: "/_uni/health"
-        status_code: 200
-        content_type: "application/json"
-        data: '{"status":"ok","environment":"production"}'
+  scenarios:
+    - uuid: "health-check"
+      method: "GET"
+      path: "/_uni/health"
+      status_code: 200
+      content_type: "application/json"
+      data: '{"status":"ok","environment":"production"}'
 ```
 
 ## Configuration Formats
@@ -290,17 +293,13 @@ config:
       path_pattern: "/api/users/*"
       body_id_paths: ["/id"]
       return_body: true
-
-scenarios:
-  enabled: true
-  data:
-    scenarios:
-      - uuid: "test-scenario"
-        method: "GET"
-        path: "/test"
-        status_code: 200
-        content_type: "text/plain"
-        data: "test response"
+  scenarios:
+    - uuid: "test-scenario"
+      method: "GET"
+      path: "/test"
+      status_code: 200
+      content_type: "text/plain"
+      data: "test response"
 ```
 
 ### Raw YAML String Format
@@ -314,10 +313,6 @@ config:
       users:
         path_pattern: "/api/users/*"
         body_id_paths: ["/id"]
-
-scenarios:
-  enabled: true
-  yaml: |
     scenarios:
       - uuid: "test-scenario"
         method: "GET"
@@ -364,7 +359,6 @@ curl http://localhost:8080/_uni/health
 
 # View configuration
 kubectl get configmap my-unimock-config -o yaml
-kubectl get configmap my-unimock-scenarios -o yaml
 ```
 
 ## Chart Development

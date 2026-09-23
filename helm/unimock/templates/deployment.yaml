@@ -110,12 +110,6 @@ spec:
               mountPath: /etc/unimock/config.yaml
               subPath: config.yaml
               readOnly: true
-            {{- if .Values.scenarios.enabled }}
-            - name: scenarios-volume
-              mountPath: /etc/unimock/scenarios.yaml
-              subPath: scenarios.yaml
-              readOnly: true
-            {{- end }}
             - name: tmp
               mountPath: /tmp
             {{- with .Values.extraVolumeMounts }}
@@ -128,11 +122,6 @@ spec:
         - name: config-volume
           configMap:
             name: {{ include "unimock.fullname" . }}-config
-        {{- if .Values.scenarios.enabled }}
-        - name: scenarios-volume
-          configMap:
-            name: {{ include "unimock.fullname" . }}-scenarios
-        {{- end }}
         - name: tmp
           emptyDir: {}
         {{- with .Values.extraVolumes }}
