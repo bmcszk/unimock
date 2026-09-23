@@ -4,6 +4,14 @@ This document provides practical examples of how to use Unimock for different sc
 
 ## Basic CRUD Operations
 
+> **Config note:** these CRUD flows assume a plain section-based config
+> (like `examples/configs/config-simple.yaml`). If your config defines a
+> **scenario** matching the same method+path (e.g. a `POST /api/users`
+> scenario), the scenario takes precedence and the resource is *not*
+> stored — see [Scenarios](scenarios.md#precedence). The multi-ID examples
+> below were verified against a two-section config without intercepting
+> scenarios.
+
 ### Create Resource with ID in Body
 
 ```bash
