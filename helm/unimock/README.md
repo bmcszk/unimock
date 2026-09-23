@@ -386,5 +386,5 @@ helm install my-unimock ./helm/unimock --dry-run --debug
 helm package ./helm/unimock
 
 # Check chart content
-helm show all ./unimock-1.0.0.tgz
+helm show all ./unimock-0.0.8.tgz
 ```
