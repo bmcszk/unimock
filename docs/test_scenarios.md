@@ -35,7 +35,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - HTTP status code 200 OK.
     - Response body is `{"id": "item123", "data": "sample data"}`.
     - Content-Type header is `application/json`.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_001_GetExistingResource`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_RH_001_GetExistingResource`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must handle standard HTTP methods (GET, POST, PUT, DELETE)"
 **Scenario ID:** SCEN-RH-002
@@ -49,7 +49,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - HTTP status code 201 Created.
     - Location header is present and points to `/test/collection/newItem`.
     - The resource `{"id": "newItem", "value": "new data"}` is stored and retrievable via GET `/test/collection/newItem`.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_002_PostCreateResource`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_RH_002_PostCreateResource`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must handle standard HTTP methods (GET, POST, PUT, DELETE)"
 **Scenario ID:** SCEN-RH-003
@@ -63,7 +63,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Expected Result:**
     - HTTP status code 200 OK (or 204 No Content, depending on implementation choice for PUT).
     - The resource at `/test/collection/existingItem` is updated to `{"id": "existingItem", "value": "updated data"}`.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_003_PutUpdateResource`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_RH_003_PutUpdateResource`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must handle standard HTTP methods (GET, POST, PUT, DELETE)"
 **Scenario ID:** SCEN-RH-004
@@ -76,7 +76,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Expected Result:**
     - HTTP status code 200 OK or 204 No Content.
     - Subsequent GET request to `/test/resource/itemToDelete` returns 404 Not Found.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_004_DeleteResource`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_RH_004_DeleteResource`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must support both individual resource and collection endpoints"
 **Scenario ID:** SCEN-RH-005
@@ -88,7 +88,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 1. Send a GET request to `/individual/item001`.
 **Expected Result:**
     - Service returns 200 OK with the configured mock response for `/individual/item001`.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_005_GetIndividualResourceEndpoint`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_RH_005_GetIndividualResourceEndpoint`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must support both individual resource and collection endpoints"
 **Scenario ID:** SCEN-RH-006
@@ -101,7 +101,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Expected Result:**
     - Service returns 200 OK.
     - Response body is a JSON array containing representations of resources under `/collection/items/` (respecting rules from REQ2 for collection GETs).
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_006_GetCollectionEndpoint`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_RH_006_GetCollectionEndpoint`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must validate request content types"
 **Scenario ID:** SCEN-RH-007
@@ -113,7 +113,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 1. Send a POST request to `/restricted_post` with Content-Type `application/xml` and some XML body.
 **Expected Result:**
     - Service returns an HTTP 415 Unsupported Media Type status code (or 400 Bad Request if that's the chosen behavior for invalid content type).
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_007_PostInvalidContentType`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_RH_007_PostInvalidContentType`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must handle non-existent resources appropriately"
 **Scenario ID:** SCEN-RH-008
@@ -125,7 +125,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 1. Send a GET request to `/nonexistent/item`.
 **Expected Result:**
     - Service returns HTTP 404 Not Found.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_008_GetNonExistentResource`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_RH_008_GetNonExistentResource`
 
 **Requirement Ref:** `docs/requirements.md` - "### 1. Request Handling" -> "Must support path-based routing"
 **Scenario ID:** SCEN-RH-009
@@ -140,7 +140,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Expected Result:**
 1. First request returns "Response A".
 2. Second request returns "Response B".
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_RH_009_PathBasedRouting`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_RH_009_PathBasedRouting`
 
 ---
 
@@ -159,7 +159,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - HTTP status code 200 OK.
     - Response body is `{"message": "exact scenario matched"}`.
     - Content-Type header is `application/json`.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_SH_001_ExactPathScenarioMatch`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_SH_001_ExactPathScenarioMatch`
 
 **Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling" -> "Scenarios must be matched by RequestPath in the mock handler."
 **Scenario ID:** SCEN-SH-002
@@ -174,7 +174,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - HTTP status code 201 Created.
     - Response body is `wildcard scenario matched`.
     - Content-Type header is `text/plain`.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_SH_002_WildcardPathScenarioMatch`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_SH_002_WildcardPathScenarioMatch`
 
 **Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling" -> "If a scenario is found by RequestPath, the mock handler must return the scenario details and skip all other mock handling logic."
 **Scenario ID:** SCEN-SH-003
@@ -190,7 +190,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - Response body is `<scenario>overridden</scenario>`.
     - Content-Type header is `application/xml`.
     - The regular mock resource data is NOT returned.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_SH_003_ScenarioSkipsMockHandling`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_SH_003_ScenarioSkipsMockHandling`
 
 **Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling" -> "Scenarios must be matched by RequestPath in the mock handler."
 **Scenario ID:** SCEN-SH-004
@@ -211,7 +211,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - HTTP status code 200 OK.
     - Response body is `{"id": "regular", "data": "GET response"}`.
     - Content-Type header is `application/json`.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_SH_004_ScenarioMethodMismatch`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_SH_004_ScenarioMethodMismatch`
 
 **Requirement Ref:** `docs/requirements.md` - "### 11. Scenario Handling"
 **Scenario ID:** SCEN-SH-005
@@ -226,7 +226,7 @@ Each scenario should be described with enough detail to understand its purpose, 
     - Response body is empty.
     - Content-Type header is `application/json`.
     - Location header is `/resource/creation/new-id-from-scenario`.
-**E2E Test Link/Reference:** `e2e/request_handling_test.go#TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation`
+**E2E Test Link/Reference:** `tests/e2e/request_handling_test.go#TestSCEN_SH_005_ScenarioWithEmptyDataAndLocation`
 
 ---
 
@@ -245,7 +245,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 4. Expected: HTTP 200 OK. Response body is `{"product": {"sku": "skuABC"}, "name": "Multi-ID Product"}`.
 5. Send a GET request to `/products/skuABC`.
 6. Expected: HTTP 200 OK. Response body is `{"product": {"sku": "skuABC"}, "name": "Multi-ID Product"}`.
-**E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_001`
+**E2E Test Link/Reference:** `tests/e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_001`
 
 **Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
 **Scenario ID:** SCEN-RM-MULTI-ID-002
@@ -259,7 +259,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 2. Expected: HTTP 200 OK (or 204).
 3. Send a GET request to `/items/id_B`.
 4. Expected: HTTP 200 OK. Response body is `{"value": "updated"}`.
-**E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_002`
+**E2E Test Link/Reference:** `tests/e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_002`
 
 **Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
 **Scenario ID:** SCEN-RM-MULTI-ID-003
@@ -275,7 +275,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 4. Expected: HTTP 404 Not Found.
 5. Send a GET request to `/resources/id_Z`.
 6. Expected: HTTP 404 Not Found.
-**E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_003`
+**E2E Test Link/Reference:** `tests/e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_003`
 
 **Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
 **Scenario ID:** SCEN-RM-MULTI-ID-004
@@ -289,7 +289,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 **Expected Result:**
     - HTTP status code 409 Conflict.
     - The original resource associated with `existing_token` remains unchanged.
-**E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_004`
+**E2E Test Link/Reference:** `tests/e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_004`
 
 **Requirement Ref:** `docs/requirements.md` - "### X. Resource Management" -> "REQ-RM-MULTI-ID: A single resource can be identified and manipulated using multiple external IDs."
 **Scenario ID:** SCEN-RM-MULTI-ID-005
@@ -304,7 +304,7 @@ Each scenario should be described with enough detail to understand its purpose, 
 4. Expected: HTTP 200 OK with the document body.
 5. Send a GET request to `/documents/altIDXYZ`.
 6. Expected: HTTP 200 OK with the document body.
-**E2E Test Link/Reference:** `e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_005`
+**E2E Test Link/Reference:** `tests/e2e/e2e_test.go#TestE2E_SCEN_RM_MULTI_ID_005`
 
 ---
 
@@ -351,6 +351,6 @@ Each scenario should be described with enough detail to understand its purpose, 
 10. **Verify Deletion:** Send a GET request to `/products/{productID1}`.
     - Verify HTTP 404 Not Found.
 **Expected Result:** All steps complete successfully, verifying the interactions between resource lifecycle and scenario management.
-**E2E Test Link/Reference:** e2e/e2e_complex_lifecycle_test.go#TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle (Covered by TASK-030)
+**E2E Test Link/Reference:** tests/e2e/e2e_complex_lifecycle_test.go#TestSCEN_E2E_COMPLEX_001_MultistageResourceLifecycle (Covered by TASK-030)
 
 ---

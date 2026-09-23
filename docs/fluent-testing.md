@@ -900,7 +900,7 @@ func (p *parts) cleanupSQSQueue() {
 
 ```
 test/
-├── e2e/
+├── tests/e2e/
 │   ├── assets/           # Test data files (videos, images, etc.)
 │   │   └── test-video.mp4
 │   ├── templates/        # Template files for test data generation
@@ -1152,7 +1152,7 @@ func (p *parts) videoHasAssets(expectedCount int) *parts {
 
 ```
 test/
-├── e2e/
+├── tests/e2e/
 │   │   └── encode_task_event.json
 │   ├── .env.test           # Test environment configuration
 │   ├── docker-compose.test.yml

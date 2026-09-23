@@ -46,10 +46,10 @@ When a task is blocked due to issues with specific files, and other files have v
 ---
 Date: 2025-05-29
 Tool: edit_file
-File: e2e/http/scen_e2e_complex_001.hresp
+File: tests/e2e/http/scen_e2e_complex_001.hresp
 Version: N/A
 Mistake:
-The `edit_file` tool (and `reapply`) consistently fails to perform a global search and replace for `X-Request-ID:` to `X-Request-Id:` (or vice-versa) in the `e2e/http/scen_e2e_complex_001.hresp` file. The tool either makes no changes or incorrect partial changes.
+The `edit_file` tool (and `reapply`) consistently fails to perform a global search and replace for `X-Request-ID:` to `X-Request-Id:` (or vice-versa) in the `tests/e2e/http/scen_e2e_complex_001.hresp` file. The tool either makes no changes or incorrect partial changes.
 Resolution:
 No resolution found with current tools for this specific global replace operation in this file. The test failures related to this header case mismatch will be temporarily ignored to focus on other functional issues. Manual correction by the user would be an option but is being avoided per guidelines.
 ---
@@ -57,7 +57,7 @@ No resolution found with current tools for this specific global replace operatio
 ---
 Date: 2025-05-29
 Tool: edit_file
-File: e2e/http/scen_e2e_complex_001.hresp
+File: tests/e2e/http/scen_e2e_complex_001.hresp
 Version: N/A
 Mistake:
 The `edit_file` tool struggles with multi-line edits within JSON structures in `.hresp` files, particularly when adding, removing, and reordering fields. It often fails to apply the changes correctly, removes unintended lines, or makes no changes at all, even with increased context. This was observed when trying to adjust the expected JSON body for response #8 in `scen_e2e_complex_001.hresp` to match the actual server output (add `location` field, ensure `data` field is present, remove/comment `times` field).
@@ -109,7 +109,7 @@ Tool: N/A (Application Logic)
 File: Unimock Core Logic (not a specific file, but general behavior)
 Version: N/A
 Mistake:
-Identified an application bug: When a scenario is defined via `POST /_uni/scenarios` including a `Headers` map, these headers are not returned by the Unimock application when the scenario is matched and served. This was observed in the existing E2E test `TestSCEN_E2E_COMPLEX_001` (in `e2e/complex_lifecycle_test.go`), specifically in `Step7_VerifyScenarioActive`, where an expected header `X-Scenario-Source` was not present in the actual response.
+Identified an application bug: When a scenario is defined via `POST /_uni/scenarios` including a `Headers` map, these headers are not returned by the Unimock application when the scenario is matched and served. This was observed in the existing E2E test `TestSCEN_E2E_COMPLEX_001` (in `tests/e2e/complex_lifecycle_test.go`), specifically in `Step7_VerifyScenarioActive`, where an expected header `X-Scenario-Source` was not present in the actual response.
 Resolution:
 This is an application bug that needs to be addressed in the Unimock core logic. A new task should be created to investigate and fix this behavior. The E2E test `TestSCEN_E2E_COMPLEX_001` correctly identifies this issue. For now, this test will continue to fail until the application bug is resolved.
 ---
