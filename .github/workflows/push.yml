@@ -3,10 +3,15 @@ name: Push
 on:
   push:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Push tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         go-version: [ '1.26', '1.27' ]
@@ -27,25 +32,46 @@ jobs:
         make install-gotestsum
         gotestsum --junitfile unit-tests.xml -- -covermode=atomic -coverprofile=coverage.out ./pkg/... ./internal/...
 
-    - name: Publish coverage badge (Go 1.27 + master only)
+    - name: Compute coverage (Go 1.27 + master only)
       if: matrix.go-version == '1.27' && github.ref == 'refs/heads/master'
       run: |
         PCT=$(go tool cover -func=coverage.out | awk '/total/ {gsub("%",""); print $3}')
         COLOR=brightgreen; awk -v p="$PCT" 'BEGIN{exit !(p<80)}' && COLOR=green
         awk -v p="$PCT" 'BEGIN{exit !(p<60)}' && COLOR=yellow
-        mkdir -p /tmp/badges
-        printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}' "$PCT" "$COLOR" > /tmp/badges/coverage.json
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git fetch origin gh-pages --depth=1 2>/dev/null || true
-        if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
+        printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}' "$PCT" "$COLOR" > coverage.json
+        echo "coverage=$PCT" >> "$GITHUB_OUTPUT"
+      id: cov
+
+    - name: Upload coverage badge artifact
+      if: matrix.go-version == '1.27' && github.ref == 'refs/heads/master'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: coverage-badge
+        path: coverage.json
+
+  publish-coverage-badge:
+    name: Publish coverage badge
+    needs: test
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # update gh-pages badge JSON only
+    steps:
+      - name: Download badge artifact
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: coverage-badge
+
+      - name: Push badge to gh-pages
+        env:
+          PCT: ${{ steps.cov.outputs.coverage }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages --depth=1
           git checkout -B gh-pages origin/gh-pages
-        else
-          git checkout --orphan gh-pages
-          git rm -rf . >/dev/null 2>&1 || true
-        fi
-        mkdir -p badges
-        cp /tmp/badges/coverage.json badges/coverage.json
-        git add badges/coverage.json
-        git commit -m "chore(badges): coverage $PCT%" --allow-empty
-        git push origin gh-pages
+          mkdir -p badges
+          cp coverage.json badges/coverage.json
+          git add badges/coverage.json
+          git commit -m "chore(badges): coverage $PCT" --allow-empty
+          git push origin gh-pages
