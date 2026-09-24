@@ -1,13 +1,13 @@
 ---
 # unimock-rcnf
 title: SSE/NDJSON streaming scenario responses (v1)
-status: in-progress
+status: completed
 type: task
 priority: normal
 tags:
     - feature
 created_at: 2026-09-24T13:19:20Z
-updated_at: 2026-09-24T15:10:08Z
+updated_at: 2026-09-24T18:23:25Z
 parent: unimock-xu0n
 ---
 
