@@ -62,11 +62,15 @@ func setupTestRouter(_ *testing.T) (*router.Router, *service.ScenarioService) {
 
 	// Create handlers
 	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, cfg)
-	techHandler := handler.NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger, nil)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	// Create router
-	appRouter := router.NewRouter(uniHandler, techHandler, scenarioHandler, scenarioService, techService, logger, cfg)
+	appRouter := router.NewRouter(
+		uniHandler, techHandler, scenarioHandler,
+		scenarioService, techService, logger, cfg,
+		router.Deps{StreamWriter: handler.NewStreamWriter(logger)},
+	)
 
 	return appRouter, scenarioService
 }

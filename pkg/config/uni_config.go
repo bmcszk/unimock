@@ -4,7 +4,9 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,6 +72,129 @@ type ScenarioConfig struct {
 
 	// Headers contains additional HTTP headers to include in the response
 	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+
+	// Webhook optionally fires an outbound HTTP request after this scenario matches.
+	Webhook *WebhookConfig `yaml:"webhook,omitempty" json:"webhook,omitempty"`
+
+	// Stream optionally emits a server-generated stream (SSE or NDJSON) instead of
+	// writing Data. Mutually exclusive with Data at validation time.
+	Stream *StreamConfig `yaml:"stream,omitempty" json:"stream,omitempty"`
+}
+
+// StreamConfig mirrors model.StreamConfig for YAML deserialization and validation.
+// The definition lives in stream_config.go; it is referenced from ScenarioConfig.
+
+// WebhookConfig mirrors model.WebhookConfig for YAML deserialization and validation.
+// Secret values are NEVER accepted inline; only the env var name is permitted.
+type WebhookConfig struct {
+	// URL is the absolute target URL the webhook is delivered to.
+	URL string `yaml:"url" json:"url"`
+
+	// Method is the HTTP method used for delivery. Defaults to POST. POST/PUT/PATCH only.
+	Method string `yaml:"method,omitempty" json:"method,omitempty"`
+
+	// Headers are extra HTTP headers sent with each delivery attempt.
+	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+
+	// Body is the request body sent to the target URL. "{{uuid}}" is replaced per attempt.
+	Body string `yaml:"body,omitempty" json:"body,omitempty"`
+
+	// SecretEnv is the name of the environment variable holding the HMAC secret.
+	// The secret value itself is never accepted inline.
+	SecretEnv string `yaml:"secret_env,omitempty" json:"secret_env,omitempty"`
+
+	// MaxAttempts is the maximum total delivery attempts including the first. Default 3.
+	MaxAttempts int `yaml:"max_attempts,omitempty" json:"max_attempts,omitempty"`
+
+	// BaseMS is the base backoff in milliseconds. Default 500.
+	BaseMS int `yaml:"base_ms,omitempty" json:"base_ms,omitempty"`
+
+	// MaxMS caps the backoff delay in milliseconds. Default 30000.
+	MaxMS int `yaml:"max_ms,omitempty" json:"max_ms,omitempty"`
+}
+
+// allowedWebhookMethods is the set of HTTP methods the dispatcher is allowed to use.
+var allowedWebhookMethods = map[string]struct{}{
+	httpMethodPOST:  {},
+	httpMethodPUT:   {},
+	httpMethodPATCH: {},
+}
+
+// HTTP method constants used in webhook validation (avoid pulling net/http into config's API surface).
+const (
+	httpMethodPOST  = "POST"
+	httpMethodPUT   = "PUT"
+	httpMethodPATCH = "PATCH"
+)
+
+// validate verifies the webhook configuration is acceptable. It returns the first error found.
+// Used both when parsing YAML with strict known-fields and when checking config-derived values.
+func (w *WebhookConfig) validate() error {
+	if w == nil {
+		return nil
+	}
+	if err := w.validateURL(); err != nil {
+		return err
+	}
+	if err := w.validateMethod(); err != nil {
+		return err
+	}
+	return w.validateRetries()
+}
+
+// validateURL checks the URL field parses and has a scheme + host.
+func (w *WebhookConfig) validateURL() error {
+	if strings.TrimSpace(w.URL) == "" {
+		return errors.New("webhook: url is required")
+	}
+	parsed, err := url.Parse(w.URL)
+	if err != nil {
+		return fmt.Errorf("webhook: invalid url %q: %w", w.URL, err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("webhook: invalid url %q: must include scheme and host", w.URL)
+	}
+	return nil
+}
+
+// validateMethod enforces the POST/PUT/PATCH allowlist and normalizes empty method to POST.
+func (w *WebhookConfig) validateMethod() error {
+	method := strings.ToUpper(strings.TrimSpace(w.Method))
+	if method == "" {
+		method = httpMethodPOST
+	}
+	if _, ok := allowedWebhookMethods[method]; !ok {
+		return fmt.Errorf("webhook: method %q not allowed (must be POST, PUT, or PATCH)", w.Method)
+	}
+	return nil
+}
+
+// validateRetries checks the retry-related fields are non-negative.
+func (w *WebhookConfig) validateRetries() error {
+	if w.MaxAttempts < 0 {
+		return fmt.Errorf("webhook: maxAttempts must be >= 0, got %d", w.MaxAttempts)
+	}
+	if w.BaseMS < 0 {
+		return fmt.Errorf("webhook: baseMs must be >= 0, got %d", w.BaseMS)
+	}
+	if w.MaxMS < 0 {
+		return fmt.Errorf("webhook: maxMs must be >= 0, got %d", w.MaxMS)
+	}
+	return nil
+}
+
+// webhookYAMLKeys is the closed allowlist of YAML keys under `webhook:`.
+// Any key not listed is rejected by the strict YAML decoder to prevent
+// inline `secret` and other unintended fields from sneaking in.
+var webhookYAMLKeys = map[string]struct{}{
+	"url":          {},
+	"method":       {},
+	"headers":      {},
+	"body":         {},
+	"secret_env":   {},
+	"max_attempts": {},
+	"base_ms":      {},
+	"max_ms":       {},
 }
 
 // ToModelScenario converts a ScenarioConfig to a model.Scenario
@@ -99,7 +224,7 @@ func (sf *ScenarioConfig) ToModelScenario(fixtureResolver *FixtureResolver) mode
 	// Combine method and path into RequestPath format
 	requestPath := fmt.Sprintf("%s %s", strings.ToUpper(sf.Method), sf.Path)
 
-	return model.Scenario{
+	scenario := model.Scenario{
 		UUID:        sf.UUID, // Will be auto-generated by scenario service if empty
 		RequestPath: requestPath,
 		StatusCode:  statusCode,
@@ -107,6 +232,33 @@ func (sf *ScenarioConfig) ToModelScenario(fixtureResolver *FixtureResolver) mode
 		Location:    sf.Location,
 		Data:        data,
 		Headers:     sf.Headers,
+	}
+	if sf.Webhook != nil {
+		scenario.Webhook = sf.Webhook.toModel()
+	}
+	if sf.Stream != nil {
+		scenario.Stream = sf.Stream.toModel()
+	}
+	return scenario
+}
+
+// toModel converts the config webhook into the runtime model representation.
+// The Method is normalized to upper case; default POST is applied here so the
+// dispatcher can rely on it.
+func (w *WebhookConfig) toModel() *model.WebhookConfig {
+	method := strings.ToUpper(strings.TrimSpace(w.Method))
+	if method == "" {
+		method = httpMethodPOST
+	}
+	return &model.WebhookConfig{
+		URL:         w.URL,
+		Method:      method,
+		Headers:     w.Headers,
+		Body:        w.Body,
+		SecretEnv:   w.SecretEnv,
+		MaxAttempts: w.MaxAttempts,
+		BaseMS:      w.BaseMS,
+		MaxMS:       w.MaxMS,
 	}
 }
 
@@ -209,43 +361,221 @@ func LoadFromYAML(path string) (*UniConfig, error) {
 		return nil, err
 	}
 
-	// Try to parse as unified format first (with explicit sections and scenarios)
-	config := NewUniConfig()
-	decoder := yaml.NewDecoder(bytes.NewReader(data))
-	decoder.KnownFields(false) // Disable strict mode for format detection
-
-	unifiedErr := decoder.Decode(config)
-	if unifiedErr == nil && (len(config.Sections) > 0 || len(config.Scenarios) > 0) {
-		// Successfully parsed as unified format
-		config.Normalize()
-		config.initializeFixtureResolver(filepath.Dir(path))
-		return config, nil
+	cfg, unifiedErr := tryUnifiedFormat(data)
+	if unifiedErr == nil {
+		return finalizeUnifiedConfig(cfg, data, path)
 	}
-
-	// Fall back to legacy format (sections as inline root-level keys)
-	config = NewUniConfig()
-
-	// For legacy format, we need to parse sections as inline root-level keys
-	// Create a temporary struct with inline sections
-	var legacyConfig struct {
-		Sections map[string]Section `yaml:",inline"`
+	if legacyCfg, legacyErr := tryLegacyFormat(data); legacyErr == nil {
+		legacyCfg.initializeFixtureResolver(filepath.Dir(path))
+		return legacyCfg, nil
 	}
-	legacyConfig.Sections = make(map[string]Section)
+	// Surface the unified error for better debugging when both formats fail.
+	return nil, unifiedErr
+}
 
-	decoder = yaml.NewDecoder(bytes.NewReader(data))
-	decoder.KnownFields(true) // Enable strict mode for legacy format
-
-	if err := decoder.Decode(&legacyConfig); err != nil {
-		// If both formats failed, return the unified format error for better debugging
-		if unifiedErr != nil {
-			return nil, unifiedErr
-		}
+// finalizeUnifiedConfig runs the webhook-aware validation, normalization and
+// fixture resolver initialization on a successfully unified-parsed config.
+func finalizeUnifiedConfig(cfg *UniConfig, rawYAML []byte, path string) (*UniConfig, error) {
+	if err := checkScenarioKeysInYAML(rawYAML); err != nil {
 		return nil, err
 	}
+	if err := cfg.validateScenarios(); err != nil {
+		return nil, err
+	}
+	cfg.Normalize()
+	cfg.initializeFixtureResolver(filepath.Dir(path))
+	return cfg, nil
+}
 
-	config.Sections = legacyConfig.Sections
-	config.initializeFixtureResolver(filepath.Dir(path))
-	return config, nil
+// tryUnifiedFormat attempts to decode the YAML as the unified format with a loose
+// decoder (preserves backward compatibility with unknown top-level fields) and
+// returns the parsed config along with any decode error.
+func tryUnifiedFormat(data []byte) (*UniConfig, error) {
+	cfg := NewUniConfig()
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(false)
+	if err := decoder.Decode(cfg); err != nil {
+		return nil, err
+	}
+	if len(cfg.Sections) == 0 && len(cfg.Scenarios) == 0 {
+		return nil, errors.New("not unified format")
+	}
+	return cfg, nil
+}
+
+// tryLegacyFormat attempts to decode the YAML as the legacy format where sections
+// appear at the root level. Uses a strict decoder to catch typos.
+func tryLegacyFormat(data []byte) (*UniConfig, error) {
+	var legacy struct {
+		Sections map[string]Section `yaml:",inline"`
+	}
+	legacy.Sections = make(map[string]Section)
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&legacy); err != nil {
+		return nil, err
+	}
+	cfg := NewUniConfig()
+	cfg.Sections = legacy.Sections
+	return cfg, nil
+}
+
+// checkScenarioKeysInYAML parses the YAML document and rejects any unknown keys
+// under a `webhook:` or `stream:` mapping on a scenario. This is what makes the
+// inline `secret:` and any other unknown webhook/stream field produce a clear
+// error at config load time, while keeping the rest of the top-level decoder
+// loose for backward compatibility with existing scenario schemas that may use
+// legacy fields.
+func checkScenarioKeysInYAML(data []byte) error {
+	rootNode, err := decodeRootNode(data)
+	if err != nil || rootNode == nil {
+		return err
+	}
+	scenariosNode := findChildMappingValue(rootNode, "scenarios")
+	if scenariosNode == nil || scenariosNode.Kind != yaml.SequenceNode {
+		return nil
+	}
+	return checkEachScenarioKeys(scenariosNode)
+}
+
+// checkEachScenarioKeys dispatches per-scenario sub-mapping key checks for
+// every entry in scenariosNode.
+func checkEachScenarioKeys(scenariosNode *yaml.Node) error {
+	for sIdx, scn := range scenariosNode.Content {
+		if err := checkScenarioWebhookKeys(scn, sIdx); err != nil {
+			return err
+		}
+		if err := checkScenarioStreamKeys(scn, sIdx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkScenarioStreamKeys scans a scenario mapping node for a `stream:` sub-mapping
+// and rejects any key outside the streamYAMLKeys allowlist with a clear error.
+func checkScenarioStreamKeys(scn *yaml.Node, sIdx int) error {
+	if scn == nil || scn.Kind != yaml.MappingNode {
+		return nil
+	}
+	streamNode := findChildMappingValue(scn, "stream")
+	if streamNode == nil || streamNode.Kind != yaml.MappingNode {
+		return nil
+	}
+	return rejectUnknownStreamKeys(streamNode, sIdx)
+}
+
+// rejectUnknownStreamKeys returns an error for the first key in streamNode that
+// is not in the streamYAMLKeys allowlist.
+func rejectUnknownStreamKeys(streamNode *yaml.Node, sIdx int) error {
+	for j := 0; j+1 < len(streamNode.Content); j += 2 {
+		whKeyNode := streamNode.Content[j]
+		whKey := whKeyNode.Value
+		if _, ok := streamYAMLKeys[whKey]; ok {
+			continue
+		}
+		return fmt.Errorf("scenarios[%d]: stream: unknown field %q at line %d "+
+			"(allowed: format, interval_ms, event_count, hold_open, template)",
+			sIdx, whKey, whKeyNode.Line)
+	}
+	return nil
+}
+
+// decodeRootNode unmarshals the YAML into a single root node for inspection.
+func decodeRootNode(data []byte) (*yaml.Node, error) {
+	var rootNode yaml.Node
+	if err := yaml.Unmarshal(data, &rootNode); err != nil {
+		return nil, err
+	}
+	if rootNode.Kind != yaml.DocumentNode || len(rootNode.Content) == 0 {
+		return nil, nil
+	}
+	if rootNode.Content[0].Kind != yaml.MappingNode {
+		return nil, nil
+	}
+	return rootNode.Content[0], nil
+}
+
+// findChildMappingValue returns the value node for the given key in a mapping node,
+// or nil if not found.
+func findChildMappingValue(mapping *yaml.Node, key string) *yaml.Node {
+	if mapping == nil {
+		return nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			return mapping.Content[i+1]
+		}
+	}
+	return nil
+}
+
+// checkScenarioWebhookKeys scans a scenario mapping node for a `webhook:` sub-mapping
+// and rejects any key outside the webhookYAMLKeys allowlist with a clear error.
+func checkScenarioWebhookKeys(scn *yaml.Node, sIdx int) error {
+	if scn == nil || scn.Kind != yaml.MappingNode {
+		return nil
+	}
+	webhookNode := findChildMappingValue(scn, "webhook")
+	if webhookNode == nil || webhookNode.Kind != yaml.MappingNode {
+		return nil
+	}
+	return rejectUnknownWebhookKeys(webhookNode, sIdx)
+}
+
+// rejectUnknownWebhookKeys returns an error for the first key in webhookNode that
+// is not in the webhookYAMLKeys allowlist.
+func rejectUnknownWebhookKeys(webhookNode *yaml.Node, sIdx int) error {
+	for j := 0; j+1 < len(webhookNode.Content); j += 2 {
+		whKeyNode := webhookNode.Content[j]
+		whKey := whKeyNode.Value
+		if _, ok := webhookYAMLKeys[whKey]; ok {
+			continue
+		}
+		return fmt.Errorf("scenarios[%d]: webhook: unknown field %q at line %d "+
+			"(allowed: url, method, headers, body, secret_env, max_attempts, base_ms, max_ms)",
+			sIdx, whKey, whKeyNode.Line)
+	}
+	return nil
+}
+
+// validateScenarios runs webhook-level and stream-level validation on every
+// scenario in the config. Stream and Data are mutually exclusive: if both are
+// set on a scenario, validation fails.
+func (uc *UniConfig) validateScenarios() error {
+	for i, sc := range uc.Scenarios {
+		if err := validateOneScenario(i, sc); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateOneScenario validates webhook, stream and the stream/data exclusivity
+// constraint for a single scenario at index i.
+func validateOneScenario(i int, sc ScenarioConfig) error {
+	if sc.Webhook != nil {
+		if err := sc.Webhook.validate(); err != nil {
+			return fmt.Errorf("scenarios[%d] (path=%q): %w", i, sc.Path, err)
+		}
+	}
+	if sc.Stream != nil {
+		if err := sc.Stream.validate(); err != nil {
+			return fmt.Errorf("scenarios[%d] (path=%q): %w", i, sc.Path, err)
+		}
+	}
+	if hasStreamAndData(sc) {
+		return fmt.Errorf(
+			"scenarios[%d] (path=%q): stream and data are mutually exclusive",
+			i, sc.Path,
+		)
+	}
+	return nil
+}
+
+// hasStreamAndData reports whether the scenario has both stream and data set.
+func hasStreamAndData(sc ScenarioConfig) bool {
+	return sc.Stream != nil && strings.TrimSpace(sc.Data) != ""
 }
 
 // initializeFixtureResolver sets up the fixture resolver with the configuration file's directory
