@@ -7,21 +7,29 @@ import (
 	"strings"
 
 	"github.com/bmcszk/unimock/internal/service"
+	"github.com/bmcszk/unimock/internal/webhooks"
 )
 
 // TechHandler handles technical endpoints like health checks and metrics
 type TechHandler struct {
-	prefix  string
-	service *service.TechService
-	logger  *slog.Logger
+	prefix        string
+	service       *service.TechService
+	logger        *slog.Logger
+	deliveries    *webhooks.Ring
 }
 
-// NewTechHandler creates a new instance of TechHandler
-func NewTechHandler(techSvc *service.TechService, logger *slog.Logger) *TechHandler {
+// NewTechHandler creates a new instance of TechHandler. The deliveries ring may
+// be nil — in that case the webhook deliveries endpoint returns an empty array.
+func NewTechHandler(
+	techSvc *service.TechService,
+	logger *slog.Logger,
+	deliveries *webhooks.Ring,
+) *TechHandler {
 	return &TechHandler{
-		prefix:  "/_uni/",
-		service: techSvc,
-		logger:  logger,
+		prefix:     "/_uni/",
+		service:    techSvc,
+		logger:     logger,
+		deliveries: deliveries,
 	}
 }
 
@@ -46,9 +54,24 @@ func (h *TechHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handleHealthCheck(w, r)
 	case "metrics":
 		h.handleMetrics(w, r)
+	case "webhooks/deliveries":
+		h.handleWebhookDeliveries(w, r)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// handleWebhookDeliveries returns the JSON-encoded snapshot of webhook deliveries.
+// Returns an empty array (not null) when the ring is empty or nil.
+func (h *TechHandler) handleWebhookDeliveries(w http.ResponseWriter, _ *http.Request) {
+	var records []webhooks.Delivery
+	if h.deliveries != nil {
+		records = h.deliveries.Snapshot()
+	}
+	if records == nil {
+		records = []webhooks.Delivery{}
+	}
+	h.writeJSONResponse(w, records)
 }
 
 // handleHealthCheck returns the health status of the service

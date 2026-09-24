@@ -1,6 +1,8 @@
 package router
 
 import (
+	"bytes"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -8,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/bmcszk/unimock/internal/service"
+	"github.com/bmcszk/unimock/internal/webhooks"
 	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/bmcszk/unimock/pkg/model"
 )
@@ -16,36 +19,45 @@ const (
 	pathLogKey = "path"
 )
 
+// maxDispatchBodyCapture is the upper bound on request body bytes retained for
+// webhook payloads. Bodies larger than this are truncated to keep memory bounded.
+const maxDispatchBodyCapture = 1 << 20 // 1 MiB
+
 // Router wraps a Chi router with scenario handling capabilities
 type Router struct {
-	router          chi.Router
-	uniHandler      http.Handler
-	techHandler     http.Handler
-	scenarioHandler http.Handler
-	scenarioService *service.ScenarioService
-	techService     *service.TechService
-	logger          *slog.Logger
-	uniConfig      *config.UniConfig
+	router           chi.Router
+	uniHandler       http.Handler
+	techHandler      http.Handler
+	scenarioHandler  http.Handler
+	scenarioService  *service.ScenarioService
+	techService      *service.TechService
+	logger           *slog.Logger
+	uniConfig        *config.UniConfig
+	webhookDispatcher *webhooks.Dispatcher
 }
 
-// NewRouter creates a new Router instance with Chi
+// NewRouter creates a new Router instance with Chi. The webhookDispatcher may be
+// nil; in that case scenarios with a Webhook config are still served but no
+// outbound delivery is attempted.
 func NewRouter(
-	uniHandler, techHandler, scenarioHandler http.Handler, 
-	scenarioService *service.ScenarioService, 
+	uniHandler, techHandler, scenarioHandler http.Handler,
+	scenarioService *service.ScenarioService,
 	techService *service.TechService,
-	logger *slog.Logger, 
+	logger *slog.Logger,
 	uniConfig *config.UniConfig,
+	webhookDispatcher *webhooks.Dispatcher,
 ) *Router {
 	r := &Router{
-		uniHandler:      uniHandler,
-		techHandler:     techHandler,
-		scenarioHandler: scenarioHandler,
-		scenarioService: scenarioService,
-		techService:     techService,
-		logger:          logger,
-		uniConfig:      uniConfig,
+		uniHandler:        uniHandler,
+		techHandler:       techHandler,
+		scenarioHandler:   scenarioHandler,
+		scenarioService:   scenarioService,
+		techService:       techService,
+		logger:            logger,
+		uniConfig:         uniConfig,
+		webhookDispatcher: webhookDispatcher,
 	}
-	
+
 	r.setupRoutes()
 	return r
 }
@@ -133,26 +145,67 @@ func (*Router) normalizePath(path string) string {
 func (r *Router) scenarioMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		requestPath := r.normalizePath(req.URL.Path)
-		
+
 		// Skip scenario matching for technical endpoints
 		if strings.HasPrefix(requestPath, "/_uni/") {
 			next.ServeHTTP(w, req)
 			return
 		}
-		
+
 		scenario, found := r.scenarioService.GetScenarioByPath(req.Context(), requestPath, req.Method)
 		if found {
 			r.logger.Info("found matching scenario",
 				"method", req.Method,
 				pathLogKey, requestPath,
 				"uuid", scenario.UUID)
-			
+
+			r.maybeDispatchScenarioWebhook(req, scenario)
 			r.writeScenarioResponse(w, req, scenario)
 			return
 		}
-		
+
 		next.ServeHTTP(w, req)
 	})
+}
+
+// maybeDispatchScenarioWebhook fires the scenario's webhook asynchronously when one
+// is configured and a dispatcher is wired in. The request body is read once (and
+// restored on the request) so the downstream handler still sees it intact.
+func (r *Router) maybeDispatchScenarioWebhook(req *http.Request, scenario model.Scenario) {
+	if scenario.Webhook == nil {
+		return
+	}
+	if r.webhookDispatcher == nil {
+		if r.logger != nil {
+			r.logger.Warn("scenario has webhook but no dispatcher is wired",
+				"scenario_uuid", scenario.UUID, "webhook_url", scenario.Webhook.URL)
+		}
+		return
+	}
+	body := captureRequestBody(req)
+	requestPath := r.normalizePath(req.URL.Path)
+	r.webhookDispatcher.Dispatch(req.Context(), scenario.Webhook, req.Method+" "+requestPath, body, nil)
+}
+
+// captureRequestBody returns the request body bytes (capped) and restores the
+// body so subsequent handlers can still read it. Errors are tolerated: the body
+// is simply treated as empty.
+func captureRequestBody(req *http.Request) []byte {
+	if req.Body == nil {
+		return nil
+	}
+	defer func() {
+		_ = req.Body.Close()
+	}()
+	limited := io.LimitReader(req.Body, maxDispatchBodyCapture)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil
+	}
+	// Restore body for any subsequent handler.
+	req.Body = io.NopCloser(bytes.NewReader(data))
+	req.ContentLength = int64(len(data))
+	return data
 }
 
 // writeScenarioResponse writes the scenario response
