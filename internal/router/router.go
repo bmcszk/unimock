@@ -7,13 +7,14 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/webhooks"
 	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/bmcszk/unimock/pkg/model"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 const (
@@ -23,6 +24,14 @@ const (
 // maxDispatchBodyCapture is the upper bound on request body bytes retained for
 // webhook payloads. Bodies larger than this are truncated to keep memory bounded.
 const maxDispatchBodyCapture = 1 << 20 // 1 MiB
+
+// webhookDispatchTimeout bounds the lifetime of a scenario-triggered webhook
+// dispatch. It is large enough to cover the worst-case retry envelope
+// (defaultMaxAttempts x (httpClientTimeout + backoff cap)) with headroom so
+// that delivery is never truncated by the caller's request lifecycle.
+// The dispatch context is detached from req.Context() via WithoutCancel so that
+// a fast/disconnecting client does not cancel in-flight delivery.
+const webhookDispatchTimeout = 60 * time.Second
 
 // StreamResponseWriter is the contract the router needs from a stream writer
 // implementation. Defined here so tests can supply a fake without depending on
@@ -44,15 +53,15 @@ type Deps struct {
 
 // Router wraps a Chi router with scenario handling capabilities
 type Router struct {
-	router            chi.Router
-	uniHandler        http.Handler
-	techHandler       http.Handler
-	scenarioHandler   http.Handler
-	scenarioService   *service.ScenarioService
-	techService       *service.TechService
-	logger            *slog.Logger
-	uniConfig         *config.UniConfig
-	deps              Deps
+	router          chi.Router
+	uniHandler      http.Handler
+	techHandler     http.Handler
+	scenarioHandler http.Handler
+	scenarioService *service.ScenarioService
+	techService     *service.TechService
+	logger          *slog.Logger
+	uniConfig       *config.UniConfig
+	deps            Deps
 }
 
 // NewRouter creates a new Router instance with Chi. deps may have nil fields;
@@ -84,20 +93,20 @@ func NewRouter(
 // setupRoutes configures the Chi router with all routes and middleware
 func (r *Router) setupRoutes() {
 	r.router = chi.NewRouter()
-	
+
 	// Add middleware
 	r.router.Use(middleware.RequestID)
 	r.router.Use(r.loggingMiddleware)
 	r.router.Use(r.metricsMiddleware)
 	r.router.Use(middleware.Recoverer)
-	
+
 	// Add scenario handling middleware (runs before route matching)
 	r.router.Use(r.scenarioMiddleware)
-	
+
 	// Technical endpoints (/_uni/*)
 	r.router.Mount("/_uni/scenarios", r.scenarioHandler)
 	r.router.Mount("/_uni", r.techHandler)
-	
+
 	// Catch-all route for uni handler (must be last)
 	r.router.HandleFunc("/*", r.uniHandlerFunc)
 }
@@ -122,19 +131,19 @@ func (r *Router) loggingMiddleware(next http.Handler) http.Handler {
 func (r *Router) metricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		requestPath := r.normalizePath(req.URL.Path)
-		
+
 		// Create a response writer wrapper to capture status code
 		ww := &responseWriter{
 			ResponseWriter: w,
 			statusCode:     200, // default status code
 		}
-		
+
 		// Increment request count before processing
 		r.techService.IncrementRequestCount(req.Context(), requestPath)
-		
+
 		// Process request
 		next.ServeHTTP(ww, req)
-		
+
 		// Track response after processing
 		r.techService.TrackResponse(req.Context(), requestPath, ww.statusCode)
 	})
@@ -202,6 +211,18 @@ func (r *Router) scenarioMiddleware(next http.Handler) http.Handler {
 // maybeDispatchScenarioWebhook fires the scenario's webhook asynchronously when one
 // is configured and a dispatcher is wired in. The request body is read once (and
 // restored on the request) so the downstream handler still sees it intact.
+//
+// The dispatch context is detached from req.Context() (via context.WithoutCancel)
+// so that the async delivery goroutine is not killed when the caller's request
+// returns and the underlying connection is recycled. The detached context still
+// carries req-scoped values for downstream consumers and is wrapped with
+// webhookDispatchTimeout so that a hanging receiver cannot leak the goroutine
+// indefinitely.
+//
+// cancel is registered as the dispatcher's onComplete callback so that the
+// dispatchCtx is canceled when (and only when) the async delivery terminates;
+// using defer cancel here would be wrong because the dispatch goroutine outlives
+// this handler frame.
 func (r *Router) maybeDispatchScenarioWebhook(req *http.Request, scenario model.Scenario) {
 	if scenario.Webhook == nil {
 		return
@@ -215,7 +236,8 @@ func (r *Router) maybeDispatchScenarioWebhook(req *http.Request, scenario model.
 	}
 	body := captureRequestBody(req)
 	requestPath := r.normalizePath(req.URL.Path)
-	r.deps.WebhookDispatcher.Dispatch(req.Context(), scenario.Webhook, req.Method+" "+requestPath, body, nil)
+	dispatchCtx, cancel := context.WithTimeout(context.WithoutCancel(req.Context()), webhookDispatchTimeout)
+	r.deps.WebhookDispatcher.Dispatch(dispatchCtx, scenario.Webhook, req.Method+" "+requestPath, body, cancel)
 }
 
 // captureRequestBody returns the request body bytes (capped) and restores the
@@ -309,7 +331,7 @@ func applyScenarioHeaders(w http.ResponseWriter, scenario model.Scenario) {
 // uniHandlerFunc wraps the uni handler with path validation
 func (r *Router) uniHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	requestPath := r.normalizePath(req.URL.Path)
-	
+
 	if r.uniConfig == nil {
 		r.logger.Error("router's uniConfig is nil", pathLogKey, requestPath)
 		http.Error(w, "server configuration error", http.StatusInternalServerError)
@@ -322,7 +344,7 @@ func (r *Router) uniHandlerFunc(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "error processing request path configuration", http.StatusInternalServerError)
 		return
 	}
-	
+
 	if section == nil {
 		r.logger.Warn("no matching section found for path in router", pathLogKey, requestPath)
 		http.Error(w, "Not Found: No matching mock configuration or active scenario for path", http.StatusNotFound)
@@ -332,4 +354,3 @@ func (r *Router) uniHandlerFunc(w http.ResponseWriter, req *http.Request) {
 	r.logger.Debug("routing to uni handler", pathLogKey, requestPath)
 	r.uniHandler.ServeHTTP(w, req)
 }
-

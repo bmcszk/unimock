@@ -502,3 +502,59 @@ func TestDispatcher_NilOnCompleteIsTolerated(t *testing.T) {
 	d.Dispatch(context.Background(), wh, "POST /x", nil, nil)
 	waitFor(t, 2*time.Second, func() bool { return len(d.Snapshot()) == 1 })
 }
+
+// TestDispatcher_ParentContextTimeoutBoundsDelivery verifies the WithTimeout
+// path that the router relies on (bean unimock-ae8a AC #4). A short-timeout
+// parent context is passed to Dispatch; the receiver hangs and accepts but
+// never responds. The dispatch goroutine MUST terminate within the timeout
+// window instead of leaking forever. This is the "test WithTimeout path
+// directly" approach the bean recommends since webhookDispatchTimeout is a
+// 60-second package const that cannot be overridden per-call.
+func TestDispatcher_ParentContextTimeoutBoundsDelivery(t *testing.T) {
+	// Receiver that accepts the connection, reads the request, then blocks
+	// until its own context is canceled (which happens when the client closes
+	// the request). This is a real hang — no 200 response is ever written.
+	hanging := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		<-r.Context().Done()
+	}))
+	defer hanging.Close()
+
+	d := webhooks.NewDispatcher(quietLogger(), webhooks.NewRing(10))
+	wh := &model.WebhookConfig{
+		URL:         hanging.URL,
+		Method:      "POST",
+		MaxAttempts: 1,
+		BaseMS:      1,
+		MaxMS:       5,
+	}
+
+	// Use a tight 300ms parent timeout so the test runs in well under a second.
+	// This mirrors the contract the router relies on: dispatchCtx has a
+	// deadline that bounds the async goroutine lifetime.
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+
+	done := make(chan struct{})
+	d.Dispatch(ctx, wh, "POST /hang", []byte(`{}`), func() { close(done) })
+
+	select {
+	case <-done:
+		// Delivery terminated within the timeout window.
+	case <-time.After(3 * time.Second):
+		t.Fatal("dispatch goroutine did not terminate within 3s of parent ctx timeout")
+	}
+
+	records := d.Snapshot()
+	if len(records) == 0 {
+		t.Fatal("expected at least one delivery record after bounded dispatch")
+	}
+	if records[0].Error == "" {
+		t.Errorf("expected non-empty error after ctx timeout, got %+v", records[0])
+	}
+	if !strings.Contains(strings.ToLower(records[0].Error), "context") &&
+		!strings.Contains(strings.ToLower(records[0].Error), "deadline") &&
+		!strings.Contains(strings.ToLower(records[0].Error), "canceled") {
+		t.Errorf("expected ctx-derived error, got %q", records[0].Error)
+	}
+}

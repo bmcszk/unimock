@@ -6,9 +6,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,6 +38,19 @@ type parts struct {
 	server           *http.Server
 	responses        []any
 	configFile       string
+
+	// Webhook E2E state. webhookMu guards webhookRequests and webhookFailCount.
+	webhookMu        sync.Mutex
+	webhookReceiver  *httptest.Server
+	webhookRequests  []receivedWebhook
+	webhookFailCount int
+
+	// Streaming E2E state. streamingResponse/body stay open until the test
+	// finishes reading or cancels via streamingCancel.
+	streamingResponse *http.Response
+	streamingCancel   context.CancelFunc
+	streamingCT       string
+	streamingBody     string
 }
 
 func newParts(t *testing.T) (given *parts, when *parts, then *parts) {
