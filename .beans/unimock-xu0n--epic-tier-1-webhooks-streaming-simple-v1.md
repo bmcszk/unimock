@@ -1,13 +1,13 @@
 ---
 # unimock-xu0n
 title: 'Epic: tier-1 webhooks + streaming (simple v1)'
-status: todo
+status: completed
 type: feature
 priority: normal
 tags:
     - epic
 created_at: 2026-09-24T13:17:45Z
-updated_at: 2026-09-24T13:18:54Z
+updated_at: 2026-09-24T18:23:27Z
 ---
 
 # Epic: Tier-1 differentiators — outbound webhooks + streaming responses (simple v1)
