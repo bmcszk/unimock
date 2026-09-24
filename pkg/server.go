@@ -191,7 +191,10 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 	appRouter := router.NewRouter(
 		uniHandler, techHandler, scenarioHandler,
 		scenarioService, techService, logger, uniConfig,
-		webhookDispatcher,
+		router.Deps{
+			WebhookDispatcher: webhookDispatcher,
+			StreamWriter:      handler.NewStreamWriter(logger),
+		},
 	)
 
 	// Create server

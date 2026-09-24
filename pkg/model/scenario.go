@@ -34,6 +34,38 @@ type Scenario struct {
 	// When nil, no webhook is dispatched. v1 fires exactly one async HTTP request
 	// after the scenario response is sent.
 	Webhook *WebhookConfig `json:"webhook,omitempty"`
+
+	// Stream is the optional server-generated stream response. When non-nil, the
+	// router emits interval-spaced SSE or NDJSON frames instead of writing Data.
+	// Mutually exclusive with Data at config validation time.
+	Stream *StreamConfig `json:"stream,omitempty"`
+}
+
+// StreamConfig describes a server-generated stream response. v1 supports two
+// formats (sse, ndjson) and two termination modes (EventCount frames OR HoldOpen
+// until client disconnect). The Template is rendered per frame with the
+// following placeholders substituted:
+//   - {{index}}     0-based frame index (int)
+//   - {{timestamp}} current time formatted as RFC3339Nano
+type StreamConfig struct {
+	// Format is "sse" (text/event-stream) or "ndjson" (application/x-ndjson).
+	Format string `json:"format"`
+
+	// IntervalMS is the delay between frames in milliseconds. Zero means no sleep.
+	IntervalMS int `json:"intervalMs,omitempty"`
+
+	// EventCount is the number of frames to emit before closing the stream.
+	// Exactly one of EventCount>0 or HoldOpen=true must be set at config validation.
+	EventCount int `json:"eventCount,omitempty"`
+
+	// HoldOpen, when true, keeps the stream open until the client disconnects
+	// (the request context is canceled).
+	HoldOpen bool `json:"holdOpen,omitempty"`
+
+	// Template is the per-frame payload template. Must be non-empty at config
+	// validation. The template is rendered verbatim per frame; only the
+	// documented placeholders are substituted.
+	Template string `json:"template"`
 }
 
 // WebhookConfig describes the outbound webhook triggered when a scenario matches.

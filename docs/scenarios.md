@@ -559,3 +559,43 @@ scenarios:
 ```
 
 Scenarios provide powerful control over your mock responses, enabling comprehensive testing of both happy paths and edge cases.
+
+## Streaming responses
+
+Scenarios can opt into server-generated streaming responses instead of returning a static body. Two formats are supported — SSE (`text/event-stream`) and NDJSON (`application/x-ndjson`) — and the stream terminates either after a fixed number of frames or when the client disconnects.
+
+```yaml
+scenarios:
+  # SSE: emit 5 frames, then close
+  - uuid: "events-feed"
+    method: "GET"
+    path: "/api/events"
+    status_code: 200
+    stream:
+      format: "sse"
+      interval_ms: 100
+      event_count: 5
+      template: |
+        data: {"i":{{index}},"t":"{{timestamp}}"}
+
+  # NDJSON: keep the connection open until the client disconnects
+  - uuid: "logs-feed"
+    method: "GET"
+    path: "/api/logs"
+    status_code: 200
+    stream:
+      format: "ndjson"
+      interval_ms: 250
+      hold_open: true
+      template: '{"i":{{index}},"t":"{{timestamp}}"}'
+```
+
+Semantics:
+
+- **Content-Type** is set by the server from the `format` (`text/event-stream` for SSE, `application/x-ndjson` for NDJSON); `content_type` on the scenario is ignored when `stream` is set. `Cache-Control: no-cache` and `X-Accel-Buffering: no` are added automatically so proxies don't buffer frames.
+- **Flush per frame** — `http.Flusher` is invoked after every frame, so frames reach the client as soon as they are written (no server-side batching).
+- **Template placeholders** — `{{index}}` (0-based frame number) and `{{timestamp}}` (RFC3339Nano) are substituted per frame; everything else is written verbatim.
+- **Termination modes** — `event_count: N` emits exactly N frames then closes the stream; `hold_open: true` keeps the stream open until the client disconnects (the request context is canceled). Exactly one of the two must be set.
+- **Mutually exclusive with `data`** — a scenario may carry `stream` *or* `data`, never both; loading a scenario with both set returns a validation error at startup.
+
+For the full design notes (stdlib flushing, anti-buffering headers, hold-open context handling, why WebSocket and HTTP/2 push are out of scope for v1), see [HTTP Streaming & Outbound Webhooks for unimock — Deep Research Report](webhooks-streaming-research-2026.md).

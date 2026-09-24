@@ -75,7 +75,14 @@ type ScenarioConfig struct {
 
 	// Webhook optionally fires an outbound HTTP request after this scenario matches.
 	Webhook *WebhookConfig `yaml:"webhook,omitempty" json:"webhook,omitempty"`
+
+	// Stream optionally emits a server-generated stream (SSE or NDJSON) instead of
+	// writing Data. Mutually exclusive with Data at validation time.
+	Stream *StreamConfig `yaml:"stream,omitempty" json:"stream,omitempty"`
 }
+
+// StreamConfig mirrors model.StreamConfig for YAML deserialization and validation.
+// The definition lives in stream_config.go; it is referenced from ScenarioConfig.
 
 // WebhookConfig mirrors model.WebhookConfig for YAML deserialization and validation.
 // Secret values are NEVER accepted inline; only the env var name is permitted.
@@ -229,6 +236,9 @@ func (sf *ScenarioConfig) ToModelScenario(fixtureResolver *FixtureResolver) mode
 	if sf.Webhook != nil {
 		scenario.Webhook = sf.Webhook.toModel()
 	}
+	if sf.Stream != nil {
+		scenario.Stream = sf.Stream.toModel()
+	}
 	return scenario
 }
 
@@ -366,7 +376,7 @@ func LoadFromYAML(path string) (*UniConfig, error) {
 // finalizeUnifiedConfig runs the webhook-aware validation, normalization and
 // fixture resolver initialization on a successfully unified-parsed config.
 func finalizeUnifiedConfig(cfg *UniConfig, rawYAML []byte, path string) (*UniConfig, error) {
-	if err := checkWebhookKeysInYAML(rawYAML); err != nil {
+	if err := checkScenarioKeysInYAML(rawYAML); err != nil {
 		return nil, err
 	}
 	if err := cfg.validateScenarios(); err != nil {
@@ -410,12 +420,13 @@ func tryLegacyFormat(data []byte) (*UniConfig, error) {
 	return cfg, nil
 }
 
-// checkWebhookKeysInYAML parses the YAML document and rejects any unknown keys under
-// a `webhook:` mapping. This is what makes the inline `secret:` and any other
-// unknown webhook field produce a clear error at config load time, while keeping
-// the rest of the top-level decoder loose for backward compatibility with existing
-// scenario schemas that may use legacy fields.
-func checkWebhookKeysInYAML(data []byte) error {
+// checkScenarioKeysInYAML parses the YAML document and rejects any unknown keys
+// under a `webhook:` or `stream:` mapping on a scenario. This is what makes the
+// inline `secret:` and any other unknown webhook/stream field produce a clear
+// error at config load time, while keeping the rest of the top-level decoder
+// loose for backward compatibility with existing scenario schemas that may use
+// legacy fields.
+func checkScenarioKeysInYAML(data []byte) error {
 	rootNode, err := decodeRootNode(data)
 	if err != nil || rootNode == nil {
 		return err
@@ -424,10 +435,48 @@ func checkWebhookKeysInYAML(data []byte) error {
 	if scenariosNode == nil || scenariosNode.Kind != yaml.SequenceNode {
 		return nil
 	}
+	return checkEachScenarioKeys(scenariosNode)
+}
+
+// checkEachScenarioKeys dispatches per-scenario sub-mapping key checks for
+// every entry in scenariosNode.
+func checkEachScenarioKeys(scenariosNode *yaml.Node) error {
 	for sIdx, scn := range scenariosNode.Content {
 		if err := checkScenarioWebhookKeys(scn, sIdx); err != nil {
 			return err
 		}
+		if err := checkScenarioStreamKeys(scn, sIdx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkScenarioStreamKeys scans a scenario mapping node for a `stream:` sub-mapping
+// and rejects any key outside the streamYAMLKeys allowlist with a clear error.
+func checkScenarioStreamKeys(scn *yaml.Node, sIdx int) error {
+	if scn == nil || scn.Kind != yaml.MappingNode {
+		return nil
+	}
+	streamNode := findChildMappingValue(scn, "stream")
+	if streamNode == nil || streamNode.Kind != yaml.MappingNode {
+		return nil
+	}
+	return rejectUnknownStreamKeys(streamNode, sIdx)
+}
+
+// rejectUnknownStreamKeys returns an error for the first key in streamNode that
+// is not in the streamYAMLKeys allowlist.
+func rejectUnknownStreamKeys(streamNode *yaml.Node, sIdx int) error {
+	for j := 0; j+1 < len(streamNode.Content); j += 2 {
+		whKeyNode := streamNode.Content[j]
+		whKey := whKeyNode.Value
+		if _, ok := streamYAMLKeys[whKey]; ok {
+			continue
+		}
+		return fmt.Errorf("scenarios[%d]: stream: unknown field %q at line %d "+
+			"(allowed: format, interval_ms, event_count, hold_open, template)",
+			sIdx, whKey, whKeyNode.Line)
 	}
 	return nil
 }
@@ -490,17 +539,43 @@ func rejectUnknownWebhookKeys(webhookNode *yaml.Node, sIdx int) error {
 	return nil
 }
 
-// validateScenarios runs webhook-level validation on every scenario in the config.
+// validateScenarios runs webhook-level and stream-level validation on every
+// scenario in the config. Stream and Data are mutually exclusive: if both are
+// set on a scenario, validation fails.
 func (uc *UniConfig) validateScenarios() error {
 	for i, sc := range uc.Scenarios {
-		if sc.Webhook == nil {
-			continue
+		if err := validateOneScenario(i, sc); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+// validateOneScenario validates webhook, stream and the stream/data exclusivity
+// constraint for a single scenario at index i.
+func validateOneScenario(i int, sc ScenarioConfig) error {
+	if sc.Webhook != nil {
 		if err := sc.Webhook.validate(); err != nil {
 			return fmt.Errorf("scenarios[%d] (path=%q): %w", i, sc.Path, err)
 		}
 	}
+	if sc.Stream != nil {
+		if err := sc.Stream.validate(); err != nil {
+			return fmt.Errorf("scenarios[%d] (path=%q): %w", i, sc.Path, err)
+		}
+	}
+	if hasStreamAndData(sc) {
+		return fmt.Errorf(
+			"scenarios[%d] (path=%q): stream and data are mutually exclusive",
+			i, sc.Path,
+		)
+	}
 	return nil
+}
+
+// hasStreamAndData reports whether the scenario has both stream and data set.
+func hasStreamAndData(sc ScenarioConfig) bool {
+	return sc.Stream != nil && strings.TrimSpace(sc.Data) != ""
 }
 
 // initializeFixtureResolver sets up the fixture resolver with the configuration file's directory

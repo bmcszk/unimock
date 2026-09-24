@@ -128,6 +128,7 @@ func setupTestRouterWithReturnBodyFalse(t *testing.T) (*router.Router, *service.
 
 	return router.NewRouter(
 		uniHandler, techHandler, scenarioHandler,
-		scenarioService, techService, logger, cfg, nil,
+		scenarioService, techService, logger, cfg,
+		router.Deps{StreamWriter: handler.NewStreamWriter(logger)},
 	), scenarioService
 }

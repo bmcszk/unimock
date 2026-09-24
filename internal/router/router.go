@@ -2,6 +2,7 @@ package router
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -23,39 +24,57 @@ const (
 // webhook payloads. Bodies larger than this are truncated to keep memory bounded.
 const maxDispatchBodyCapture = 1 << 20 // 1 MiB
 
-// Router wraps a Chi router with scenario handling capabilities
-type Router struct {
-	router           chi.Router
-	uniHandler       http.Handler
-	techHandler      http.Handler
-	scenarioHandler  http.Handler
-	scenarioService  *service.ScenarioService
-	techService      *service.TechService
-	logger           *slog.Logger
-	uniConfig        *config.UniConfig
-	webhookDispatcher *webhooks.Dispatcher
+// StreamResponseWriter is the contract the router needs from a stream writer
+// implementation. Defined here so tests can supply a fake without depending on
+// the handler package.
+type StreamResponseWriter interface {
+	WriteStream(ctx context.Context, w http.ResponseWriter, sc *model.StreamConfig)
 }
 
-// NewRouter creates a new Router instance with Chi. The webhookDispatcher may be
-// nil; in that case scenarios with a Webhook config are still served but no
-// outbound delivery is attempted.
+// Deps bundles optional side-effecting collaborators (webhook dispatcher,
+// stream writer) so the NewRouter constructor stays at 8 parameters.
+type Deps struct {
+	// WebhookDispatcher fires outbound webhooks for scenarios with a Webhook
+	// config. May be nil; nil is tolerated but logged at warn time.
+	WebhookDispatcher *webhooks.Dispatcher
+	// StreamWriter writes server-generated streams for scenarios with a Stream
+	// config. May be nil; nil surfaces as 500 on the response when matched.
+	StreamWriter StreamResponseWriter
+}
+
+// Router wraps a Chi router with scenario handling capabilities
+type Router struct {
+	router            chi.Router
+	uniHandler        http.Handler
+	techHandler       http.Handler
+	scenarioHandler   http.Handler
+	scenarioService   *service.ScenarioService
+	techService       *service.TechService
+	logger            *slog.Logger
+	uniConfig         *config.UniConfig
+	deps              Deps
+}
+
+// NewRouter creates a new Router instance with Chi. deps may have nil fields;
+// a nil WebhookDispatcher means webhook scenarios are served but no delivery
+// is attempted; a nil StreamWriter means streaming scenarios return 500.
 func NewRouter(
 	uniHandler, techHandler, scenarioHandler http.Handler,
 	scenarioService *service.ScenarioService,
 	techService *service.TechService,
 	logger *slog.Logger,
 	uniConfig *config.UniConfig,
-	webhookDispatcher *webhooks.Dispatcher,
+	deps Deps,
 ) *Router {
 	r := &Router{
-		uniHandler:        uniHandler,
-		techHandler:       techHandler,
-		scenarioHandler:   scenarioHandler,
-		scenarioService:   scenarioService,
-		techService:       techService,
-		logger:            logger,
-		uniConfig:         uniConfig,
-		webhookDispatcher: webhookDispatcher,
+		uniHandler:      uniHandler,
+		techHandler:     techHandler,
+		scenarioHandler: scenarioHandler,
+		scenarioService: scenarioService,
+		techService:     techService,
+		logger:          logger,
+		uniConfig:       uniConfig,
+		deps:            deps,
 	}
 
 	r.setupRoutes()
@@ -121,7 +140,10 @@ func (r *Router) metricsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// responseWriter wraps http.ResponseWriter to capture status codes
+// responseWriter wraps http.ResponseWriter to capture status codes. It also
+// forwards Flush() (and the optional CloseNotifier / Hijacker / Pusher) so
+// downstream handlers that need to flush frames (e.g. stream writers) keep
+// working under the metrics middleware.
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
@@ -130,6 +152,15 @@ type responseWriter struct {
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+// Flush forwards to the underlying ResponseWriter when it supports flushing.
+// Returns silently when the wrapped writer is not an http.Flusher (e.g. an
+// httptest.ResponseRecorder used in some tests) so callers stay non-fatal.
+func (rw *responseWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // normalizePath normalizes the request path
@@ -175,7 +206,7 @@ func (r *Router) maybeDispatchScenarioWebhook(req *http.Request, scenario model.
 	if scenario.Webhook == nil {
 		return
 	}
-	if r.webhookDispatcher == nil {
+	if r.deps.WebhookDispatcher == nil {
 		if r.logger != nil {
 			r.logger.Warn("scenario has webhook but no dispatcher is wired",
 				"scenario_uuid", scenario.UUID, "webhook_url", scenario.Webhook.URL)
@@ -184,7 +215,7 @@ func (r *Router) maybeDispatchScenarioWebhook(req *http.Request, scenario model.
 	}
 	body := captureRequestBody(req)
 	requestPath := r.normalizePath(req.URL.Path)
-	r.webhookDispatcher.Dispatch(req.Context(), scenario.Webhook, req.Method+" "+requestPath, body, nil)
+	r.deps.WebhookDispatcher.Dispatch(req.Context(), scenario.Webhook, req.Method+" "+requestPath, body, nil)
 }
 
 // captureRequestBody returns the request body bytes (capped) and restores the
@@ -210,24 +241,68 @@ func captureRequestBody(req *http.Request) []byte {
 
 // writeScenarioResponse writes the scenario response
 func (r *Router) writeScenarioResponse(w http.ResponseWriter, req *http.Request, scenario model.Scenario) {
+	if scenario.Stream != nil {
+		r.writeStreamScenarioResponse(w, req, scenario)
+		return
+	}
+	r.writeStaticScenarioResponse(w, req, scenario)
+}
+
+// writeStaticScenarioResponse writes the static (non-streaming) response body
+// path: headers + status + (optional) Data. HEAD requests get headers only.
+func (r *Router) writeStaticScenarioResponse(
+	w http.ResponseWriter, req *http.Request, scenario model.Scenario,
+) {
+	applyScenarioHeaders(w, scenario)
+	w.WriteHeader(scenario.StatusCode)
+	// For HEAD requests, don't write response body
+	if req.Method == http.MethodHead {
+		return
+	}
+	if _, err := w.Write([]byte(scenario.Data)); err != nil {
+		r.logger.Error("failed to write scenario response in router", "error", err)
+	}
+}
+
+// writeStreamScenarioResponse delegates to the stream writer when the scenario
+// has a Stream config. HEAD requests fall back to a static empty 200 with the
+// scenario headers only (no frames are sent).
+func (r *Router) writeStreamScenarioResponse(
+	w http.ResponseWriter, req *http.Request, scenario model.Scenario,
+) {
+	if req.Method == http.MethodHead {
+		applyScenarioHeaders(w, scenario)
+		w.WriteHeader(scenario.StatusCode)
+		return
+	}
+	if r.deps.StreamWriter == nil {
+		r.failMissingStreamWriter(w, scenario)
+		return
+	}
+	r.deps.StreamWriter.WriteStream(req.Context(), w, scenario.Stream)
+}
+
+// failMissingStreamWriter writes a 500 when a stream scenario fires but no
+// stream writer is wired into the router. Kept as its own helper to keep
+// writeStreamScenarioResponse at low complexity.
+func (r *Router) failMissingStreamWriter(w http.ResponseWriter, scenario model.Scenario) {
+	if r.logger != nil {
+		r.logger.Error("scenario has stream but no stream writer is wired",
+			"scenario_uuid", scenario.UUID)
+	}
+	http.Error(w, "streaming responses are not enabled", http.StatusInternalServerError)
+}
+
+// applyScenarioHeaders writes Content-Type, Location, and the scenario-supplied
+// extra headers onto w. Centralised so static and stream branches share the
+// same header semantics.
+func applyScenarioHeaders(w http.ResponseWriter, scenario model.Scenario) {
 	w.Header().Set("Content-Type", scenario.ContentType)
 	if scenario.Location != "" {
 		w.Header().Set("Location", scenario.Location)
 	}
-	
-	if scenario.Headers != nil {
-		for k, v := range scenario.Headers {
-			w.Header().Set(k, v)
-		}
-	}
-	
-	w.WriteHeader(scenario.StatusCode)
-	
-	// For HEAD requests, don't write response body
-	if req.Method != http.MethodHead {
-		if _, err := w.Write([]byte(scenario.Data)); err != nil {
-			r.logger.Error("failed to write scenario response in router", "error", err)
-		}
+	for k, v := range scenario.Headers {
+		w.Header().Set(k, v)
 	}
 }
 

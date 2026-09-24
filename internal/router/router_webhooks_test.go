@@ -48,7 +48,11 @@ func TestRouter_ScenarioWithWebhook_FiresDelivery(t *testing.T) {
 
 	appRouter := router.NewRouter(
 		uniHandler, techHandler, scenarioHandler,
-		scenarioService, techService, logger, cfg, dispatcher,
+		scenarioService, techService, logger, cfg,
+		router.Deps{
+			WebhookDispatcher: dispatcher,
+			StreamWriter:      handler.NewStreamWriter(logger),
+		},
 	)
 
 	scenario := model.Scenario{
@@ -152,7 +156,11 @@ func TestRouter_DeliveriesEndpoint_ExposedViaUnderscoreUnderscore(t *testing.T) 
 	dispatcher := webhooks.NewDispatcher(logger, ring)
 	appRouter := router.NewRouter(
 		uniHandler, techHandler, scenarioHandler,
-		scenarioService, techService, logger, cfg, dispatcher,
+		scenarioService, techService, logger, cfg,
+		router.Deps{
+			WebhookDispatcher: dispatcher,
+			StreamWriter:      handler.NewStreamWriter(logger),
+		},
 	)
 
 	req := httptest.NewRequest("GET", "/_uni/webhooks/deliveries", nil)
@@ -186,7 +194,8 @@ func TestRouter_NilDispatcherIsTolerated(t *testing.T) {
 	// dispatcher nil → scenarios with webhooks must not crash, just log a warning.
 	appRouter := router.NewRouter(
 		uniHandler, techHandler, scenarioHandler,
-		scenarioService, techService, logger, cfg, nil,
+		scenarioService, techService, logger, cfg,
+		router.Deps{StreamWriter: handler.NewStreamWriter(logger)},
 	)
 
 	scenario := model.Scenario{
