@@ -1,11 +1,11 @@
 ---
 # unimock-ae8a
 title: Webhook dispatch uses request context — delivery lost when client finishes reading before async fire
-status: in-progress
+status: completed
 type: bug
 priority: normal
 created_at: 2026-09-24T21:47:39Z
-updated_at: 2026-09-24T22:07:17Z
+updated_at: 2026-09-24T22:37:13Z
 parent: unimock-xu0n
 ---
 
