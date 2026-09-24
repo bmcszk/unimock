@@ -58,21 +58,19 @@ func TestRing_ConcurrentSafe(t *testing.T) {
 	const perWriter = 50
 
 	var wg sync.WaitGroup
-	wg.Add(writers)
 	for w := 0; w < writers; w++ {
 		w := w
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for i := 0; i < perWriter; i++ {
 				r.Add(webhooks.Delivery{
-					ID:     fmt.Sprintf("w%d-i%d", w, i),
-					URL:    "u",
-					Attempt: 1,
+					ID:         fmt.Sprintf("w%d-i%d", w, i),
+					URL:        "u",
+					Attempt:    1,
 					StatusCode: 200,
-					TS: time.Now(),
+					TS:         time.Now(),
 				})
 			}
-		}()
+		})
 	}
 	wg.Wait()
 

@@ -330,8 +330,9 @@ func (h *UniHandler) processPUTRequest(
 
 	// Validate strict path if enabled
 	if section.StrictPath {
-		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
-			section.PathPattern, "PUT", sectionName, section.StrictPath); resp != nil {
+		resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
+			section.PathPattern, "PUT", sectionName, section.StrictPath)
+		if resp != nil {
 			return resp, nil
 		}
 	}
@@ -398,8 +399,9 @@ func (h *UniHandler) processDELETERequest(
 
 	// Validate strict path if enabled
 	if section.StrictPath {
-		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
-			section.PathPattern, "DELETE", sectionName, section.StrictPath); resp != nil {
+		resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
+			section.PathPattern, "DELETE", sectionName, section.StrictPath)
+		if resp != nil {
 			return resp, nil
 		}
 	}

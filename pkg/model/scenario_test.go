@@ -73,23 +73,43 @@ func runScenarioWebhookFieldChecks(t *testing.T, tt struct {
 	wantMaxAttempt int
 }) {
 	t.Helper()
-	if (tt.scenario.Webhook == nil) != tt.wantNil {
-		t.Fatalf("Webhook nil mismatch: got %v, want nil=%v", tt.scenario.Webhook, tt.wantNil)
-	}
+	checkScenarioWebhookNil(t, tt.scenario.Webhook, tt.wantNil)
 	if tt.scenario.Webhook == nil {
 		return
 	}
-	if tt.scenario.Webhook.URL != tt.wantURL {
-		t.Errorf("URL: got %q, want %q", tt.scenario.Webhook.URL, tt.wantURL)
+	checkScenarioWebhookURL(t, tt.scenario.Webhook.URL, tt.wantURL)
+	checkScenarioWebhookOptionalFields(
+		t, tt.scenario.Webhook, tt.wantMethod, tt.wantBody, tt.wantMaxAttempt,
+	)
+}
+
+func checkScenarioWebhookNil(t *testing.T, got *model.WebhookConfig, wantNil bool) {
+	t.Helper()
+	if (got == nil) != wantNil {
+		t.Fatalf("Webhook nil mismatch: got %v, want nil=%v", got, wantNil)
 	}
-	if tt.wantMethod != "" && tt.scenario.Webhook.Method != tt.wantMethod {
-		t.Errorf("Method: got %q, want %q", tt.scenario.Webhook.Method, tt.wantMethod)
+}
+
+func checkScenarioWebhookURL(t *testing.T, got, want string) {
+	t.Helper()
+	if got != want {
+		t.Errorf("URL: got %q, want %q", got, want)
 	}
-	if tt.wantBody != "" && tt.scenario.Webhook.Body != tt.wantBody {
-		t.Errorf("Body: got %q, want %q", tt.scenario.Webhook.Body, tt.wantBody)
+}
+
+func checkScenarioWebhookOptionalFields(
+	t *testing.T, w *model.WebhookConfig,
+	wantMethod, wantBody string, wantMaxAttempt int,
+) {
+	t.Helper()
+	if wantMethod != "" && w.Method != wantMethod {
+		t.Errorf("Method: got %q, want %q", w.Method, wantMethod)
 	}
-	if tt.wantMaxAttempt != 0 && tt.scenario.Webhook.MaxAttempts != tt.wantMaxAttempt {
-		t.Errorf("MaxAttempts: got %d, want %d", tt.scenario.Webhook.MaxAttempts, tt.wantMaxAttempt)
+	if wantBody != "" && w.Body != wantBody {
+		t.Errorf("Body: got %q, want %q", w.Body, wantBody)
+	}
+	if wantMaxAttempt != 0 && w.MaxAttempts != wantMaxAttempt {
+		t.Errorf("MaxAttempts: got %d, want %d", w.MaxAttempts, wantMaxAttempt)
 	}
 }
 
