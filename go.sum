@@ -5,8 +5,8 @@ github.com/antchfx/xmlquery v1.5.1/go.mod h1:bVqnl7TaDXSReKINrhZz+2E/PbCu2tUahb+
 github.com/antchfx/xpath v1.3.6/go.mod h1:i54GszH55fYfBmoZXapTHN8T8tkcHfRgLyVwwqzXNcs=
 github.com/antchfx/xpath v1.3.8 h1:RQlkLaJDKk1Ew1H6CUPUTKM+IQxm+6HTyOgcrfqOU9c=
 github.com/antchfx/xpath v1.3.8/go.mod h1:i54GszH55fYfBmoZXapTHN8T8tkcHfRgLyVwwqzXNcs=
-github.com/bmcszk/go-restclient v0.2.0 h1:l1zKvieMxSxQOm78zMeeyDhuX0vloXZCKYAgYV71u8s=
-github.com/bmcszk/go-restclient v0.2.0/go.mod h1:8b4ovODbPzqT4lIoNFGNtmomMSDveGPMXQ/PMyLgEIM=
+github.com/bmcszk/go-restclient v1.0.0 h1:LnjKUhZ+dnkLDuVLSfUfPFlqKNwmcs3o+uen7PBJDjo=
+github.com/bmcszk/go-restclient v1.0.0/go.mod h1:5A3CDijBUksB5HVWQ2n5CMPiJZs1J1eQjCKcnQXSfag=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/go-chi/chi/v5 v5.3.2 h1:5YQkICvTCSZ25hoRsyJazN0scjzKGiu4VAUc7H1o1nY=
