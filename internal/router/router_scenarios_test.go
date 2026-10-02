@@ -123,11 +123,12 @@ func setupTestRouterWithReturnBodyFalse(t *testing.T) (*router.Router, *service.
 	techService := service.NewTechService(time.Now())
 
 	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, cfg)
-	techHandler := handler.NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger, nil)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 
 	return router.NewRouter(
 		uniHandler, techHandler, scenarioHandler,
 		scenarioService, techService, logger, cfg,
+		router.Deps{StreamWriter: handler.NewStreamWriter(logger)},
 	), scenarioService
 }

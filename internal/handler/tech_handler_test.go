@@ -17,7 +17,7 @@ func TestTechHandler_HealthCheck(t *testing.T) {
 	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	techService := service.NewTechService(time.Now())
-	techHandler := handler.NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger, nil)
 
 	// Create a request to pass to our handler
 	req, err := http.NewRequest("GET", "/_uni/health", nil)
@@ -57,7 +57,7 @@ func TestTechHandler_Metrics(t *testing.T) {
 	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	techService := service.NewTechService(time.Now())
-	techHandler := handler.NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger, nil)
 
 	// Create a request to pass to our handler
 	req, err := http.NewRequest("GET", "/_uni/metrics", nil)
@@ -97,7 +97,7 @@ func TestTechHandler_NotFound(t *testing.T) {
 	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	techService := service.NewTechService(time.Now())
-	techHandler := handler.NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger, nil)
 
 	// Create a request to pass to our handler with an invalid path
 	req, err := http.NewRequest("GET", "/_uni/invalid", nil)
@@ -121,7 +121,7 @@ func TestTechHandler_MethodNotAllowed(t *testing.T) {
 	// Create a new tech service and handler
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	techService := service.NewTechService(time.Now())
-	techHandler := handler.NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger, nil)
 
 	// Create a request to pass to our handler with an invalid method
 	req, err := http.NewRequest("POST", "/_uni/health", nil)

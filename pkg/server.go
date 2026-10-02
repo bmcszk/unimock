@@ -11,6 +11,7 @@ import (
 	"github.com/bmcszk/unimock/internal/router"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/bmcszk/unimock/internal/webhooks"
 	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/bmcszk/unimock/pkg/model"
 )
@@ -177,15 +178,23 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 	// Load scenarios from uni config directly
 	loadScenariosFromUniConfig(uniConfig, scenarioService, logger)
 
+	// Webhook delivery infrastructure: shared ring buffer + dispatcher.
+	webhookRing := webhooks.NewRing(0) // 0 → default cap 100
+	webhookDispatcher := webhooks.NewDispatcher(logger, webhookRing)
+
 	// Create handlers with services
 	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, uniConfig)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
-	techHandler := handler.NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger, webhookRing)
 
 	// Create a router
 	appRouter := router.NewRouter(
 		uniHandler, techHandler, scenarioHandler,
 		scenarioService, techService, logger, uniConfig,
+		router.Deps{
+			WebhookDispatcher: webhookDispatcher,
+			StreamWriter:      handler.NewStreamWriter(logger),
+		},
 	)
 
 	// Create server

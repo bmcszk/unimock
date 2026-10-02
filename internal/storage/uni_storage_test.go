@@ -165,7 +165,7 @@ func verifyConcurrentTestData(t *testing.T, testStorage *storage.UniStorage) {
 	t.Helper()
 	// Verify all data was stored
 	const testIterations = 10
-	for i := 0; i < testIterations; i++ {
+	for i := range testIterations {
 		id := fmt.Sprintf("test%d", i)
 		_, err := testStorage.Get("test", false, id)
 		if err != nil {
@@ -180,7 +180,7 @@ func TestUniStorage_ConcurrentAccess(t *testing.T) {
 
 	// Test concurrent writes
 	const concurrentWrites = 10
-	for i := 0; i < concurrentWrites; i++ {
+	for i := range concurrentWrites {
 		i := i
 		wg.Go(func() {
 			createConcurrentTestData(t, testStorage, i)
