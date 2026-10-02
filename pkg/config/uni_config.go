@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -113,13 +112,6 @@ type WebhookConfig struct {
 	MaxMS int `yaml:"max_ms,omitempty" json:"max_ms,omitempty"`
 }
 
-// allowedWebhookMethods is the set of HTTP methods the dispatcher is allowed to use.
-var allowedWebhookMethods = map[string]struct{}{
-	httpMethodPOST:  {},
-	httpMethodPUT:   {},
-	httpMethodPATCH: {},
-}
-
 // HTTP method constants used in webhook validation (avoid pulling net/http into config's API surface).
 const (
 	httpMethodPOST  = "POST"
@@ -129,6 +121,8 @@ const (
 
 // validate verifies the webhook configuration is acceptable. It returns the first error found.
 // Used both when parsing YAML with strict known-fields and when checking config-derived values.
+// The error strings MUST remain stable (prefix "webhook: " + body from model) because
+// pkg/config tests assert them by substring.
 func (w *WebhookConfig) validate() error {
 	if w == nil {
 		return nil
@@ -142,45 +136,34 @@ func (w *WebhookConfig) validate() error {
 	return w.validateRetries()
 }
 
-// validateURL checks the URL field parses and has a scheme + host.
+// validateURL checks the URL field parses and has a scheme + host. Delegates
+// to model.WebhookConfig.ValidateURL so the model owns the rule; we only add
+// the "webhook: " tag the YAML error messages must include.
 func (w *WebhookConfig) validateURL() error {
-	if strings.TrimSpace(w.URL) == "" {
-		return errors.New("webhook: url is required")
+	err := w.toModel().ValidateURL()
+	if err == nil {
+		return nil
 	}
-	parsed, err := url.Parse(w.URL)
-	if err != nil {
-		return fmt.Errorf("webhook: invalid url %q: %w", w.URL, err)
-	}
-	if parsed.Scheme == "" || parsed.Host == "" {
-		return fmt.Errorf("webhook: invalid url %q: must include scheme and host", w.URL)
-	}
-	return nil
+	return fmt.Errorf("webhook: %w", err)
 }
 
 // validateMethod enforces the POST/PUT/PATCH allowlist and normalizes empty method to POST.
 func (w *WebhookConfig) validateMethod() error {
-	method := strings.ToUpper(strings.TrimSpace(w.Method))
-	if method == "" {
-		method = httpMethodPOST
+	err := w.toModel().ValidateMethod()
+	if err == nil {
+		return nil
 	}
-	if _, ok := allowedWebhookMethods[method]; !ok {
-		return fmt.Errorf("webhook: method %q not allowed (must be POST, PUT, or PATCH)", w.Method)
-	}
-	return nil
+	return fmt.Errorf("webhook: %w", err)
 }
 
-// validateRetries checks the retry-related fields are non-negative.
+// validateRetries checks the retry-related fields are non-negative and within
+// the upper bounds that bound the derived dispatch timeout.
 func (w *WebhookConfig) validateRetries() error {
-	if w.MaxAttempts < 0 {
-		return fmt.Errorf("webhook: maxAttempts must be >= 0, got %d", w.MaxAttempts)
+	err := w.toModel().ValidateRetries()
+	if err == nil {
+		return nil
 	}
-	if w.BaseMS < 0 {
-		return fmt.Errorf("webhook: baseMs must be >= 0, got %d", w.BaseMS)
-	}
-	if w.MaxMS < 0 {
-		return fmt.Errorf("webhook: maxMs must be >= 0, got %d", w.MaxMS)
-	}
-	return nil
+	return fmt.Errorf("webhook: %w", err)
 }
 
 // webhookYAMLKeys is the closed allowlist of YAML keys under `webhook:`.

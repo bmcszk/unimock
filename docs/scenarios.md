@@ -575,8 +575,9 @@ scenarios:
       format: "sse"
       interval_ms: 100
       event_count: 5
+      # No "data: " prefix here — the writer adds it per frame.
       template: |
-        data: {"i":{{index}},"t":"{{timestamp}}"}
+        {"i":{{index}},"t":"{{timestamp}}"}
 
   # NDJSON: keep the connection open until the client disconnects
   - uuid: "logs-feed"

@@ -65,7 +65,7 @@ scenarios:
       format: "sse"
       interval_ms: 100
       event_count: 5
-      template: "data: {\"i\":{{index}}}\n\n"
+      template: "data: {\"i\":{{index}}}"
 `
 	path := writeYAML(t, yaml)
 	defer os.Remove(path)
@@ -167,16 +167,16 @@ const (
 		"\n      interval_ms: 0" +
 		"\n      event_count: 3" +
 		"\n      hold_open: true" +
-		"\n      template: \"data: hi\\n\\n\""
+		"\n      template: \"data: hi\""
 	streamNeitherSet = "" +
 		"\n      format: \"sse\"" +
 		"\n      interval_ms: 0" +
-		"\n      template: \"data: hi\\n\\n\""
+		"\n      template: \"data: hi\""
 	streamNegativeInterval = "" +
 		"\n      format: \"sse\"" +
 		"\n      interval_ms: -10" +
 		"\n      event_count: 3" +
-		"\n      template: \"data: hi\\n\\n\""
+		"\n      template: \"data: hi\""
 	streamEmptyTemplate = "" +
 		"\n      format: \"sse\"" +
 		"\n      event_count: 3" +
@@ -184,11 +184,11 @@ const (
 	streamPlusData = "" +
 		"\n      format: \"sse\"" +
 		"\n      event_count: 3" +
-		"\n      template: \"data: hi\\n\\n\""
+		"\n      template: \"data: hi\""
 	streamUnknownKey = "" +
 		"\n      format: \"sse\"" +
 		"\n      event_count: 3" +
-		"\n      template: \"data: hi\\n\\n\"" +
+		"\n      template: \"data: hi\"" +
 		"\n      websocket: true"
 )
 

@@ -1,9 +1,7 @@
 package config
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/bmcszk/unimock/pkg/model"
 )
@@ -29,12 +27,6 @@ type StreamConfig struct {
 	Template string `yaml:"template" json:"template"`
 }
 
-// allowedStreamFormats is the closed set of streaming formats supported by v1.
-var allowedStreamFormats = map[string]struct{}{
-	"sse":    {},
-	"ndjson": {},
-}
-
 // streamYAMLKeys is the closed allowlist of YAML keys under `stream:`. Any key
 // not listed is rejected by the strict YAML decoder to prevent typos and
 // unintended inline fields from sneaking in.
@@ -48,27 +40,20 @@ var streamYAMLKeys = map[string]struct{}{
 
 // validate enforces the stream configuration contract. It returns the first error
 // found. The caller should already have rejected unknown YAML keys via the
-// strict decoder.
+// strict decoder. The error strings MUST remain stable (prefix "stream: " +
+// body from model) because pkg/config tests assert them by substring.
+//
+// Delegates to model.StreamConfig.Validate so the model owns the rule; we only
+// add the "stream: " prefix the YAML error messages must include.
 func (s *StreamConfig) validate() error {
 	if s == nil {
 		return nil
 	}
-	if _, ok := allowedStreamFormats[s.Format]; !ok {
-		return fmt.Errorf("stream: format %q not allowed (must be sse or ndjson)", s.Format)
+	err := s.toModel().Validate()
+	if err == nil {
+		return nil
 	}
-	if s.IntervalMS < 0 {
-		return fmt.Errorf("stream: interval_ms must be >= 0, got %d", s.IntervalMS)
-	}
-	if strings.TrimSpace(s.Template) == "" {
-		return errors.New("stream: template is required")
-	}
-	if (s.EventCount > 0) == s.HoldOpen {
-		return fmt.Errorf(
-			"stream: exactly one of event_count>0 or hold_open=true must be set "+
-				"(got event_count=%d, hold_open=%v)", s.EventCount, s.HoldOpen,
-		)
-	}
-	return nil
+	return fmt.Errorf("stream: %w", err)
 }
 
 // toModel converts the config stream into the runtime model representation.

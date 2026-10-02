@@ -243,7 +243,10 @@ func (s *ScenarioService) DeleteScenario(_ context.Context, id string) error {
 	return nil
 }
 
-// validateScenario validates a scenario
+// validateScenario validates a scenario. The request-path/method checks come
+// first (cheap, deterministic); then the shared model.Scenario.Validate() runs
+// the webhook + stream + data-exclusivity + template-newline + hold_open rules
+// so the runtime create/update path matches what LoadFromYAML enforces.
 func (*ScenarioService) validateScenario(scenario model.Scenario) error {
 	// Validate request path format
 	parts := strings.SplitN(scenario.RequestPath, " ", 2)
@@ -266,6 +269,11 @@ func (*ScenarioService) validateScenario(scenario model.Scenario) error {
 		// If method was already validated and part of RequestPath, this check might be redundant here
 		// but as a direct validation of scenario model, it's fine.
 		return fmt.Errorf("invalid HTTP method in request path: %s", method)
+	}
+
+	// Shared validation (MAJOR4): same rules LoadFromYAML uses.
+	if err := scenario.Validate(); err != nil {
+		return fmt.Errorf("invalid scenario: %w", err)
 	}
 
 	return nil

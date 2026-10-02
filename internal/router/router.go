@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/webhooks"
@@ -24,14 +23,6 @@ const (
 // maxDispatchBodyCapture is the upper bound on request body bytes retained for
 // webhook payloads. Bodies larger than this are truncated to keep memory bounded.
 const maxDispatchBodyCapture = 1 << 20 // 1 MiB
-
-// webhookDispatchTimeout bounds the lifetime of a scenario-triggered webhook
-// dispatch. It is large enough to cover the worst-case retry envelope
-// (defaultMaxAttempts x (httpClientTimeout + backoff cap)) with headroom so
-// that delivery is never truncated by the caller's request lifecycle.
-// The dispatch context is detached from req.Context() via WithoutCancel so that
-// a fast/disconnecting client does not cancel in-flight delivery.
-const webhookDispatchTimeout = 60 * time.Second
 
 // StreamResponseWriter is the contract the router needs from a stream writer
 // implementation. Defined here so tests can supply a fake without depending on
@@ -215,9 +206,9 @@ func (r *Router) scenarioMiddleware(next http.Handler) http.Handler {
 // The dispatch context is detached from req.Context() (via context.WithoutCancel)
 // so that the async delivery goroutine is not killed when the caller's request
 // returns and the underlying connection is recycled. The detached context still
-// carries req-scoped values for downstream consumers and is wrapped with
-// webhookDispatchTimeout so that a hanging receiver cannot leak the goroutine
-// indefinitely.
+// carries req-scoped values for downstream consumers and is wrapped with the
+// webhook's derived dispatch timeout (webhooks.DispatchTimeout) so that a
+// hanging receiver cannot leak the goroutine indefinitely.
 //
 // cancel is registered as the dispatcher's onComplete callback so that the
 // dispatchCtx is canceled when (and only when) the async delivery terminates;
@@ -236,7 +227,11 @@ func (r *Router) maybeDispatchScenarioWebhook(req *http.Request, scenario model.
 	}
 	body := captureRequestBody(req)
 	requestPath := r.normalizePath(req.URL.Path)
-	dispatchCtx, cancel := context.WithTimeout(context.WithoutCancel(req.Context()), webhookDispatchTimeout)
+	// Deadline is derived from the webhook's own retry envelope (see
+	// webhooks.DispatchTimeout) so it provably covers the worst case instead
+	// of a fixed guess that legal configs could outlive.
+	dispatchCtx, cancel := context.WithTimeout(
+		context.WithoutCancel(req.Context()), webhooks.DispatchTimeout(scenario.Webhook))
 	r.deps.WebhookDispatcher.Dispatch(dispatchCtx, scenario.Webhook, req.Method+" "+requestPath, body, cancel)
 }
 

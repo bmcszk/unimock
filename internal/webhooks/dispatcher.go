@@ -36,8 +36,8 @@ type Dispatcher struct {
 	ring    *Ring
 	client  *http.Client
 	now     func() time.Time
-	sleep   func(time.Duration)
-	randInt func(n int) int // random source for backoff jitter, returns int in [0, n)
+	wait    func(context.Context, time.Duration) // ctx-aware backoff wait seam
+	randInt func(n int) int                      // random source for backoff jitter, returns int in [0, n)
 }
 
 // NewDispatcher creates a Dispatcher using the provided logger and delivery ring.
@@ -48,13 +48,28 @@ func NewDispatcher(logger *slog.Logger, ring *Ring) *Dispatcher {
 		ring:   ring,
 		client: &http.Client{Timeout: httpClientTimeout},
 		now:    time.Now,
-		sleep:  time.Sleep,
+		wait:   waitCtxOrTimeout,
 		randInt: func(n int) int {
 			if n <= 0 {
 				return 0
 			}
 			return rand.Intn(n)
 		},
+	}
+}
+
+// waitCtxOrTimeout blocks for d or until ctx is done, whichever comes first.
+// Context-aware waits keep delivery goroutines from lingering a full backoff
+// interval after the dispatch deadline has already fired.
+func waitCtxOrTimeout(ctx context.Context, d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+	case <-timer.C:
 	}
 }
 
@@ -66,6 +81,9 @@ func NewDispatcher(logger *slog.Logger, ring *Ring) *Dispatcher {
 // in logs for traceability.
 //
 // Dispatch runs on its own goroutine; the goroutine outlives the caller's stack.
+// When the supplied config has a blank URL or is nil, onComplete is still
+// invoked exactly once before Dispatch returns, matching the contract for
+// well-formed inputs (MINOR5).
 func (d *Dispatcher) Dispatch(
 	parentCtx context.Context,
 	wh *model.WebhookConfig,
@@ -73,7 +91,10 @@ func (d *Dispatcher) Dispatch(
 	requestBody []byte,
 	onComplete func(),
 ) {
-	if wh == nil || strings.TrimSpace(wh.URL) == "" {
+	if !dispatchable(wh) {
+		if onComplete != nil {
+			onComplete()
+		}
 		return
 	}
 	cfg := normalizeConfig(wh)
@@ -86,6 +107,31 @@ func (d *Dispatcher) Dispatch(
 		d.deliver(parentCtx, cfg, requestPath, requestBody)
 	}()
 }
+
+// dispatchable reports whether a webhook config can be dispatched at all
+// (non-nil with a non-blank URL). Used by Dispatch to short-circuit configs
+// that can never produce a delivery.
+func dispatchable(wh *model.WebhookConfig) bool {
+	return wh != nil && strings.TrimSpace(wh.URL) != ""
+}
+
+// DispatchTimeout returns the upper bound on a single webhook delivery's
+// lifetime: worst-case retry envelope (MaxAttempts HTTP attempts at
+// httpClientTimeout each, plus MaxAttempts-1 backoff waits capped at MaxMS)
+// plus margin. The router uses it as the dispatch context deadline so the
+// deadline provably covers the retry envelope instead of a fixed guess.
+// Validation bounds (model.WebhookConfig.Validate: MaxAttempts<=12,
+// MaxMS<=60000) keep the derived timeout at roughly 4.5 minutes worst case.
+func DispatchTimeout(wh *model.WebhookConfig) time.Duration {
+	cfg := normalizeConfig(wh)
+	envelope := time.Duration(cfg.MaxAttempts)*httpClientTimeout +
+		time.Duration(cfg.MaxAttempts-1)*time.Duration(cfg.MaxMS)*time.Millisecond
+	return envelope + dispatchTimeoutMargin
+}
+
+// dispatchTimeoutMargin adds slack to the derived retry envelope for
+// scheduling, body rendering, and signing overhead.
+const dispatchTimeoutMargin = 5 * time.Second
 
 // normalizeConfig applies defaults for fields the contract promises to handle
 // (MaxAttempts, BaseMS, MaxMS, Method).
@@ -139,9 +185,15 @@ func (d *Dispatcher) runAttempts(
 		if attempt == wh.MaxAttempts {
 			break
 		}
-		d.sleep(time.Duration(jitter(d.randInt, ComputeBackoff(wh.BaseMS, wh.MaxMS, attempt-1))) * time.Millisecond)
+		d.wait(parentCtx, backoffDelay(d.randInt, wh, attempt))
 	}
 	return last
+}
+
+// backoffDelay computes the jittered backoff before the next retry attempt.
+func backoffDelay(randInt func(int) int, wh *model.WebhookConfig, attempt int) time.Duration {
+	jittered := jitter(randInt, ComputeBackoff(wh.BaseMS, wh.MaxMS, attempt-1))
+	return time.Duration(jittered) * time.Millisecond
 }
 
 // shouldAbort returns true if the parent context is canceled. It exists as its own
@@ -229,24 +281,42 @@ func (d *Dispatcher) attempt(
 
 // applySigning adds Standard Webhooks headers when SecretEnv is set and the env var
 // resolves to a non-empty value. When the env var is empty/missing, signing is skipped.
+//
+// The signing secret is treated per the Standard Webhooks spec
+// (https://github.com/standard-webhooks/standard-webhooks): if the env value
+// starts with "whsec_", the remainder is base64-decoded (StdEncoding) and the
+// raw bytes are used as the HMAC key. Otherwise, the env value is used as raw
+// key bytes — preserved for back-compat with tests/users that supplied the
+// plain-text secret directly.
+//
+// attemptWebhookID is a fresh UUID per attempt, so each attempt carries its
+// own id header (the Standard Webhooks spec expects unique ids per delivery);
+// the deliveryID itself (which is the per-delivery UUID) is recorded on the
+// Delivery record and on the ring.
 func (d *Dispatcher) applySigning(req *http.Request, wh *model.WebhookConfig, body []byte) {
 	if strings.TrimSpace(wh.SecretEnv) == "" {
 		return
 	}
-	secret := os.Getenv(wh.SecretEnv)
-	if secret == "" {
+	secretRaw := os.Getenv(wh.SecretEnv)
+	if secretRaw == "" {
 		if d.logger != nil {
 			d.logger.Warn("webhook signing skipped: env var empty",
 				"secret_env", wh.SecretEnv, "url", wh.URL)
 		}
 		return
 	}
-	// Per-attempt ID keeps each attempt individually signed. Reuse the deliveryID
-	// already known to the caller via req context? We mint a fresh one per attempt
-	// so retries don't reuse the same id (Standard Webhooks expects unique ids).
+	key, err := decodeWebhookSecret(secretRaw)
+	if err != nil {
+		if d.logger != nil {
+			d.logger.Warn("webhook signing skipped: cannot decode secret",
+				"secret_env", wh.SecretEnv, "url", wh.URL, "error", err)
+		}
+		return
+	}
+	// Per-attempt ID keeps each attempt individually signed.
 	id := uuid.NewString()
 	ts := strconvFormatUnix(d.now())
-	mac := hmac.New(sha256.New, []byte(secret))
+	mac := hmac.New(sha256.New, key)
 	// hmac.Hash.Write never returns an error.
 	_, _ = mac.Write([]byte(id))
 	_, _ = mac.Write([]byte("."))
@@ -258,6 +328,29 @@ func (d *Dispatcher) applySigning(req *http.Request, wh *model.WebhookConfig, bo
 	req.Header.Set("webhook-id", id)
 	req.Header.Set("webhook-timestamp", ts)
 	req.Header.Set("webhook-signature", sig)
+}
+
+// decodeWebhookSecret decodes a Standard Webhooks secret per spec:
+//
+//  1. If secretRaw starts with "whsec_", TrimPrefix and base64.StdEncoding-decode
+//     the remainder and use those bytes as the HMAC key.
+//  2. Otherwise fall back to the raw secret bytes (back-compat with plain-text
+//     secrets used by earlier dispatcher tests/users).
+//
+// The function returns the resolved key bytes or a non-nil error when the
+// whsec_-prefixed value is not valid base64. The plain-text fallback is
+// intentional: secrets without the prefix are assumed to be raw bytes.
+func decodeWebhookSecret(secretRaw string) ([]byte, error) {
+	const prefix = "whsec_"
+	if strings.HasPrefix(secretRaw, prefix) {
+		encoded := strings.TrimPrefix(secretRaw, prefix)
+		key, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			return nil, fmt.Errorf("decode whsec_ payload: %w", err)
+		}
+		return key, nil
+	}
+	return []byte(secretRaw), nil
 }
 
 // composeBody picks the configured Body (with {{uuid}} substitution) when present,

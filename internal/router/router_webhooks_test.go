@@ -380,7 +380,7 @@ func TestRouter_WebhookDispatch_DispatchCtxHasTimeoutDeadline(t *testing.T) {
 	// Wait for the dispatcher to actually deliver (Dispatch is async); the
 	// deadline shape is then verified on the ring record's completion: delivery
 	// finished while req ctx is already canceled proves WithoutCancel, and the
-	// bounded retry envelope (60s webhookDispatchTimeout) is covered by the
+	// bounded retry envelope (webhooks.DispatchTimeout) is covered by the
 	// SurvivesRequestContextCancel + dispatcher timeout tests.
 	if !waitWebhookDelivery(&calls) {
 		t.Fatal("dispatcher never received the dispatch: got 0 deliveries")

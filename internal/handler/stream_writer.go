@@ -39,15 +39,29 @@ const (
 type StreamWriter struct {
 	logger *slog.Logger
 	now    func() time.Time
-	sleep  func(time.Duration)
+	wait   func(context.Context, time.Duration)
 }
 
-// NewStreamWriter creates a StreamWriter using real-time clock and sleep.
+// NewStreamWriter creates a StreamWriter using real-time clock and a
+// context-aware wait seam for the per-frame sleep.
 func NewStreamWriter(logger *slog.Logger) *StreamWriter {
 	return &StreamWriter{
 		logger: logger,
 		now:    time.Now,
-		sleep:  time.Sleep,
+		wait:   waitCtxTimeout,
+	}
+}
+
+// waitCtxTimeout blocks for d or until ctx is canceled, whichever comes first.
+// It is the default `wait` seam for StreamWriter. A zero or negative duration
+// returns without blocking (preserves the no-sleep contract for interval_ms<=0).
+func waitCtxTimeout(ctx context.Context, d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	select {
+	case <-ctx.Done():
+	case <-time.After(d):
 	}
 }
 
@@ -91,7 +105,8 @@ func (*StreamWriter) writeHeaders(rw http.ResponseWriter, contentType string) {
 
 // streamLoop is the per-frame loop body. Termination is decided per-mode by
 // shouldContinue; sleeping is the caller's responsibility via the configured
-// sleep function (which tests can replace).
+// wait function (which tests can replace). The default wait aborts promptly
+// when ctx is canceled (MINOR7).
 func (w *StreamWriter) streamLoop(
 	ctx context.Context, rw http.ResponseWriter, flusher http.Flusher, sc *model.StreamConfig,
 ) {
@@ -102,9 +117,7 @@ func (w *StreamWriter) streamLoop(
 			return
 		}
 		flusher.Flush()
-		if interval > 0 {
-			w.sleep(interval)
-		}
+		w.wait(ctx, interval)
 	}
 }
 
