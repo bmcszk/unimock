@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -287,12 +288,7 @@ func needsCleanHandler(testName string) bool {
 		"DELETE non-existent resource but collection exists",
 	}
 
-	for _, name := range cleanHandlerTests {
-		if testName == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cleanHandlerTests, testName)
 }
 
 // executeTestRequest executes the HTTP request and validates the response

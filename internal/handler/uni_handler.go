@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"strings"
 
@@ -847,9 +848,7 @@ func (h *UniHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // copyHeaders copies response headers to the writer
 func (*UniHandler) copyHeaders(w http.ResponseWriter, resp *http.Response) {
-	for k, v := range resp.Header {
-		w.Header()[k] = v
-	}
+	maps.Copy(w.Header(), resp.Header)
 }
 
 // writeResponse writes the response body and status code
@@ -900,9 +899,7 @@ func (*UniHandler) suppressResponseBody(resp *http.Response) *http.Response {
 	}
 
 	// Copy all headers
-	for k, v := range resp.Header {
-		newResp.Header[k] = v
-	}
+	maps.Copy(newResp.Header, resp.Header)
 
 	// Close original body if it exists
 	if resp.Body != nil {
@@ -911,4 +908,3 @@ func (*UniHandler) suppressResponseBody(resp *http.Response) *http.Response {
 
 	return newResp
 }
-

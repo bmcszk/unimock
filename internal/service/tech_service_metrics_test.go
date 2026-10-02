@@ -21,7 +21,7 @@ func TestTechService_ComprehensiveMetrics(t *testing.T) {
 
 	// Simulate various requests
 	for _, status := range statusCodes {
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			techService.IncrementRequestCount(ctx, testPath)
 			techService.TrackResponse(ctx, testPath, status)
 		}
@@ -87,10 +87,10 @@ func TestTechService_ConcurrentAccess(t *testing.T) {
 	done := make(chan bool, numGoroutines)
 
 	// Start multiple goroutines
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		go func(_ int) {
 			path := "/concurrent/test"
-			for j := 0; j < numRequestsPerGoroutine; j++ {
+			for range numRequestsPerGoroutine {
 				techService.IncrementRequestCount(ctx, path)
 				techService.TrackResponse(ctx, path, 200)
 			}
@@ -99,7 +99,7 @@ func TestTechService_ConcurrentAccess(t *testing.T) {
 	}
 
 	// Wait for all goroutines to complete
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		<-done
 	}
 

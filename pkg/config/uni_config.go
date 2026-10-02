@@ -694,7 +694,7 @@ func (*pathMatcher) isCollectionAccess(patternParts, pathParts []string) bool {
 
 // matchCollectionSegments matches collection access patterns
 func (pm pathMatcher) matchCollectionSegments(patternParts, pathParts []string) bool {
-	for i := 0; i < len(pathParts); i++ {
+	for i := range pathParts {
 		if !pm.segmentMatches(patternParts[i], pathParts[i]) {
 			return false
 		}
@@ -704,10 +704,7 @@ func (pm pathMatcher) matchCollectionSegments(patternParts, pathParts []string) 
 
 // matchNormalSegments matches normal patterns with exact segment counts
 func (pm pathMatcher) matchNormalSegments(patternParts, pathParts []string) bool {
-	maxLen := len(patternParts)
-	if len(pathParts) < maxLen {
-		maxLen = len(pathParts)
-	}
+	maxLen := min(len(pathParts), len(patternParts))
 
 	for i := 0; i < maxLen; i++ {
 		if patternParts[i] == WildcardChar {
@@ -883,8 +880,8 @@ func (*UniConfig) evaluateWildcardSection(name string, section Section, normaliz
 
 	// Adjust score based on wildcard types
 	score := numSegments * 100 // Base score
-	patternParts := strings.Split(pattern, PathSeparator)
-	for _, part := range patternParts {
+	patternParts := strings.SplitSeq(pattern, PathSeparator)
+	for part := range patternParts {
 		switch part {
 		case RecursiveWildcard:
 			score -= 50 // ** wildcards are less specific

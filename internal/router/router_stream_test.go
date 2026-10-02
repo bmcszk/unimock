@@ -58,7 +58,7 @@ func countSSEFrames(t *testing.T, r io.Reader) int {
 		t.Fatalf("read: %v", err)
 	}
 	count := 0
-	for _, line := range strings.Split(string(body), "\n") {
+	for line := range strings.SplitSeq(string(body), "\n") {
 		if strings.HasPrefix(line, "data: ") {
 			count++
 		}

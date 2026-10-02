@@ -58,10 +58,10 @@ func TestRing_ConcurrentSafe(t *testing.T) {
 	const perWriter = 50
 
 	var wg sync.WaitGroup
-	for w := 0; w < writers; w++ {
+	for w := range writers {
 		w := w
 		wg.Go(func() {
-			for i := 0; i < perWriter; i++ {
+			for i := range perWriter {
 				r.Add(webhooks.Delivery{
 					ID:         fmt.Sprintf("w%d-i%d", w, i),
 					URL:        "u",
@@ -82,7 +82,7 @@ func TestRing_ConcurrentSafe(t *testing.T) {
 
 func TestRing_CapacityZeroDefaultsTo100(t *testing.T) {
 	r := webhooks.NewRing(0)
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		r.Add(webhooks.Delivery{ID: fmt.Sprintf("id%d", i), TS: time.Now()})
 	}
 	got := r.Snapshot()

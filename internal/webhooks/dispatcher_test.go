@@ -442,7 +442,7 @@ func TestDispatcher_DispatchIsAsync(t *testing.T) {
 
 func TestBackoff_Bounds(t *testing.T) {
 	// base=100ms, max=1000ms. Attempt index 0..6 → expected cap at 1000.
-	for n := 0; n < 10; n++ {
+	for n := range 10 {
 		d := time.Duration(webhooks.ComputeBackoff(100, 1000, n)) * time.Millisecond
 		if d < 0 {
 			t.Errorf("attempt %d: negative delay %s", n, d)
@@ -482,7 +482,7 @@ func TestComputeBackoffSequence_TableDriven(t *testing.T) {
 
 func runBackoffTrials(t *testing.T, base, maxMS, attempt, maxExp int) {
 	t.Helper()
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		got := webhooks.ComputeBackoff(base, maxMS, attempt)
 		if got < 0 || got > maxExp {
 			t.Fatalf("attempt %d trial %d: got %d out of [0, %d]", attempt, i, got, maxExp)
