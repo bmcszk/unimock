@@ -560,9 +560,60 @@ scenarios:
 
 Scenarios provide powerful control over your mock responses, enabling comprehensive testing of both happy paths and edge cases.
 
+## Webhook responses
+
+A scenario can also fire an outbound HTTP request when it matches. The mock response still goes back to the caller immediately. Unimock then delivers the webhook request to a real URL in the background, so you can test code that reacts to events, not only code that polls.
+
+```yaml
+scenarios:
+  - uuid: "order-created-hook"
+    method: "POST"
+    path: "/api/orders"
+    status_code: 201
+    content_type: "application/json"
+    data: |
+      {"id":"order-1","status":"created"}
+    webhook:
+      url: "http://localhost:9090/hooks/orders"
+      method: "POST"
+      headers:
+        X-Source: "unimock"
+      body: '{"event":"order.created","delivery":"{{uuid}}"}'
+      secret_env: UNIMOCK_WEBHOOK_SECRET
+      max_attempts: 3
+      base_ms: 500
+      max_ms: 30000
+```
+
+When a `POST /api/orders` request matches the scenario, the caller gets the `201` response right away. In the background, unimock sends `POST http://localhost:9090/hooks/orders` with the configured headers and body, where `{{uuid}}` becomes a fresh UUID on every attempt. When you leave `body` out, the matched request's own body is forwarded instead.
+
+| Field | What it does |
+|---|---|
+| `url` | Required. The absolute target URL the webhook is delivered to. |
+| `method` | HTTP method used for delivery. Defaults to `POST`; only `POST`, `PUT`, and `PATCH` are allowed. |
+| `headers` | Extra HTTP headers sent with each delivery attempt. |
+| `body` | Request body sent to the target URL. `{{uuid}}` is replaced with a fresh UUID per attempt. When empty, the matched request's body is forwarded. |
+| `secret_env` | Name of the environment variable holding the HMAC secret. The secret value itself is never stored in the config. When unset, deliveries are sent unsigned. |
+| `max_attempts` | Total delivery attempts including the first. Defaults to 3. |
+| `base_ms` | Base backoff delay in milliseconds. Defaults to 500. |
+| `max_ms` | Upper bound on the backoff delay in milliseconds. Defaults to 30000. |
+
+Delivery is asynchronous and best-effort. If the target URL fails or times out, unimock retries with exponential backoff plus jitter, waiting `base_ms` and growing up to `max_ms`, until `max_attempts` is reached. Each attempt's `{{uuid}}` placeholder is re-rendered, so retries never reuse the same delivery ID.
+
+When `secret_env` names a set environment variable, unimock signs every attempt per the Standard Webhooks spec. It adds three headers to the delivery: `webhook-id`, `webhook-timestamp`, and `webhook-signature`. The signature is `v1,<base64 HMAC>` computed over `id.timestamp.payload`, so your receiver can verify the delivery really came from unimock. If the variable is unset, the delivery goes out unsigned.
+
+Validation rules, enforced at startup:
+
+- `url` is required and must be an absolute, syntactically valid URL with a scheme and host.
+- `method` must be `POST`, `PUT`, or `PATCH` if set; anything else fails config load.
+- Inline secrets are never accepted; pass only the environment variable name in `secret_env`.
+- A scenario can carry `webhook` together with `data` (as in the example above), but not together with a `stream` block.
+
 ## Streaming responses
 
 A scenario normally returns one static body. With a `stream` block, the server instead renders the same template many times, with fresh placeholder values per frame, and sends each frame as soon as it is written. Two formats are supported: SSE and NDJSON.
+
+SSE stands for Server-Sent Events, a standard way for a server to keep an HTTP response open and push text frames to the client. Each SSE frame is a line starting with `data: `, frames are separated by blank lines, and browsers can consume them with the built-in EventSource API, though any plain HTTP client works too. NDJSON stands for Newline-Delimited JSON: each line is one JSON object and the newline is the only framing, which makes it a common choice for log tailing and bulk APIs.
 
 ```yaml
 scenarios:
