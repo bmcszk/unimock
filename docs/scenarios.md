@@ -558,11 +558,11 @@ scenarios:
     data: '{"error": "Gateway timeout"}'
 ```
 
-Scenarios provide powerful control over your mock responses, enabling comprehensive testing of both happy paths and edge cases.
+Scenarios control the mock response, so you can test both happy paths and edge cases.
 
 ## Webhook responses
 
-A scenario can also fire an outbound HTTP request when it matches. The mock response still goes back to the caller immediately. Unimock then delivers the webhook request to a real URL in the background, so you can test code that reacts to events, not only code that polls.
+A scenario can also fire an outbound HTTP request when it matches. The mock response still goes back to the caller immediately. Unimock then delivers the webhook request to a real URL in the background, so you can test code that reacts to events instead of polling.
 
 ```yaml
 scenarios:
@@ -593,14 +593,14 @@ When a `POST /api/orders` request matches the scenario, the caller gets the `201
 | `method` | HTTP method used for delivery. Defaults to `POST`; only `POST`, `PUT`, and `PATCH` are allowed. |
 | `headers` | Extra HTTP headers sent with each delivery attempt. |
 | `body` | Request body sent to the target URL. `{{uuid}}` is replaced with a fresh UUID per attempt. When empty, the matched request's body is forwarded. |
-| `secret_env` | Name of the environment variable holding the HMAC secret. The secret value itself is never stored in the config. When unset, deliveries are sent unsigned. |
+| `secret_env` | Name of the environment variable holding the HMAC secret. The secret value itself is never stored in the config. A value prefixed `whsec_` is base64-decoded before use as the HMAC key; otherwise the raw value is the key. When unset, deliveries are sent unsigned. |
 | `max_attempts` | Total delivery attempts including the first. Defaults to 3. |
 | `base_ms` | Base backoff delay in milliseconds. Defaults to 500. |
 | `max_ms` | Upper bound on the backoff delay in milliseconds. Defaults to 30000. |
 
-Delivery is asynchronous and best-effort. If the target URL fails or times out, unimock retries with exponential backoff plus jitter, waiting `base_ms` and growing up to `max_ms`, until `max_attempts` is reached. Each attempt's `{{uuid}}` placeholder is re-rendered, so retries never reuse the same delivery ID.
+Delivery is asynchronous and best-effort. If the target URL fails or times out, unimock retries with exponential backoff and full jitter: each wait is random between 0 and a cap that starts at `base_ms` and doubles up to `max_ms`, until `max_attempts` is reached. Each attempt's `{{uuid}}` placeholder is re-rendered, so retries never reuse the same delivery ID.
 
-When `secret_env` names a set environment variable, unimock signs every attempt per the Standard Webhooks spec. It adds three headers to the delivery: `webhook-id`, `webhook-timestamp`, and `webhook-signature`. The signature is `v1,<base64 HMAC>` computed over `id.timestamp.payload`, so your receiver can verify the delivery really came from unimock. If the variable is unset, the delivery goes out unsigned.
+When `secret_env` names a set environment variable, unimock signs every attempt per the Standard Webhooks spec. It adds three headers to the delivery: `webhook-id`, `webhook-timestamp`, and `webhook-signature`. The signature is `v1,<base64 HMAC>` computed over `id.timestamp.payload`, so your receiver can verify the delivery came from unimock.
 
 Validation rules, enforced at startup:
 
@@ -676,7 +676,7 @@ A `GET /api/logs` (the NDJSON scenario) returns `Content-Type: application/x-ndj
 {"i":2,"t":"2026-10-06T12:00:00.623456789Z"}
 ```
 
-NDJSON frames have no prefix. Each frame is the rendered template followed by a newline.
+NDJSON frames have no prefix. Each frame is the rendered template followed by a newline. The example shows the first three frames; `hold_open: true` keeps the stream going until the client disconnects.
 
 ### stream fields
 
@@ -690,4 +690,4 @@ NDJSON frames have no prefix. Each frame is the rendered template followed by a 
 
 A scenario can carry `stream` or `data`, never both. Loading a scenario with both set fails validation at startup.
 
-For the full design notes (stdlib flushing, anti-buffering headers, hold-open context handling, why WebSocket and HTTP/2 push are out of scope for v1), see [HTTP Streaming & Outbound Webhooks for unimock — Deep Research Report](webhooks-streaming-research-2026.md).
+For the full design notes (stdlib flushing, anti-buffering headers, hold-open context handling, why WebSocket and HTTP/2 push are out of scope for v1), see [HTTP Streaming & Outbound Webhooks for unimock deep research report](webhooks-streaming-research-2026.md).
