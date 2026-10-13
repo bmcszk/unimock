@@ -315,7 +315,7 @@ func (d *Dispatcher) applySigning(req *http.Request, wh *model.WebhookConfig, bo
 	}
 	// Per-attempt ID keeps each attempt individually signed.
 	id := uuid.NewString()
-	ts := strconvFormatUnix(d.now())
+	ts := fmt.Sprintf("%d", d.now().Unix())
 	mac := hmac.New(sha256.New, key)
 	// hmac.Hash.Write never returns an error.
 	_, _ = mac.Write([]byte(id))
@@ -359,7 +359,10 @@ func decodeWebhookSecret(secretRaw string) ([]byte, error) {
 func (*Dispatcher) composeBody(wh *model.WebhookConfig, _ int, requestBody []byte) []byte {
 	template := wh.Body
 	if template == "" {
-		return requestBodyOrEmpty(requestBody)
+		if requestBody == nil {
+			return []byte{}
+		}
+		return requestBody
 	}
 	return []byte(strings.ReplaceAll(template, uuidPlaceholder, uuid.NewString()))
 }
@@ -378,6 +381,16 @@ func (d *Dispatcher) logDelivery(dlv Delivery, requestPath string) {
 	if d.logger == nil {
 		return
 	}
+	attrs := deliveryLogAttrs(dlv, requestPath)
+	if isSuccess(dlv) {
+		d.logger.Info("webhook delivered", attrs...)
+		return
+	}
+	d.logger.Warn("webhook delivery failed", attrs...)
+}
+
+// deliveryLogAttrs builds the structured attrs for a delivery log line.
+func deliveryLogAttrs(dlv Delivery, requestPath string) []any {
 	attrs := []any{
 		"id", dlv.ID,
 		"url", dlv.URL,
@@ -391,11 +404,7 @@ func (d *Dispatcher) logDelivery(dlv Delivery, requestPath string) {
 	if dlv.Error != "" {
 		attrs = append(attrs, "error", dlv.Error)
 	}
-	if dlv.StatusCode >= 200 && dlv.StatusCode < 300 {
-		d.logger.Info("webhook delivered", attrs...)
-		return
-	}
-	d.logger.Warn("webhook delivery failed", attrs...)
+	return attrs
 }
 
 // Snapshot returns the current delivery ring contents.
@@ -439,16 +448,4 @@ func jitter(randInt func(int) int, maxMs int) int {
 		return 0
 	}
 	return randInt(maxMs + 1)
-}
-
-// strconvFormatUnix wraps strconv.FormatInt to keep imports clean in applySigning.
-func strconvFormatUnix(t time.Time) string {
-	return fmt.Sprintf("%d", t.Unix())
-}
-
-func requestBodyOrEmpty(b []byte) []byte {
-	if b == nil {
-		return []byte{}
-	}
-	return b
 }
