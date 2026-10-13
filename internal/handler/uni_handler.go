@@ -309,27 +309,12 @@ func (h *UniHandler) HandlePUT(ctx context.Context, req *http.Request) (*http.Re
 func (h *UniHandler) processPUTRequest(
 	ctx context.Context, req *http.Request, section *config.Section, sectionName string,
 ) (*http.Response, error) {
-	// Extract ID from path
 	ids, err := h.extractIDs(ctx, req, section, sectionName)
 	if err != nil || len(ids) == 0 {
 		h.logger.Error("failed to extract ID for PUT", "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusBadRequest, "ID required for PUT"), nil
 	}
 
-	// Build and transform data
-	mockData, err := h.buildUniDataFromRequest(req, ids)
-	if err != nil {
-		h.logger.Error("failed to build UniData for PUT", "error", err)
-		return h.errorResponse(http.StatusBadRequest, "failed to process request data"), nil
-	}
-
-	transformedData, err := h.applyRequestTransformations(mockData, section, sectionName)
-	if err != nil {
-		h.logger.Error("request transformation failed for PUT", "error", err)
-		return h.errorResponse(http.StatusInternalServerError, "request transformation failed"), nil
-	}
-
-	// Validate strict path if enabled
 	if section.StrictPath {
 		resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
 			section.PathPattern, "PUT", sectionName, section.StrictPath)
@@ -338,7 +323,31 @@ func (h *UniHandler) processPUTRequest(
 		}
 	}
 
+	transformedData, errResp := h.buildAndTransformRequestData(req, ids, section, sectionName, "PUT")
+	if errResp != nil {
+		return errResp, nil
+	}
+
 	return h.executeResourceUpdate(ctx, ids[0], transformedData, section, sectionName)
+}
+
+// buildAndTransformRequestData reads the request body and applies the configured
+// request transformations, mapping failures to 400/500 responses.
+func (h *UniHandler) buildAndTransformRequestData(
+	req *http.Request, ids []string, section *config.Section, sectionName, method string,
+) (model.UniData, *http.Response) {
+	mockData, err := h.buildUniDataFromRequest(req, ids)
+	if err != nil {
+		h.logger.Error("failed to build UniData for "+method, "error", err)
+		return model.UniData{}, h.errorResponse(http.StatusBadRequest, "failed to process request data")
+	}
+
+	transformedData, err := h.applyRequestTransformations(mockData, section, sectionName)
+	if err != nil {
+		h.logger.Error("request transformation failed for "+method, "error", err)
+		return model.UniData{}, h.errorResponse(http.StatusInternalServerError, "request transformation failed")
+	}
+	return transformedData, nil
 }
 
 // validateResourceExists checks if a resource exists for operations requiring existing resources
@@ -391,14 +400,12 @@ func (h *UniHandler) HandleDELETE(ctx context.Context, req *http.Request) (*http
 func (h *UniHandler) processDELETERequest(
 	ctx context.Context, req *http.Request, section *config.Section, sectionName string,
 ) (*http.Response, error) {
-	// Extract ID from path
 	ids, err := h.extractIDs(ctx, req, section, sectionName)
 	if err != nil || len(ids) == 0 {
 		h.logger.Error("failed to extract ID for DELETE", "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusNotFound, "resource not found"), nil
 	}
 
-	// Validate strict path if enabled
 	if section.StrictPath {
 		resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
 			section.PathPattern, "DELETE", sectionName, section.StrictPath)
