@@ -33,11 +33,11 @@ type Delivery struct {
 // record is evicted to make room for a new one. The zero value is NOT usable;
 // callers must call NewRing.
 type Ring struct {
-	mu       sync.Mutex
-	cap      int
-	items    []Delivery
-	next     int // next write index when full
-	full     bool
+	mu    sync.Mutex
+	cap   int
+	items []Delivery
+	next  int // next write index when full
+	full  bool
 }
 
 // NewRing creates a Ring with the given capacity. A non-positive capacity falls back
@@ -61,17 +61,10 @@ func (r *Ring) Add(d Delivery) {
 		r.next = (r.next + 1) % r.cap
 		return
 	}
-	if len(r.items) < r.cap {
-		r.items = append(r.items, d)
-		if len(r.items) == r.cap {
-			r.full = true
-		}
-		return
+	r.items = append(r.items, d)
+	if len(r.items) == r.cap {
+		r.full = true
 	}
-	// Defensive: should be unreachable since full==false and len==cap is the same
-	// condition, but keep a consistent fallback.
-	r.items[0] = d
-	r.next = 1
 }
 
 // Snapshot returns a defensive copy of the buffer in insertion order (oldest first).

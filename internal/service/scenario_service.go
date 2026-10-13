@@ -19,6 +19,7 @@ const (
 	singleItem       = 1
 	minStatusCode    = 100
 	maxStatusCode    = 599
+	validMethods     = "GET POST PUT DELETE PATCH HEAD OPTIONS"
 )
 
 // ScenarioService manages test scenarios
@@ -248,33 +249,16 @@ func (s *ScenarioService) DeleteScenario(_ context.Context, id string) error {
 // the webhook + stream + data-exclusivity + template-newline + hold_open rules
 // so the runtime create/update path matches what LoadFromYAML enforces.
 func (*ScenarioService) validateScenario(scenario model.Scenario) error {
-	// Validate request path format
-	parts := strings.SplitN(scenario.RequestPath, " ", 2)
-	if len(parts) != 2 {
+	method, _, found := strings.Cut(scenario.RequestPath, " ")
+	if !found {
 		return errors.New("invalid request path format")
 	}
-
-	// Validate HTTP method
-	method := parts[0]
-	validMethods := map[string]bool{
-		"GET":     true,
-		"POST":    true,
-		"PUT":     true,
-		"DELETE":  true,
-		"PATCH":   true,
-		"HEAD":    true,
-		"OPTIONS": true,
-	}
-	if !validMethods[method] {
-		// If method was already validated and part of RequestPath, this check might be redundant here
-		// but as a direct validation of scenario model, it's fine.
+	if !strings.Contains(" "+validMethods+" ", " "+method+" ") {
 		return fmt.Errorf("invalid HTTP method in request path: %s", method)
 	}
-
 	// Shared validation (MAJOR4): same rules LoadFromYAML uses.
 	if err := scenario.Validate(); err != nil {
 		return fmt.Errorf("invalid scenario: %w", err)
 	}
-
 	return nil
 }

@@ -12,10 +12,10 @@ import (
 
 // TechHandler handles technical endpoints like health checks and metrics
 type TechHandler struct {
-	prefix        string
-	service       *service.TechService
-	logger        *slog.Logger
-	deliveries    *webhooks.Ring
+	prefix     string
+	service    *service.TechService
+	logger     *slog.Logger
+	deliveries *webhooks.Ring
 }
 
 // NewTechHandler creates a new instance of TechHandler. The deliveries ring may
@@ -40,8 +40,6 @@ func (h *TechHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"method", r.Method,
 		"path", r.URL.Path)
 
-
-	// Only allow GET method for technical endpoints
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
