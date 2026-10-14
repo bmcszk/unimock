@@ -196,8 +196,7 @@ func backoffDelay(randInt func(int) int, wh *model.WebhookConfig, attempt int) t
 	return time.Duration(jittered) * time.Millisecond
 }
 
-// shouldAbort returns true if the parent context is canceled. It exists as its own
-// helper to keep runAttempts at low cognitive complexity.
+// shouldAbort returns true if the parent context is canceled.
 func (*Dispatcher) shouldAbort(parentCtx context.Context, _, _ string, _ int) bool {
 	return parentCtx != nil && parentCtx.Err() != nil
 }
@@ -238,8 +237,6 @@ func (*Dispatcher) canceledDelivery(deliveryID, url string, attempt int) Deliver
 		TS:      time.Now(),
 	}
 }
-
-// ctxCanceled is intentionally left out; shouldAbort replaces it inline.
 
 // attempt performs a single HTTP delivery and returns a Delivery with attempt metadata.
 func (d *Dispatcher) attempt(
