@@ -850,7 +850,7 @@ func (*UniConfig) evaluateWildcardSection(name string, section Section, normaliz
 		case WildcardChar:
 			score -= 10
 		default:
-				}
+		}
 	}
 
 	return wildcardMatch{name: name, numSegments: score}
