@@ -5,10 +5,8 @@ import (
 	"testing"
 )
 
-// TestDualBox_WebhookBroadcastBetweenInstances connects two real unimock
-// instances over HTTP: box A broadcasts a scenario webhook to box B, box B
-// confirms the inbound delivery through its own admin API, and box A's
-// delivery ring records the successful attempt.
+// Box A broadcasts a webhook to box B; receipt is proven through B's admin
+// API and A's delivery ring, not just B's HTTP response.
 func TestDualBox_WebhookBroadcastBetweenInstances(t *testing.T) {
 	given, when, then := newParts(t)
 
@@ -55,10 +53,8 @@ scenarios:
 		the_second_instance_records_no_outbound_deliveries()
 }
 
-// TestDualBox_ReceiverConfirmsDeliveryAndStreams wires box A's webhook into
-// box B, confirms receipt via B's admin metrics, then consumes B's own SSE
-// scenario to prove the receiver box keeps serving streams as a fully
-// functional unimock while receiving cross-instance deliveries.
+// Box A's webhook lands on box B while B keeps serving its own SSE scenario:
+// receipt is proven via B's admin metrics, then B streams normally.
 func TestDualBox_ReceiverConfirmsDeliveryAndStreams(t *testing.T) {
 	given, when, then := newParts(t)
 

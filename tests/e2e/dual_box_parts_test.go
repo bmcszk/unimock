@@ -10,9 +10,7 @@ import (
 	"time"
 )
 
-// startSecondServer boots a second in-process unimock on a random port from the
-// given YAML (same mechanics as setupScenarioTestServer) without touching this
-// parts' own server state, and returns fresh parts pointed at it.
+// Leaves this parts' own server state untouched.
 func (p *parts) startSecondServer(configFile string) *parts {
 	p.Helper()
 
@@ -24,9 +22,7 @@ func (p *parts) startSecondServer(configFile string) *parts {
 	return receiver
 }
 
-// a_second_unimock_instance_is_started_with boots a second real unimock
-// instance (box B) from the given YAML scenario config and exposes it as
-// parts.receiver for the rest of the test.
+// Second instance shares the parts lifecycle so Cleanup closes both boxes.
 func (p *parts) a_second_unimock_instance_is_started_with(scenarioYAML string) *parts {
 	p.Helper()
 
@@ -34,7 +30,6 @@ func (p *parts) a_second_unimock_instance_is_started_with(scenarioYAML string) *
 	return p
 }
 
-// writeTempConfig writes YAML to a temp file and returns its path.
 func (p *parts) writeTempConfig(yamlContent string) string {
 	p.Helper()
 
@@ -45,9 +40,7 @@ func (p *parts) writeTempConfig(yamlContent string) string {
 	return configFile
 }
 
-// a_streaming_request_is_made_to_the_second_instance opens a streaming GET
-// against box B and reuses the shared streaming response state so the existing
-// the_stream_* assertions apply to the second instance's stream.
+// Reuses the shared streaming state so the the_stream_* assertions apply to box B.
 func (p *parts) a_streaming_request_is_made_to_the_second_instance(url string) *parts {
 	p.Helper()
 
@@ -57,7 +50,6 @@ func (p *parts) a_streaming_request_is_made_to_the_second_instance(url string) *
 	return p.a_streaming_request_is_made_to(url)
 }
 
-// fetchDeliveries GETs the deliveries snapshot from the given unimock base URL.
 func fetchDeliveries(baseURL string) ([]map[string]any, error) {
 	resp, err := http.Get(baseURL + "/_uni/webhooks/deliveries")
 	if err != nil {
@@ -144,7 +136,6 @@ func (p *parts) the_second_instance_records_no_outbound_deliveries() *parts {
 	return p
 }
 
-// metricsHitCountFor returns how many inbound requests box B recorded for path.
 func (p *parts) metricsHitCountFor(path string) int {
 	p.Helper()
 
@@ -153,8 +144,6 @@ func (p *parts) metricsHitCountFor(path string) int {
 	return int(metricsNumber(endpoints, path))
 }
 
-// metricsStatusCountFor returns how many responses of the given status box B
-// recorded for path.
 func (p *parts) metricsStatusCountFor(path string, statusCode int) int {
 	p.Helper()
 
@@ -164,7 +153,6 @@ func (p *parts) metricsStatusCountFor(path string, statusCode int) int {
 	return int(metricsNumber(pathStats, fmt.Sprintf("%d", statusCode)))
 }
 
-// metricsMap returns the map stored under key, or an empty map when absent.
 func metricsMap(source map[string]any, key string) map[string]any {
 	if value, ok := source[key].(map[string]any); ok {
 		return value
@@ -172,7 +160,6 @@ func metricsMap(source map[string]any, key string) map[string]any {
 	return map[string]any{}
 }
 
-// metricsNumber returns the number stored under key, or 0 when absent.
 func metricsNumber(source map[string]any, key string) float64 {
 	if value, ok := source[key].(float64); ok {
 		return value
@@ -180,7 +167,6 @@ func metricsNumber(source map[string]any, key string) float64 {
 	return 0
 }
 
-// fetchMetrics GETs and decodes box B's /_uni/metrics document.
 func (p *parts) fetchMetrics() map[string]any {
 	p.Helper()
 
