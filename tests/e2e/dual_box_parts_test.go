@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Leaves this parts' own server state untouched.
+// Returns fresh parts so caller's own server/baseURL stays untouched.
 func (p *parts) startSecondServer(configFile string) *parts {
 	p.Helper()
 
@@ -40,7 +40,7 @@ func (p *parts) writeTempConfig(yamlContent string) string {
 	return configFile
 }
 
-// Reuses the shared streaming state so the the_stream_* assertions apply to box B.
+// Swaps baseURL to box B for the call's duration so shared stream state feeds the_stream_* assertions.
 func (p *parts) a_streaming_request_is_made_to_the_second_instance(url string) *parts {
 	p.Helper()
 
@@ -70,9 +70,7 @@ func fetchDeliveries(baseURL string) ([]map[string]any, error) {
 	return records, nil
 }
 
-// the_second_instance_received_the_webhook_request polls box B until its admin
-// metrics show the webhook path was hit at least once, proving the cross-box
-// delivery landed as a real HTTP request B can account for.
+// Cross-box delivery is async; poll instead of sleeping.
 func (p *parts) the_second_instance_received_the_webhook_request(path string) *parts {
 	p.Helper()
 
@@ -87,8 +85,6 @@ func (p *parts) the_second_instance_received_the_webhook_request(path string) *p
 	return p
 }
 
-// the_second_instance_responded_200_to polls box B's status-code stats until
-// the webhook path shows a 200 response.
 func (p *parts) the_second_instance_responded_200_to(path string) *parts {
 	p.Helper()
 
@@ -103,8 +99,6 @@ func (p *parts) the_second_instance_responded_200_to(path string) *parts {
 	return p
 }
 
-// the_delivery_to_is_recorded_as_successful polls box A's deliveries endpoint
-// until a record for the given target URL shows a 2xx status and no error.
 func (p *parts) the_delivery_to_is_recorded_as_successful(targetURL string) *parts {
 	p.Helper()
 
@@ -125,8 +119,7 @@ func (p *parts) the_delivery_to_is_recorded_as_successful(targetURL string) *par
 	return p
 }
 
-// the_second_instance_records_no_outbound_deliveries asserts box B's own
-// outbound delivery ring stays empty — B only received, it never broadcast.
+// B only received; it never broadcast.
 func (p *parts) the_second_instance_records_no_outbound_deliveries() *parts {
 	p.Helper()
 
@@ -181,14 +174,12 @@ func (p *parts) fetchMetrics() map[string]any {
 	return metrics
 }
 
-// deliveryHasNoError reports whether a decoded delivery record carries no error
-// (the key is omitted entirely on success).
+// deliveries API omits the error key entirely on success.
 func deliveryHasNoError(record map[string]any) bool {
 	errValue, present := record["error"]
 	return !present || errValue == nil || errValue == ""
 }
 
-// statusIs2xx reports whether a decoded delivery statusCode is a 2xx value.
 func statusIs2xx(statusCode any) bool {
 	code, ok := statusCode.(float64)
 	return ok && code >= 200 && code < 300

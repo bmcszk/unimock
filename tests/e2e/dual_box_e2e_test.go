@@ -5,12 +5,9 @@ import (
 	"testing"
 )
 
-// Box A broadcasts a webhook to box B; receipt is proven through B's admin
-// API and A's delivery ring, not just B's HTTP response.
 func TestDualBox_WebhookBroadcastBetweenInstances(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
 	given.
 		a_second_unimock_instance_is_started_with(`
 scenarios:
@@ -40,11 +37,9 @@ scenarios:
       max_ms: 50
 `, given.receiver.baseURL+"/hook"))
 
-	// when
 	when.
 		a_post_request_with_open_body_is_made_to("/orders")
 
-	// then
 	then.
 		the_response_body_contains_fixtures_data(`"order-1"`).and().
 		the_second_instance_received_the_webhook_request("/hook").and().
@@ -53,12 +48,10 @@ scenarios:
 		the_second_instance_records_no_outbound_deliveries()
 }
 
-// Box A's webhook lands on box B while B keeps serving its own SSE scenario:
-// receipt is proven via B's admin metrics, then B streams normally.
+// receiver box keeps serving own streams while absorbing cross-instance deliveries.
 func TestDualBox_ReceiverConfirmsDeliveryAndStreams(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
 	given.
 		a_second_unimock_instance_is_started_with(`
 scenarios:
@@ -98,12 +91,10 @@ scenarios:
       max_ms: 50
 `, given.receiver.baseURL+"/hook"))
 
-	// when
 	when.
 		a_post_request_with_open_body_is_made_to("/orders").and().
 		a_streaming_request_is_made_to_the_second_instance("/events")
 
-	// then
 	then.
 		the_response_body_contains_fixtures_data(`"order-2"`).and().
 		the_second_instance_received_the_webhook_request("/hook").and().
