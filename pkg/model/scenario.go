@@ -7,13 +7,9 @@ import (
 	"strings"
 )
 
-// Validate runs the v1 contract validation on the scenario. It checks the
-// Webhook (URL scheme + host, method allowlist with default, non-negative
-// retry fields, and upper bounds) and the Stream (format allowlist,
-// termination mode exactly-one, template non-empty and free of \n/\r, and
-// the new hold_open-requires-interval constraint). It also enforces the
-// stream/data mutual-exclusion rule. The error strings are intended to be
-// reused by callers that prefix them with "stream: " / "webhook: " so the
+// Validate runs the v1 contract validation on the scenario: webhook, stream,
+// and the stream/data mutual-exclusion rule. The error strings are intended to
+// be reused by callers that prefix them with "stream: " / "webhook: " so the
 // YAML-config-level error text stays stable.
 //
 // This validator is the single source of truth shared by YAML load and
