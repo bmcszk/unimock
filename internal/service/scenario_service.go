@@ -160,7 +160,6 @@ func (s *ScenarioService) GetScenario(_ context.Context, id string) (model.Scena
 	}
 	scenario, err := s.storage.Get(id)
 	if err != nil {
-		// Return standardized error message regardless of the specific error from storage
 		return model.Scenario{}, errors.New("resource not found")
 	}
 	return scenario, nil
@@ -178,7 +177,6 @@ func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scena
 
 	err := s.storage.Create(scenario.UUID, scenario)
 	if err != nil {
-		// Standardized error message for already existing resources
 		return model.Scenario{}, errors.New("resource already exists")
 	}
 	return scenario, nil
@@ -230,7 +228,6 @@ func (s *ScenarioService) DeleteScenario(_ context.Context, id string) error {
 	}
 	err := s.storage.Delete(id)
 	if err != nil {
-		// Standardized error message for not found resources
 		return errors.New("resource not found")
 	}
 	return nil
