@@ -52,7 +52,7 @@ func NewRing(capacity int) *Ring {
 	}
 }
 
-// Add records a delivery. Safe for concurrent use.
+// Add records a delivery.
 func (r *Ring) Add(d Delivery) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
