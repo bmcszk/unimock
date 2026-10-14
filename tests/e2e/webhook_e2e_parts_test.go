@@ -23,7 +23,7 @@ type receivedWebhook struct {
 // enough for any async webhook delivery to fire. The body is closed via
 // t.Cleanup at test end. Use for webhook scenarios where the dispatcher
 // depends on req.Context().
-func (p *parts) a_post_request_with_open_body_is_made_to(url string) {
+func (p *parts) a_post_request_with_open_body_is_made_to(url string) *parts {
 	p.Helper()
 	resp, err := http.Post(p.baseURL+url, "application/json", nil)
 	p.require.NoError(err)
@@ -31,6 +31,7 @@ func (p *parts) a_post_request_with_open_body_is_made_to(url string) {
 	p.require.NoError(err)
 	p.responses = []any{&ResponseWithBody{Response: resp, BodyContent: body}}
 	p.Cleanup(func() { _ = resp.Body.Close() })
+	return p
 }
 
 // a_webhook_receiver_is_started spins up an in-process httptest server that
