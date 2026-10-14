@@ -152,42 +152,33 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 		serverConfig = config.NewDefaultServerConfig()
 	}
 
-	// Setup logger based on the log level from server config
 	logger := setupLogger(serverConfig.LogLevel)
 
 	logger.Info("initializing server",
 		"port", serverConfig.Port,
 		"log_level", serverConfig.LogLevel)
 
-	// Validate uni configuration
 	if err := validateConfiguration(uniConfig, logger); err != nil {
 		return nil, err
 	}
 
-	// Create a new storage
 	store := storage.NewUniStorage()
-
-	// Create a new scenario storage
 	scenarioStore := storage.NewScenarioStorage()
 
-	// Create services
 	uniService := service.NewUniService(store, uniConfig)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
-	// Load scenarios from uni config directly
 	loadScenariosFromUniConfig(uniConfig, scenarioService, logger)
 
 	// Webhook delivery infrastructure: shared ring buffer + dispatcher.
 	webhookRing := webhooks.NewRing(0) // 0 → default cap 100
 	webhookDispatcher := webhooks.NewDispatcher(logger, webhookRing)
 
-	// Create handlers with services
 	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, uniConfig)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
 	techHandler := handler.NewTechHandler(techService, logger, webhookRing)
 
-	// Create a router
 	appRouter := router.NewRouter(
 		uniHandler, techHandler, scenarioHandler,
 		scenarioService, techService, logger, uniConfig,
@@ -197,7 +188,6 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 		},
 	)
 
-	// Create server
 	srv := &http.Server{
 		Addr:         ":" + serverConfig.Port,
 		Handler:      appRouter,
@@ -206,7 +196,6 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 		IdleTimeout:  idleTimeout,
 	}
 
-	// Return the created server
 	logger.Info("server initialization complete, ready to start")
 	return srv, nil
 }
