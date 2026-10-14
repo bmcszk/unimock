@@ -56,7 +56,6 @@ func (s *StreamConfig) validate() error {
 	return fmt.Errorf("stream: %w", err)
 }
 
-// toModel converts the config stream into the runtime model representation.
 func (s *StreamConfig) toModel() *model.StreamConfig {
 	return &model.StreamConfig{
 		Format:     s.Format,
