@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	// "log/slog"
-	// "os"
 	"strings"
 
 	"github.com/bmcszk/unimock/internal/storage"
@@ -171,12 +168,10 @@ func (s *ScenarioService) GetScenario(_ context.Context, id string) (model.Scena
 
 // CreateScenario creates a new scenario
 func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scenario) (model.Scenario, error) {
-	// Validate scenario
 	if err := s.validateScenario(scenario); err != nil {
 		return model.Scenario{}, err
 	}
 
-	// Generate UUID if not provided
 	if scenario.UUID == "" {
 		scenario.UUID = uuid.New().String()
 	}
@@ -191,19 +186,16 @@ func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scena
 
 // UpdateScenario updates an existing scenario
 func (s *ScenarioService) UpdateScenario(_ context.Context, id string, scenario model.Scenario) error {
-	// Validate scenario basic fields first
 	if err := s.validateScenario(scenario); err != nil {
 		return err
 	}
 
-	// Validate and set UUID consistency
 	updatedScenario, err := s.validateUUIDConsistency(id, scenario)
 	if err != nil {
 		return err
 	}
 	scenario = updatedScenario
 
-	// Perform the storage update
 	return s.performStorageUpdate(id, scenario)
 }
 
