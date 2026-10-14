@@ -13,7 +13,6 @@ import (
 	"github.com/bmcszk/unimock/pkg/model"
 )
 
-// streamFormat constants — closed set per the v1 contract.
 const (
 	streamFormatSSE    = "sse"
 	streamFormatNDJSON = "ndjson"
@@ -25,7 +24,6 @@ var streamContentType = map[string]string{
 	streamFormatNDJSON: "application/x-ndjson",
 }
 
-// placeholder constants used in the per-frame template substitution.
 const (
 	placeholderIndex     = "{{index}}"
 	placeholderTimestamp = "{{timestamp}}"
@@ -96,17 +94,16 @@ func (w *StreamWriter) WriteStream(ctx context.Context, rw http.ResponseWriter, 
 	w.streamLoop(ctx, rw, flusher, sc)
 }
 
-// writeHeaders applies the v1 contract headers in one place.
+// writeHeaders sets the v1 contract headers.
 func (*StreamWriter) writeHeaders(rw http.ResponseWriter, contentType string) {
 	rw.Header().Set("Content-Type", contentType)
 	rw.Header().Set("Cache-Control", "no-cache")
 	rw.Header().Set("X-Accel-Buffering", "no")
 }
 
-// streamLoop is the per-frame loop body. Termination is decided per-mode by
-// shouldContinue; sleeping is the caller's responsibility via the configured
-// wait function (which tests can replace). The default wait aborts promptly
-// when ctx is canceled (MINOR7).
+// streamLoop is the per-frame loop body. Sleeping is the caller-configured wait
+// seam (tests can replace it); the default wait aborts promptly when ctx is
+// canceled (MINOR7).
 func (w *StreamWriter) streamLoop(
 	ctx context.Context, rw http.ResponseWriter, flusher http.Flusher, sc *model.StreamConfig,
 ) {
@@ -121,11 +118,9 @@ func (w *StreamWriter) streamLoop(
 	}
 }
 
-// shouldContinue reports whether the stream should emit another frame. Returns
-// false when the request context is canceled (client disconnect) or when the
-// configured EventCount has been reached. HoldOpen mode only stops on context
-// cancel. The current frame index (about to be emitted) is checked against
-// EventCount so the loop writes frames 0..EventCount-1 inclusive.
+// shouldContinue reports whether the stream should emit another frame.
+// HoldOpen mode only stops on context cancel; otherwise EventCount bounds the
+// loop to frames 0..EventCount-1 inclusive.
 func shouldContinue(ctx context.Context, sc *model.StreamConfig, currentIndex int) bool {
 	if err := ctx.Err(); err != nil {
 		return false
