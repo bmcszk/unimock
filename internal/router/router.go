@@ -85,13 +85,11 @@ func NewRouter(
 func (r *Router) setupRoutes() {
 	r.router = chi.NewRouter()
 
-	// Add middleware
+	// Scenario handling middleware must run before route matching.
 	r.router.Use(middleware.RequestID)
 	r.router.Use(r.loggingMiddleware)
 	r.router.Use(r.metricsMiddleware)
 	r.router.Use(middleware.Recoverer)
-
-	// Add scenario handling middleware (runs before route matching)
 	r.router.Use(r.scenarioMiddleware)
 
 	// Technical endpoints (/_uni/*)
@@ -123,19 +121,15 @@ func (r *Router) metricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		requestPath := r.normalizePath(req.URL.Path)
 
-		// Create a response writer wrapper to capture status code
 		ww := &responseWriter{
 			ResponseWriter: w,
-			statusCode:     200, // default status code
+			statusCode:     200,
 		}
 
-		// Increment request count before processing
 		r.techService.IncrementRequestCount(req.Context(), requestPath)
 
-		// Process request
 		next.ServeHTTP(ww, req)
 
-		// Track response after processing
 		r.techService.TrackResponse(req.Context(), requestPath, ww.statusCode)
 	})
 }
@@ -272,7 +266,6 @@ func (r *Router) writeStaticScenarioResponse(
 ) {
 	applyScenarioHeaders(w, scenario)
 	w.WriteHeader(scenario.StatusCode)
-	// For HEAD requests, don't write response body
 	if req.Method == http.MethodHead {
 		return
 	}
