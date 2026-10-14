@@ -600,6 +600,7 @@ func (s *Section) normalizeIDExtractionFields() {
 	}
 }
 
+// GetPathPattern returns the section's path pattern.
 func (s *Section) GetPathPattern() string {
 	return s.PathPattern
 }
