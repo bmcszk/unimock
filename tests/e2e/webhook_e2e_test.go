@@ -12,8 +12,6 @@ import (
 func TestWebhook_FiresOnScenarioMatch(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given - start receiver first so we know its URL; then write a scenario
-	// whose webhook target points at that receiver.
 	given.
 		a_webhook_receiver_is_started().and().
 		configFileFromContent(fmt.Sprintf(`
@@ -34,12 +32,9 @@ scenarios:
       max_ms: 50
 `, when.webhookReceiver.URL))
 
-	// when - POST to the scenario; the response is returned synchronously and
-	// the open body keeps the request context alive for async delivery.
 	when.
 		a_post_request_with_open_body_is_made_to("/orders")
 
-	// then - scenario response was delivered; webhook fired exactly once with the expected method and body
 	then.
 		the_response_body_contains_fixtures_data(`"order-1"`).and().
 		wait_for_webhook_delivery().and().
@@ -55,7 +50,6 @@ scenarios:
 func TestWebhook_RetriesUntilSuccess(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given - receiver fails first attempt, then accepts; scenario configured with 2 max attempts
 	given.
 		a_webhook_receiver_is_started().and().
 		the_webhook_receiver_fails_first_attempt().and().
@@ -77,11 +71,9 @@ scenarios:
       max_ms: 50
 `, when.webhookReceiver.URL))
 
-	// when - trigger the scenario
 	when.
 		a_post_request_with_open_body_is_made_to("/notify")
 
-	// then - scenario response is delivered to caller; receiver saw exactly 2 attempts
 	then.
 		the_response_body_contains_fixtures_data(`"queued":true`).and().
 		wait_for_n_webhook_deliveries(2).and().
@@ -98,7 +90,6 @@ func TestWebhook_SignatureHeaderHasV1Prefix(t *testing.T) {
 
 	given, when, then := newParts(t)
 
-	// given - scenario referencing the env var name for the HMAC secret
 	given.
 		a_webhook_receiver_is_started().and().
 		configFileFromContent(fmt.Sprintf(`
@@ -120,11 +111,9 @@ scenarios:
       max_ms: 50
 `, when.webhookReceiver.URL))
 
-	// when - trigger the scenario; signing happens inside the dispatcher
 	when.
 		a_post_request_with_open_body_is_made_to("/signed")
 
-	// then - webhook-signature header is present with v1, prefix
 	then.
 		the_response_body_contains_fixtures_data(`"ok":true`).and().
 		wait_for_webhook_delivery().and().
@@ -137,7 +126,6 @@ scenarios:
 func TestWebhook_DeliveriesEndpointReflectsFiredWebhook(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given - scenario that fires a single webhook
 	given.
 		a_webhook_receiver_is_started().and().
 		configFileFromContent(fmt.Sprintf(`
@@ -158,11 +146,9 @@ scenarios:
       max_ms: 50
 `, when.webhookReceiver.URL))
 
-	// when - trigger the scenario
 	when.
 		a_post_request_with_open_body_is_made_to("/audit")
 
-	// then - give the dispatcher a moment, then verify the deliveries endpoint
 	then.
 		the_response_body_contains_fixtures_data(`"audit":"logged"`).and().
 		wait_for_webhook_delivery().and().
