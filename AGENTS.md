@@ -10,6 +10,9 @@ mock HTTP dependencies.
   pass before you claim any change is done. E2E: `make test-e2e` (Docker).
 - **No `//nolint` comments. No lint-config changes** to silence findings —
   fix the code.
+- **Go naming:** a struct field whose type is the enclosing struct's own type is never
+  named after the parent or call-site variable (`root *parts`, `receiver *parts` are
+  forbidden shapes). Name the field for its role: `second *parts`, `parent *node`.
 - **Tests first** for logic changes (TDD). E2E tests use the fluent style in
   [`docs/fluent-testing.md`](docs/fluent-testing.md).
 - **Branch + PR.** Never push to master. One logical change per PR.
