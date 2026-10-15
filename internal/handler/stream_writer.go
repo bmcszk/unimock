@@ -18,6 +18,11 @@ const (
 	streamFormatNDJSON = "ndjson"
 )
 
+// perFrameDeadlineMargin is the safety cushion added to the frame interval when
+// refreshing the connection write deadline, so a frame write itself has room
+// to complete before the server WriteTimeout fires.
+const perFrameDeadlineMargin = 5 * time.Second
+
 // streamContentType maps a stream Format to its canonical Content-Type.
 var streamContentType = map[string]string{
 	streamFormatSSE:    "text/event-stream",
@@ -74,6 +79,9 @@ func waitCtxTimeout(ctx context.Context, d time.Duration) {
 //   - Frame terminators: SSE — "data: <frame>\n\n"; NDJSON — "<frame>\n".
 //   - EventCount mode: ends after N frames.
 //   - HoldOpen mode: ends when ctx is canceled.
+//   - Refreshes the connection write deadline (interval + margin) before every
+//     frame, so streams outlast the server WriteTimeout; a failed refresh is
+//     logged, never fatal.
 func (w *StreamWriter) WriteStream(ctx context.Context, rw http.ResponseWriter, sc *model.StreamConfig) {
 	if sc == nil {
 		return
@@ -90,8 +98,9 @@ func (w *StreamWriter) WriteStream(ctx context.Context, rw http.ResponseWriter, 
 		return
 	}
 	w.writeHeaders(rw, contentType)
+	controller := http.NewResponseController(rw)
 	rw.WriteHeader(http.StatusOK)
-	w.streamLoop(ctx, rw, flusher, sc)
+	w.streamLoop(ctx, controller, rw, flusher, sc)
 }
 
 // writeHeaders sets the v1 contract headers.
@@ -101,20 +110,33 @@ func (*StreamWriter) writeHeaders(rw http.ResponseWriter, contentType string) {
 	rw.Header().Set("X-Accel-Buffering", "no")
 }
 
-// streamLoop is the per-frame loop body. Sleeping is the caller-configured wait
-// seam (tests can replace it); the default wait aborts promptly when ctx is
-// canceled (MINOR7).
+// streamLoop is the per-frame loop body: refresh the write deadline so the
+// connection outlives the server WriteTimeout, write one frame, flush, then
+// sleep via the caller-configured wait seam (tests can replace it; the default
+// wait aborts promptly when ctx is canceled, MINOR7).
 func (w *StreamWriter) streamLoop(
-	ctx context.Context, rw http.ResponseWriter, flusher http.Flusher, sc *model.StreamConfig,
+	ctx context.Context, controller *http.ResponseController,
+	rw http.ResponseWriter, flusher http.Flusher, sc *model.StreamConfig,
 ) {
 	interval := time.Duration(sc.IntervalMS) * time.Millisecond
+	deadline := interval + perFrameDeadlineMargin
 	for i := 0; shouldContinue(ctx, sc, i); i++ {
+		w.refreshWriteDeadline(controller, w.now().Add(deadline))
 		frame := renderTemplate(sc.Template, i, w.now())
 		if err := w.writeFrame(rw, sc.Format, frame); err != nil {
 			return
 		}
 		flusher.Flush()
 		w.wait(ctx, interval)
+	}
+}
+
+// refreshWriteDeadline pushes the connection write deadline out one more
+// interval + margin. Failure is logged, never fatal: a writer without deadline
+// support must not break the stream.
+func (w *StreamWriter) refreshWriteDeadline(controller *http.ResponseController, deadline time.Time) {
+	if err := controller.SetWriteDeadline(deadline); err != nil && w.logger != nil {
+		w.logger.Warn("failed to refresh stream write deadline", "error", err)
 	}
 }
 
