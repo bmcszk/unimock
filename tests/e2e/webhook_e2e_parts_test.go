@@ -246,6 +246,15 @@ func (p *parts) the_stream_frames_arrive_at_least_interval_ms_apart(minGapMS int
 	return p
 }
 
+// the_response_header_equals asserts the streaming response carries an exact
+// header value (case-insensitive key lookup per net/http canonical form).
+func (p *parts) the_response_header_equals(key, want string) *parts {
+	p.Helper()
+	p.require.NotNil(p.streamingResponse, "streaming response not opened")
+	p.require.Equal(want, p.streamingResponse.Header.Get(key), "response header %s", key)
+	return p
+}
+
 // the_stream_body_contains asserts the buffered stream body contains substring.
 func (p *parts) the_stream_body_contains(substr string) *parts {
 	p.Helper()

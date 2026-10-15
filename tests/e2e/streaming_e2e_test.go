@@ -120,3 +120,33 @@ scenarios:
 	then.
 		the_stream_content_type_is("text/event-stream")
 }
+
+// TestStreaming_ScenarioHeadersReachStreamedResponse proves scenario-supplied
+// headers are applied to streamed responses too, not only static ones.
+func TestStreaming_ScenarioHeadersReachStreamedResponse(t *testing.T) {
+	given, when, then := newParts(t)
+
+	given.
+		configFileFromContent(`
+scenarios:
+  - uuid: "stream-headers-001"
+    method: "GET"
+    path: "/header-events"
+    status_code: 200
+    headers:
+      X-Scenario-Tag: "streamed"
+    stream:
+      format: "sse"
+      interval_ms: 10
+      event_count: 2
+      template: '{"n": {{index}}}'
+`)
+
+	when.
+		a_streaming_request_is_made_to("/header-events")
+
+	then.
+		the_stream_content_type_is("text/event-stream").and().
+		the_stream_contains_n_frames(2).and().
+		the_response_header_equals("X-Scenario-Tag", "streamed")
+}

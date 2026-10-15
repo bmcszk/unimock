@@ -295,6 +295,7 @@ func (r *Router) writeStreamScenarioResponse(
 		r.failMissingStreamWriter(w, scenario)
 		return
 	}
+	applyScenarioHeaders(w, scenario)
 	r.deps.StreamWriter.WriteStream(req.Context(), w, scenario.Stream, scenario.StatusCode)
 }
 
