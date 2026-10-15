@@ -47,12 +47,13 @@ type parts struct {
 
 	// Streaming E2E state. streamingResponse/body stay open until the test
 	// finishes reading or cancels via streamingCancel.
-	streamingResponse *http.Response
-	streamingCancel   context.CancelFunc
-	streamingCT       string
-	streamingBody     string
-	streamingElapsed  time.Duration
-	streamingErr      error
+	streamingResponse      *http.Response
+	streamingCancel        context.CancelFunc
+	streamingCT            string
+	streamingBody          string
+	streamingElapsed       time.Duration
+	streamingErr           error
+	streamingFrameArrivals []time.Time
 
 	// Dual-box E2E state.
 	// second is box B in dual-box tests; nil until a_second_unimock_instance_is_started_with.

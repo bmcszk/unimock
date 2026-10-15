@@ -34,6 +34,36 @@ scenarios:
 		the_stream_body_contains(`{"n": 2}`)
 }
 
+// TestStreaming_FramesArriveSpacedByInterval proves inter-frame pacing is
+// honored on the wire: consecutive SSE frames arrive at least interval_ms
+// apart, measured via per-read-event arrival timestamps (lower bound only —
+// an upper bound would flake under CI scheduler jitter).
+func TestStreaming_FramesArriveSpacedByInterval(t *testing.T) {
+	given, when, then := newParts(t)
+
+	given.
+		configFileFromContent(`
+scenarios:
+  - uuid: "stream-pacing-001"
+    method: "GET"
+    path: "/paced-events"
+    status_code: 200
+    stream:
+      format: "sse"
+      interval_ms: 300
+      event_count: 5
+      template: '{"n": {{index}}}'
+`)
+
+	when.
+		a_streaming_request_is_made_to("/paced-events")
+
+	then.
+		the_stream_content_type_is("text/event-stream").and().
+		the_stream_contains_n_frames(5).and().
+		the_stream_frames_arrive_at_least_interval_ms_apart(300)
+}
+
 // TestStreaming_NDJSON_DeliversNewlineDelimitedFrames verifies an NDJSON
 // streaming scenario: newline-terminated frames with the NDJSON Content-Type.
 func TestStreaming_NDJSON_DeliversNewlineDelimitedFrames(t *testing.T) {

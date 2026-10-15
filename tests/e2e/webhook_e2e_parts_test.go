@@ -199,16 +199,27 @@ func countNonEmpty(lines []string) int {
 }
 
 // streamingBodyRead caches the fully-read stream body so multiple
-// the_stream_body_contains assertions don't re-read a consumed body.
+// the_stream_body_contains assertions don't re-read a consumed body. Each
+// read event is timestamped in streamingFrameArrivals: the server flushes
+// once per frame, so read events approximate per-frame arrival times.
 func (p *parts) streamingBodyRead() string {
 	p.Helper()
 	if p.streamingBody != "" {
 		return p.streamingBody
 	}
 	p.require.NotNil(p.streamingResponse, "streaming response not opened")
-	body, err := io.ReadAll(p.streamingResponse.Body)
-	p.require.NoError(err, "read streaming body")
-	p.streamingBody = string(body)
+	buf := make([]byte, 4096)
+	for {
+		n, err := p.streamingResponse.Body.Read(buf)
+		if n > 0 {
+			p.streamingFrameArrivals = append(p.streamingFrameArrivals, time.Now())
+			p.streamingBody += string(buf[:n])
+		}
+		if err == io.EOF {
+			break
+		}
+		p.require.NoError(err, "read streaming body")
+	}
 	return p.streamingBody
 }
 
@@ -217,6 +228,21 @@ func (p *parts) the_stream_contains_n_frames(n int) *parts {
 	p.Helper()
 	got := countStreamFrames(p.streamingBodyRead(), p.streamingCT)
 	p.require.Equal(n, got, "stream frame count for %q", p.streamingCT)
+	return p
+}
+
+// the_stream_frames_arrive_at_least_interval_ms_apart asserts consecutive
+// per-frame arrival deltas are at least minGapMS apart. Lower bound only:
+// an upper bound would flake on CI scheduling jitter (zero-flake policy).
+func (p *parts) the_stream_frames_arrive_at_least_interval_ms_apart(minGapMS int) *parts {
+	p.Helper()
+	arrivals := p.streamingFrameArrivals
+	p.require.Greater(len(arrivals), 1, "need at least two frame arrivals to measure gaps")
+	for i := 1; i < len(arrivals); i++ {
+		gap := arrivals[i].Sub(arrivals[i-1])
+		p.require.GreaterOrEqual(gap, time.Duration(minGapMS)*time.Millisecond,
+			"frames %d->%d arrived %v apart, want >= %dms", i-1, i, gap, minGapMS)
+	}
 	return p
 }
 
