@@ -421,6 +421,43 @@ func (p *parts) the_file_scenario_still_works() *parts {
 	return p
 }
 
+func (p *parts) a_runtime_scenario_create_request_is_made_with(body string) {
+	p.Helper()
+	resp, err := http.Post(p.baseURL+"/_uni/scenarios", "application/json", strings.NewReader(body))
+	p.require.NoError(err, "POST /_uni/scenarios")
+	responseBody, err := io.ReadAll(resp.Body)
+	p.require.NoError(err, "read runtime scenario create response body")
+	resp.Body.Close()
+	p.responses = []any{&ResponseWithBody{Response: resp, BodyContent: responseBody}}
+}
+
+func (p *parts) the_runtime_scenario_was_accepted() *parts {
+	p.Helper()
+	responseWithBody, ok := p.responses[0].(*ResponseWithBody)
+	p.require.True(ok, "response is not of expected type with body content")
+	p.require.GreaterOrEqual(responseWithBody.StatusCode, http.StatusOK, "runtime scenario create status")
+	p.require.Less(responseWithBody.StatusCode, http.StatusMultipleChoices, "runtime scenario create status")
+	return p
+}
+
+func (p *parts) the_runtime_scenario_was_rejected_with(message string) {
+	p.Helper()
+	responseWithBody, ok := p.responses[0].(*ResponseWithBody)
+	p.require.True(ok, "response is not of expected type with body content")
+	p.require.Equal(http.StatusBadRequest, responseWithBody.StatusCode, "runtime scenario create status")
+	p.require.Contains(string(responseWithBody.BodyContent), message, "runtime scenario create error body")
+}
+
+func (p *parts) runtimeAPIUnifiedConfigFile() *parts {
+	p.Helper()
+	return p.configFileFromContent(`
+sections:
+  runtime_api:
+    path_pattern: "/runtime-api/**"
+    return_body: true
+`)
+}
+
 // Config file creation helper
 func (*parts) createUnifiedConfigFileContent() string {
 	return `
