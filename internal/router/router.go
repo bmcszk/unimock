@@ -148,6 +148,12 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
+// Unwrap exposes the wrapped writer so http.NewResponseController can reach
+// the underlying connection's deadline methods through the middleware chain.
+func (rw *responseWriter) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
+}
+
 // Flush forwards to the underlying ResponseWriter when it supports flushing.
 // Returns silently when the wrapped writer is not an http.Flusher (e.g. an
 // httptest.ResponseRecorder used in some tests) so callers stay non-fatal.

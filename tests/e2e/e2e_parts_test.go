@@ -51,6 +51,8 @@ type parts struct {
 	streamingCancel   context.CancelFunc
 	streamingCT       string
 	streamingBody     string
+	streamingElapsed  time.Duration
+	streamingErr      error
 
 	// Dual-box E2E state.
 	// second is box B in dual-box tests; nil until a_second_unimock_instance_is_started_with.

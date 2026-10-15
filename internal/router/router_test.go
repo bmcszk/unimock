@@ -141,6 +141,76 @@ func getRouterTestCases() []routerTestCase {
 	}
 }
 
+func TestRouter_ResponseController_SetWriteDeadline_ReachesUnderlyingWriter(t *testing.T) {
+	baseWriter := &deadlineRecordingResponseWriter{ResponseWriter: httptest.NewRecorder()}
+	streamWriter := &deadlineCapturingStreamWriter{}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	scenarioStore := storage.NewScenarioStorage()
+	cfg := &config.UniConfig{
+		Sections: map[string]config.Section{
+			"api": {PathPattern: "/api"},
+		},
+	}
+	scenarioService := service.NewScenarioService(scenarioStore)
+	techService := service.NewTechService(time.Now())
+	appRouter := router.NewRouter(
+		handler.NewUniHandler(service.NewUniService(storage.NewUniStorage(), cfg), scenarioService, logger, cfg),
+		handler.NewTechHandler(techService, logger, nil),
+		handler.NewScenarioHandler(scenarioService, logger),
+		scenarioService, techService, logger, cfg,
+		router.Deps{StreamWriter: streamWriter},
+	)
+
+	_, err := scenarioService.CreateScenario(context.TODO(), model.Scenario{
+		UUID:        "stream-deadline-router-test",
+		RequestPath: "GET /api/stream",
+		StatusCode:  200,
+		Stream:      &model.StreamConfig{Format: "sse", IntervalMS: 0, EventCount: 1, Template: "x"},
+	})
+	if err != nil {
+		t.Fatalf("create stream scenario: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/stream", nil)
+	appRouter.ServeHTTP(baseWriter, req)
+
+	if !streamWriter.underlyingCalled {
+		t.Fatal("stream writer was never invoked")
+	}
+	if baseWriter.setWriteDeadlineCalls == 0 {
+		t.Fatalf("SetWriteDeadline never reached the underlying writer: controller error = %v "+
+			"(responseWriter hides the conn from http.NewResponseController)", streamWriter.controllerErr)
+	}
+}
+
+// deadlineRecordingResponseWriter stands in for the real connection writer:
+// it accepts SetWriteDeadline the way net/http's internal conn writer does.
+type deadlineRecordingResponseWriter struct {
+	http.ResponseWriter
+	setWriteDeadlineCalls int
+	lastDeadline          time.Time
+}
+
+func (w *deadlineRecordingResponseWriter) SetWriteDeadline(deadline time.Time) error {
+	w.setWriteDeadlineCalls++
+	w.lastDeadline = deadline
+	return nil
+}
+
+// deadlineCapturingStreamWriter records whether http.NewResponseController
+// reached a SetWriteDeadline-capable writer through the middleware wrapper.
+type deadlineCapturingStreamWriter struct {
+	underlyingCalled bool
+	controllerErr    error
+}
+
+func (sw *deadlineCapturingStreamWriter) WriteStream(
+	_ context.Context, w http.ResponseWriter, _ *model.StreamConfig,
+) {
+	sw.underlyingCalled = true
+	sw.controllerErr = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(time.Second))
+}
+
 func executeRouterTest(t *testing.T, appRouter *router.Router, tt routerTestCase) {
 	t.Helper()
 	req := httptest.NewRequest(tt.method, tt.path, nil)

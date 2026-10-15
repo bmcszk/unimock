@@ -105,6 +105,88 @@ func TestStreamWriter_HoldOpenEndsOnContextCancel(t *testing.T) {
 	}
 }
 
+func TestStreamWriter_SetWriteDeadlineRefreshedPerFrame(t *testing.T) {
+	base := httptest.NewRecorder()
+	rec := &deadlineRecordingResponseWriter{ResponseWriter: base}
+	w := newTestStreamWriter()
+
+	sc := &model.StreamConfig{
+		Format:     "sse",
+		IntervalMS: 0,
+		EventCount: 3,
+		Template:   `{"n":{{index}}}`,
+	}
+	w.WriteStream(context.Background(), rec, sc)
+
+	assert.Equal(t, "data: {\"n\":0}\n\ndata: {\"n\":1}\n\ndata: {\"n\":2}\n\n",
+		base.Body.String(), "stream frames unchanged by deadline bookkeeping")
+	assert.GreaterOrEqual(t, rec.setWriteDeadlineCalls, 3,
+		"every frame must be preceded by a SetWriteDeadline refresh")
+	for i, call := range rec.deadlines {
+		assert.True(t, call.value.After(call.atCallTime),
+			"deadline call %d (%v) must land in the future at call time", i, call.value)
+	}
+}
+
+func TestStreamWriter_HoldOpenAlsoRefreshesWriteDeadline(t *testing.T) {
+	base := httptest.NewRecorder()
+	rec := &deadlineRecordingResponseWriter{ResponseWriter: base}
+	w := handler.NewStreamWriter(nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sc := &model.StreamConfig{
+		Format:     "sse",
+		IntervalMS: 1,
+		HoldOpen:   true,
+		Template:   "x",
+	}
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		cancel()
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		w.WriteStream(ctx, rec, sc)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("hold_open stream did not end after context cancel")
+	}
+	assert.GreaterOrEqual(t, rec.setWriteDeadlineCalls, 1,
+		"hold_open frames must refresh the write deadline too")
+}
+
+// deadlineRecord pairs a SetWriteDeadline argument with the wall clock at the
+// moment of the call, so tests can assert the deadline lies in the future.
+type deadlineRecord struct {
+	value      time.Time
+	atCallTime time.Time
+}
+
+// deadlineRecordingResponseWriter captures SetWriteDeadline calls exactly the
+// way net/http's internal connection writer receives them.
+type deadlineRecordingResponseWriter struct {
+	http.ResponseWriter
+	setWriteDeadlineCalls int
+	deadlines             []deadlineRecord
+}
+
+func (w *deadlineRecordingResponseWriter) SetWriteDeadline(deadline time.Time) error {
+	w.setWriteDeadlineCalls++
+	w.deadlines = append(w.deadlines, deadlineRecord{value: deadline, atCallTime: time.Now()})
+	return nil
+}
+
+func (w *deadlineRecordingResponseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 func TestStreamWriter_UnsupportedFormat500(t *testing.T) {
 	rec := httptest.NewRecorder()
 	w := newTestStreamWriter()
