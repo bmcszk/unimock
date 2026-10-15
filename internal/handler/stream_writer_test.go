@@ -29,7 +29,7 @@ func TestStreamWriter_SSEFrameBytes(t *testing.T) {
 		EventCount: 2,
 		Template:   `{"n":{{index}}}`,
 	}
-	w.WriteStream(context.Background(), rec, sc)
+	w.WriteStream(context.Background(), rec, sc, 0)
 
 	body := rec.Body.String()
 	assert.Equal(t, "data: {\"n\":0}\n\ndata: {\"n\":1}\n\n", body)
@@ -49,7 +49,7 @@ func TestStreamWriter_NDJSONFrameBytes(t *testing.T) {
 		EventCount: 2,
 		Template:   `{"n":{{index}}}`,
 	}
-	w.WriteStream(context.Background(), rec, sc)
+	w.WriteStream(context.Background(), rec, sc, 0)
 
 	assert.Equal(t, "{\"n\":0}\n{\"n\":1}\n", rec.Body.String())
 	assert.Equal(t, "application/x-ndjson", rec.Header().Get("Content-Type"))
@@ -65,7 +65,7 @@ func TestStreamWriter_TimestampPlaceholder(t *testing.T) {
 		EventCount: 1,
 		Template:   `{"t":"{{timestamp}}"}`,
 	}
-	w.WriteStream(context.Background(), rec, sc)
+	w.WriteStream(context.Background(), rec, sc, 0)
 
 	// {{timestamp}} renders RFC3339 of the wall clock (the exact instant is
 	// not injectable through the exported API) — assert the RFC3339 shape.
@@ -93,7 +93,7 @@ func TestStreamWriter_HoldOpenEndsOnContextCancel(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		w.WriteStream(ctx, rec, sc)
+		w.WriteStream(ctx, rec, sc, 0)
 		close(done)
 	}()
 
@@ -116,7 +116,7 @@ func TestStreamWriter_SetWriteDeadlineRefreshedPerFrame(t *testing.T) {
 		EventCount: 3,
 		Template:   `{"n":{{index}}}`,
 	}
-	w.WriteStream(context.Background(), rec, sc)
+	w.WriteStream(context.Background(), rec, sc, 0)
 
 	assert.Equal(t, "data: {\"n\":0}\n\ndata: {\"n\":1}\n\ndata: {\"n\":2}\n\n",
 		base.Body.String(), "stream frames unchanged by deadline bookkeeping")
@@ -147,7 +147,7 @@ func TestStreamWriter_HoldOpenAlsoRefreshesWriteDeadline(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		w.WriteStream(ctx, rec, sc)
+		w.WriteStream(ctx, rec, sc, 0)
 		close(done)
 	}()
 
@@ -197,7 +197,7 @@ func TestStreamWriter_UnsupportedFormat500(t *testing.T) {
 		EventCount: 1,
 		Template:   "x",
 	}
-	w.WriteStream(context.Background(), rec, sc)
+	w.WriteStream(context.Background(), rec, sc, 0)
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.NotContains(t, rec.Body.String(), "data: ", "no SSE frames written on unsupported format")
@@ -216,7 +216,7 @@ func TestStreamWriter_NonFlusherWriter500(t *testing.T) {
 		EventCount: 1,
 		Template:   "x",
 	}
-	w.WriteStream(context.Background(), plain, sc)
+	w.WriteStream(context.Background(), plain, sc, 0)
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
@@ -237,7 +237,32 @@ func TestStreamWriter_EventCountTermination(t *testing.T) {
 		EventCount: 5,
 		Template:   "f",
 	}
-	w.WriteStream(context.Background(), rec, sc)
+	w.WriteStream(context.Background(), rec, sc, 0)
 
 	assert.Equal(t, "f\nf\nf\nf\nf\n", rec.Body.String(), "exactly EventCount frames")
+}
+
+func TestWriteStream_HonorsScenarioStatusCode(t *testing.T) {
+	w := handler.NewStreamWriter(nil)
+	rec := httptest.NewRecorder()
+	w.WriteStream(context.Background(), rec, &model.StreamConfig{
+		Format:     "sse",
+		EventCount: 1,
+		IntervalMS: 0,
+		Template:   `{"i":{{index}}}`,
+	}, http.StatusTeapot)
+	assert.Equal(t, http.StatusTeapot, rec.Code)
+	assert.Contains(t, rec.Body.String(), "data: {\"i\":0}")
+}
+
+func TestWriteStream_ZeroStatusCodeDefaultsOK(t *testing.T) {
+	w := handler.NewStreamWriter(nil)
+	rec := httptest.NewRecorder()
+	w.WriteStream(context.Background(), rec, &model.StreamConfig{
+		Format:     "ndjson",
+		EventCount: 1,
+		IntervalMS: 0,
+		Template:   `{"i":{{index}}}`,
+	}, 0)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }

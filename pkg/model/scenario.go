@@ -14,7 +14,12 @@ import (
 //
 // This validator is the single source of truth shared by YAML load and
 // runtime scenario create/update (bean unimock-vhxx MAJOR4).
+//   - stream and webhook are mutually exclusive: a scenario answers either
+//     with a server-generated stream or by firing an outbound webhook, never both.
 func (s *Scenario) Validate() error {
+	if s.Stream != nil && s.Webhook != nil {
+		return errors.New("stream and webhook are mutually exclusive")
+	}
 	if err := s.Webhook.Validate(); err != nil {
 		return err
 	}

@@ -82,7 +82,9 @@ func waitCtxTimeout(ctx context.Context, d time.Duration) {
 //   - Refreshes the connection write deadline (interval + margin) before every
 //     frame, so streams outlast the server WriteTimeout; a failed refresh is
 //     logged, never fatal.
-func (w *StreamWriter) WriteStream(ctx context.Context, rw http.ResponseWriter, sc *model.StreamConfig) {
+func (w *StreamWriter) WriteStream(
+	ctx context.Context, rw http.ResponseWriter, sc *model.StreamConfig, statusCode int,
+) {
 	if sc == nil {
 		return
 	}
@@ -99,7 +101,10 @@ func (w *StreamWriter) WriteStream(ctx context.Context, rw http.ResponseWriter, 
 	}
 	w.writeHeaders(rw, contentType)
 	controller := http.NewResponseController(rw)
-	rw.WriteHeader(http.StatusOK)
+	if statusCode == 0 {
+		statusCode = http.StatusOK
+	}
+	rw.WriteHeader(statusCode)
 	w.streamLoop(ctx, controller, rw, flusher, sc)
 }
 

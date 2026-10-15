@@ -301,6 +301,41 @@ func TestScenario_Stream_JSONRoundTrip(t *testing.T) {
 	}
 }
 
+func streamWebhookXorScenario(stream, webhook bool) *model.Scenario {
+	sc := model.Scenario{UUID: "x", RequestPath: "GET /x"}
+	if webhook {
+		sc.Webhook = &model.WebhookConfig{URL: "http://example.com/hook"}
+	}
+	if stream {
+		sc.Stream = &model.StreamConfig{Format: "sse", EventCount: 1, Template: "f"}
+	}
+	return &sc
+}
+
+func TestScenario_Validate_StreamWebhookMutuallyExclusive(t *testing.T) {
+	err := streamWebhookXorScenario(true, true).Validate()
+	if err == nil || !strings.Contains(err.Error(), "stream and webhook are mutually exclusive") {
+		t.Fatalf("want mutual-exclusion error, got %v", err)
+	}
+}
+
+func TestScenario_Validate_StreamWebhookAloneAccepted(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		stream, webhook bool
+	}{
+		{"stream only", true, false},
+		{"webhook only", false, true},
+		{"neither", false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := streamWebhookXorScenario(tc.stream, tc.webhook).Validate(); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 func TestScenario_Stream_JSONOmitempty(t *testing.T) {
 	scenario := model.Scenario{
 		UUID:        "s-no-stream",

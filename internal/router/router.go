@@ -28,7 +28,7 @@ const maxDispatchBodyCapture = 1 << 20 // 1 MiB
 // implementation. Defined here so tests can supply a fake without depending on
 // the handler package.
 type StreamResponseWriter interface {
-	WriteStream(ctx context.Context, w http.ResponseWriter, sc *model.StreamConfig)
+	WriteStream(ctx context.Context, w http.ResponseWriter, sc *model.StreamConfig, statusCode int)
 }
 
 // Deps bundles optional side-effecting collaborators (webhook dispatcher,
@@ -295,7 +295,7 @@ func (r *Router) writeStreamScenarioResponse(
 		r.failMissingStreamWriter(w, scenario)
 		return
 	}
-	r.deps.StreamWriter.WriteStream(req.Context(), w, scenario.Stream)
+	r.deps.StreamWriter.WriteStream(req.Context(), w, scenario.Stream, scenario.StatusCode)
 }
 
 // failMissingStreamWriter writes a 500 when a stream scenario fires but no

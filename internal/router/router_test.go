@@ -205,7 +205,7 @@ type deadlineCapturingStreamWriter struct {
 }
 
 func (sw *deadlineCapturingStreamWriter) WriteStream(
-	_ context.Context, w http.ResponseWriter, _ *model.StreamConfig,
+	_ context.Context, w http.ResponseWriter, _ *model.StreamConfig, _ int,
 ) {
 	sw.underlyingCalled = true
 	sw.controllerErr = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(time.Second))

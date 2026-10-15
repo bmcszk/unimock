@@ -683,11 +683,12 @@ NDJSON frames have no prefix. Each frame is the rendered template followed by a 
 | Field | What it does |
 |---|---|
 | `format` | `sse` or `ndjson`. The server sets `Content-Type` from it (`text/event-stream` or `application/x-ndjson`). The scenario's `content_type` is ignored when `stream` is set. |
+| `status_code` | The scenario's `status_code` is the streamed response's status (default `200` when unset). |
 | `template` | Body of one frame. The server replaces `{{index}}` with the frame number, starting at 0, and `{{timestamp}}` with the send time in RFC3339Nano format. Everything else is written verbatim. The template must be non-empty and must not contain a newline or carriage return. |
 | `interval_ms` | Milliseconds the server waits between frames. `0` with `event_count` sends all frames back-to-back. Must be greater than `0` with `hold_open`. |
 | `event_count` | The server sends exactly this many frames, then closes the connection. Cannot be combined with `hold_open`. |
 | `hold_open` | `true` keeps sending frames until the client disconnects. Cannot be combined with `event_count`. |
 
-A scenario can carry `stream` or `data`, never both. Loading a scenario with both set fails validation at startup.
+A scenario can carry `stream` or `data`, never both. It also cannot carry `stream` together with `webhook` — a scenario answers either with a server-generated stream or by firing an outbound webhook, never both. Loading a scenario that violates either rule fails validation at startup.
 
 For the full design notes (stdlib flushing, anti-buffering headers, hold-open context handling, why WebSocket and HTTP/2 push are out of scope for v1), see [HTTP Streaming & Outbound Webhooks for unimock deep research report](webhooks-streaming-research-2026.md).

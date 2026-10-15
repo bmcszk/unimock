@@ -136,3 +136,38 @@ scenarios:
 	then.
 		the_runtime_scenario_was_rejected_with("maxAttempts must be <= 12, got 9999")
 }
+
+// TestRuntimeAPI_StreamWebhookMutuallyExclusive verifies the shared model
+// validation rejects a runtime scenario carrying both stream and webhook —
+// the same rule YAML load enforces at startup.
+func TestRuntimeAPI_StreamWebhookMutuallyExclusive(t *testing.T) {
+	given, when, then := newParts(t)
+
+	given.
+		configFileFromContent(`
+scenarios:
+  - uuid: "runtime-xor-seed-001"
+    method: "GET"
+    path: "/runtime-api/xor-seed"
+    status_code: 200
+`)
+
+	when.
+		a_runtime_scenario_create_request_is_made_with(`{
+			"uuid": "runtime-xor-bad-001",
+			"requestPath": "GET /runtime-api/xor",
+			"statusCode": 200,
+			"stream": {
+				"format": "sse",
+				"eventCount": 1,
+				"intervalMs": 10,
+				"template": "{\"i\": {{index}}}"
+			},
+			"webhook": {
+				"url": "http://127.0.0.1:1/hook"
+			}
+		}`)
+
+	then.
+		the_runtime_scenario_was_rejected_with("stream and webhook are mutually exclusive")
+}
