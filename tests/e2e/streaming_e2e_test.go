@@ -10,7 +10,6 @@ import (
 func TestStreaming_SSE_EventCountDeliversFramesThenEOF(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
 	given.
 		configFileFromContent(`
 scenarios:
@@ -25,11 +24,9 @@ scenarios:
       template: '{"n": {{index}}}'
 `)
 
-	// when
 	when.
 		a_streaming_request_is_made_to("/events")
 
-	// then
 	then.
 		the_stream_content_type_is("text/event-stream").and().
 		the_stream_contains_n_frames(3).and().
@@ -42,7 +39,6 @@ scenarios:
 func TestStreaming_NDJSON_DeliversNewlineDelimitedFrames(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
 	given.
 		configFileFromContent(`
 scenarios:
@@ -57,11 +53,9 @@ scenarios:
       template: '{"tick": {{index}}}'
 `)
 
-	// when
 	when.
 		a_streaming_request_is_made_to("/ticks")
 
-	// then
 	then.
 		the_stream_content_type_is("application/x-ndjson").and().
 		the_stream_contains_n_frames(2).and().
@@ -74,7 +68,6 @@ scenarios:
 func TestStreaming_HoldOpen_ClientCancelEndsCleanly(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
 	given.
 		configFileFromContent(`
 scenarios:
@@ -89,13 +82,11 @@ scenarios:
       template: '{"i": {{index}}}'
 `)
 
-	// when
 	when.
 		a_streaming_request_is_made_to("/live").and().
 		the_stream_receives_at_least_one_frame().and().
 		the_client_cancels_the_stream()
 
-	// then - reaching here means the cancel path completed cleanly
 	then.
 		the_stream_content_type_is("text/event-stream")
 }
