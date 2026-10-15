@@ -95,8 +95,8 @@ func isAllowedWebhookMethod(method string) bool {
 // 12 attempts × 10s client timeout + 11 × 60s backoff cap ≈ 4.5min.
 const MaxAttemptsCeiling = 12
 
-// MaxBackoffMillees bound cap on the per-attempt backoff in ms.
-const MaxBackoffMillees = 60000
+// MaxBackoffMillis bound cap on the per-attempt backoff in ms.
+const MaxBackoffMillis = 60000
 
 // ValidateRetries checks MaxAttempts / BaseMS / MaxMS are non-negative and
 // within the upper bounds that keep the derived dispatch timeout sensible.
@@ -114,8 +114,8 @@ func (w *WebhookConfig) ValidateRetries() error {
 	if w.MaxMS < 0 {
 		return fmt.Errorf("maxMs must be >= 0, got %d", w.MaxMS)
 	}
-	if w.MaxMS > MaxBackoffMillees {
-		return fmt.Errorf("maxMs must be <= %d, got %d", MaxBackoffMillees, w.MaxMS)
+	if w.MaxMS > MaxBackoffMillis {
+		return fmt.Errorf("maxMs must be <= %d, got %d", MaxBackoffMillis, w.MaxMS)
 	}
 	return nil
 }
