@@ -174,7 +174,7 @@ func (d *Dispatcher) runAttempts(
 ) Delivery {
 	var last Delivery
 	for attempt := 1; attempt <= wh.MaxAttempts; attempt++ {
-		if d.shouldAbort(parentCtx, deliveryID, wh.URL, attempt) {
+		if d.ctxDone(parentCtx) {
 			return d.canceledDelivery(deliveryID, wh.URL, attempt)
 		}
 		delivery := d.runSingleAttempt(parentCtx, wh, requestBody, deliveryID, attempt)
@@ -196,8 +196,8 @@ func backoffDelay(randInt func(int) int, wh *model.WebhookConfig, attempt int) t
 	return time.Duration(jittered) * time.Millisecond
 }
 
-// shouldAbort returns true if the parent context is canceled.
-func (*Dispatcher) shouldAbort(parentCtx context.Context, _, _ string, _ int) bool {
+// ctxDone reports whether the parent context is canceled.
+func (*Dispatcher) ctxDone(parentCtx context.Context) bool {
 	return parentCtx != nil && parentCtx.Err() != nil
 }
 
@@ -228,13 +228,13 @@ func (d *Dispatcher) runSingleAttempt(
 }
 
 // canceledDelivery builds a Delivery record for an aborted context.
-func (*Dispatcher) canceledDelivery(deliveryID, url string, attempt int) Delivery {
+func (d *Dispatcher) canceledDelivery(deliveryID, url string, attempt int) Delivery {
 	return Delivery{
 		ID:      deliveryID,
 		URL:     url,
 		Attempt: attempt,
 		Error:   "context canceled",
-		TS:      time.Now(),
+		TS:      d.now(),
 	}
 }
 

@@ -226,6 +226,10 @@ func (r *Router) maybeDispatchScenarioWebhook(req *http.Request, scenario model.
 		return
 	}
 	body := captureRequestBody(req)
+	if r.logger != nil && len(body) == maxDispatchBodyCapture {
+		r.logger.Warn("request body hit the dispatch capture cap and was truncated",
+			"cap_bytes", maxDispatchBodyCapture, "path", req.URL.Path)
+	}
 	requestPath := r.normalizePath(req.URL.Path)
 	// Deadline is derived from the webhook's own retry envelope (see
 	// webhooks.DispatchTimeout) so it provably covers the worst case instead
