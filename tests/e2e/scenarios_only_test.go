@@ -5,7 +5,6 @@ import (
 )
 
 func TestScenariosOnlyConfiguration_GET_ScenarioReturnsExpectedResponse(t *testing.T) {
-	// given
 	configContent := `
 scenarios:
   - uuid: "test-user-get-001"
@@ -50,17 +49,14 @@ scenarios:
 	given.
 		configFileFromContent(configContent)
 
-	// when
 	when.
 		a_get_request_is_made_to("/api/users/123")
 
-	// then
 	then.
 		the_response_is_successful()
 }
 
 func TestScenariosOnlyConfiguration_POST_ScenarioReturnsExpectedResponseWithLocationHeader(t *testing.T) {
-	// given
 	configContent := `
 scenarios:
   - uuid: "test-user-create-002"
@@ -105,17 +101,14 @@ scenarios:
 	given.
 		configFileFromContent(configContent)
 
-	// when
 	when.
 		a_post_request_is_made_to("/api/products")
 
-	// then
 	then.
 		the_post_response_is_successful()
 }
 
 func TestScenariosOnlyConfiguration_ErrorScenarioReturnsExpectedErrorResponse(t *testing.T) {
-	// given
 	configContent := `
 scenarios:
   - uuid: "test-error-003"
@@ -160,17 +153,14 @@ scenarios:
 	given.
 		configFileFromContent(configContent)
 
-	// when
 	when.
 		a_get_request_is_made_to("/api/error")
 
-	// then
 	then.
 		the_response_is_error()
 }
 
 func TestScenariosOnlyConfiguration_NonScenarioPathReturns404(t *testing.T) {
-	// given
 	configContent := `
 scenarios:
   - uuid: "test-notfound-004"
@@ -215,17 +205,14 @@ scenarios:
 	given.
 		configFileFromContent(configContent)
 
-	// when
 	when.
 		a_get_request_is_made_to("/api/unknown")
 
-	// then
 	then.
 		the_response_is_not_found()
 }
 
 func TestScenariosOnlyConfiguration_HealthEndpointStillWorks(t *testing.T) {
-	// given
 	configContent := `
 scenarios:
   - uuid: "test-health-005"
@@ -270,11 +257,9 @@ scenarios:
 	given.
 		configFileFromContent(configContent)
 
-	// when
 	when.
 		a_get_request_is_made_to("/_uni/health")
 
-	// then
 	then.
 		the_response_is_successful()
 }
