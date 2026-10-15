@@ -32,7 +32,6 @@ func TestSCEN_RH_001_GetExistingResource(t *testing.T) {
 func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
 	given.
 		a_scenario(model.Scenario{
 			RequestPath: "POST /test/collection",
@@ -48,11 +47,9 @@ func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 			Data:        `{"id": "newItem", "name": "New Item", "value": 42}`,
 		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rh_002.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_rh_002.hresp")
 }
@@ -62,7 +59,6 @@ func TestSCEN_RH_002_PostCreateResource(t *testing.T) {
 func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
 	given.
 		a_scenario(model.Scenario{
 			RequestPath: "PUT /test/resource/itemToUpdate",
@@ -77,11 +73,9 @@ func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 			Data:        `{"id": "itemToUpdate", "status": "updated"}`,
 		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rh_003.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_rh_003.hresp")
 }
@@ -91,7 +85,6 @@ func TestSCEN_RH_003_PutUpdateResource(t *testing.T) {
 func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
 	given.
 		a_scenario(model.Scenario{
 			RequestPath: "DELETE /test/resource/itemToDelete",
@@ -104,11 +97,9 @@ func TestSCEN_RH_004_DeleteResource(t *testing.T) {
 			Data:        "Resource not found",
 		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rh_004.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_rh_004.hresp")
 }
@@ -171,11 +162,9 @@ func TestSCEN_RH_007_PostInvalidContentType(t *testing.T) {
 func TestSCEN_RH_008_GetNonExistentResource(t *testing.T) {
 	_, when, then := newParts(t)
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rh_008.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_rh_008.hresp")
 }
@@ -185,7 +174,6 @@ func TestSCEN_RH_008_GetNonExistentResource(t *testing.T) {
 func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
 	given, when, then := newParts(t)
 
-	// given
 	given.
 		a_scenario(model.Scenario{
 			RequestPath: "GET /test/routing/pathA",
@@ -200,11 +188,9 @@ func TestSCEN_RH_009_PathBasedRouting(t *testing.T) {
 			Data:        "Response B",
 		})
 
-	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rh_009.http")
 
-	// then
 	then.
 		the_response_is_validated_against_file("testdata/http/scen_rh_009.hresp")
 }
