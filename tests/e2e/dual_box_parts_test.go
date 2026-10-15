@@ -14,19 +14,19 @@ import (
 func (p *parts) startSecondServer(configFile string) *parts {
 	p.Helper()
 
-	receiver := &parts{
+	second := &parts{
 		T:       p.T,
 		require: p.require,
 	}
-	receiver.setupScenarioTestServer(configFile)
-	return receiver
+	second.setupScenarioTestServer(configFile)
+	return second
 }
 
 // Second instance shares the parts lifecycle so Cleanup closes both boxes.
 func (p *parts) a_second_unimock_instance_is_started_with(scenarioYAML string) *parts {
 	p.Helper()
 
-	p.receiver = p.startSecondServer(p.writeTempConfig(scenarioYAML))
+	p.second = p.startSecondServer(p.writeTempConfig(scenarioYAML))
 	return p
 }
 
@@ -45,7 +45,7 @@ func (p *parts) a_streaming_request_is_made_to_the_second_instance(url string) *
 	p.Helper()
 
 	savedBase := p.baseURL
-	p.baseURL = p.receiver.baseURL
+	p.baseURL = p.second.baseURL
 	defer func() { p.baseURL = savedBase }()
 	return p.a_streaming_request_is_made_to(url)
 }
@@ -76,7 +76,7 @@ func (p *parts) the_second_instance_received_the_webhook_request(path string) *p
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if p.receiver.metricsHitCountFor(path) >= 1 {
+		if p.second.metricsHitCountFor(path) >= 1 {
 			return p
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -90,7 +90,7 @@ func (p *parts) the_second_instance_responded_200_to(path string) *parts {
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if p.receiver.metricsStatusCountFor(path, http.StatusOK) >= 1 {
+		if p.second.metricsStatusCountFor(path, http.StatusOK) >= 1 {
 			return p
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -123,7 +123,7 @@ func (p *parts) the_delivery_to_is_recorded_as_successful(targetURL string) *par
 func (p *parts) the_second_instance_records_no_outbound_deliveries() *parts {
 	p.Helper()
 
-	records, err := fetchDeliveries(p.receiver.baseURL)
+	records, err := fetchDeliveries(p.second.baseURL)
 	p.require.NoError(err, "GET /_uni/webhooks/deliveries on receiver")
 	p.require.Empty(records, "receiver box should have no outbound deliveries")
 	return p

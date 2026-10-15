@@ -35,7 +35,7 @@ scenarios:
       max_attempts: 1
       base_ms: 10
       max_ms: 50
-`, given.receiver.baseURL+"/hook"))
+`, given.second.baseURL+"/hook"))
 
 	when.
 		a_post_request_with_open_body_is_made_to("/orders")
@@ -44,7 +44,7 @@ scenarios:
 		the_response_body_contains_fixtures_data(`"order-1"`).and().
 		the_second_instance_received_the_webhook_request("/hook").and().
 		the_second_instance_responded_200_to("/hook").and().
-		the_delivery_to_is_recorded_as_successful(then.receiver.baseURL + "/hook").and().
+		the_delivery_to_is_recorded_as_successful(then.second.baseURL + "/hook").and().
 		the_second_instance_records_no_outbound_deliveries()
 }
 
@@ -89,7 +89,7 @@ scenarios:
       max_attempts: 1
       base_ms: 10
       max_ms: 50
-`, given.receiver.baseURL+"/hook"))
+`, given.second.baseURL+"/hook"))
 
 	when.
 		a_post_request_with_open_body_is_made_to("/orders").and().
@@ -99,7 +99,7 @@ scenarios:
 		the_response_body_contains_fixtures_data(`"order-2"`).and().
 		the_second_instance_received_the_webhook_request("/hook").and().
 		the_second_instance_responded_200_to("/hook").and().
-		the_delivery_to_is_recorded_as_successful(then.receiver.baseURL + "/hook").and().
+		the_delivery_to_is_recorded_as_successful(then.second.baseURL + "/hook").and().
 		the_stream_content_type_is("text/event-stream").and().
 		the_stream_contains_n_frames(3).and().
 		the_stream_body_contains(`{"n": 2}`)

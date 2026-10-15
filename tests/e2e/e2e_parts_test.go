@@ -52,9 +52,9 @@ type parts struct {
 	streamingCT       string
 	streamingBody     string
 
-	// Dual-box E2E state. receiver is the second in-process unimock instance
-	// that broadcasts from the primary instance land into.
-	receiver *parts
+	// Dual-box E2E state.
+	// second is box B in dual-box tests; nil until a_second_unimock_instance_is_started_with.
+	second *parts
 }
 
 func newParts(t *testing.T) (given *parts, when *parts, then *parts) {
