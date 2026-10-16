@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	// "log/slog"
-	// "os"
 	"strings"
 
 	"github.com/bmcszk/unimock/internal/storage"
@@ -19,6 +16,7 @@ const (
 	singleItem       = 1
 	minStatusCode    = 100
 	maxStatusCode    = 599
+	validMethods     = "GET POST PUT DELETE PATCH HEAD OPTIONS"
 )
 
 // ScenarioService manages test scenarios
@@ -162,7 +160,6 @@ func (s *ScenarioService) GetScenario(_ context.Context, id string) (model.Scena
 	}
 	scenario, err := s.storage.Get(id)
 	if err != nil {
-		// Return standardized error message regardless of the specific error from storage
 		return model.Scenario{}, errors.New("resource not found")
 	}
 	return scenario, nil
@@ -170,19 +167,16 @@ func (s *ScenarioService) GetScenario(_ context.Context, id string) (model.Scena
 
 // CreateScenario creates a new scenario
 func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scenario) (model.Scenario, error) {
-	// Validate scenario
 	if err := s.validateScenario(scenario); err != nil {
 		return model.Scenario{}, err
 	}
 
-	// Generate UUID if not provided
 	if scenario.UUID == "" {
 		scenario.UUID = uuid.New().String()
 	}
 
 	err := s.storage.Create(scenario.UUID, scenario)
 	if err != nil {
-		// Standardized error message for already existing resources
 		return model.Scenario{}, errors.New("resource already exists")
 	}
 	return scenario, nil
@@ -190,19 +184,16 @@ func (s *ScenarioService) CreateScenario(_ context.Context, scenario model.Scena
 
 // UpdateScenario updates an existing scenario
 func (s *ScenarioService) UpdateScenario(_ context.Context, id string, scenario model.Scenario) error {
-	// Validate scenario basic fields first
 	if err := s.validateScenario(scenario); err != nil {
 		return err
 	}
 
-	// Validate and set UUID consistency
 	updatedScenario, err := s.validateUUIDConsistency(id, scenario)
 	if err != nil {
 		return err
 	}
 	scenario = updatedScenario
 
-	// Perform the storage update
 	return s.performStorageUpdate(id, scenario)
 }
 
@@ -237,36 +228,26 @@ func (s *ScenarioService) DeleteScenario(_ context.Context, id string) error {
 	}
 	err := s.storage.Delete(id)
 	if err != nil {
-		// Standardized error message for not found resources
 		return errors.New("resource not found")
 	}
 	return nil
 }
 
-// validateScenario validates a scenario
+// validateScenario validates a scenario. The request-path/method checks come
+// first (cheap, deterministic); then the shared model.Scenario.Validate() runs
+// the webhook + stream + data-exclusivity + template-newline + hold_open rules
+// so the runtime create/update path matches what LoadFromYAML enforces.
 func (*ScenarioService) validateScenario(scenario model.Scenario) error {
-	// Validate request path format
-	parts := strings.SplitN(scenario.RequestPath, " ", 2)
-	if len(parts) != 2 {
+	method, _, found := strings.Cut(scenario.RequestPath, " ")
+	if !found {
 		return errors.New("invalid request path format")
 	}
-
-	// Validate HTTP method
-	method := parts[0]
-	validMethods := map[string]bool{
-		"GET":     true,
-		"POST":    true,
-		"PUT":     true,
-		"DELETE":  true,
-		"PATCH":   true,
-		"HEAD":    true,
-		"OPTIONS": true,
-	}
-	if !validMethods[method] {
-		// If method was already validated and part of RequestPath, this check might be redundant here
-		// but as a direct validation of scenario model, it's fine.
+	if !strings.Contains(" "+validMethods+" ", " "+method+" ") {
 		return fmt.Errorf("invalid HTTP method in request path: %s", method)
 	}
-
+	// Shared validation (MAJOR4): same rules LoadFromYAML uses.
+	if err := scenario.Validate(); err != nil {
+		return fmt.Errorf("invalid scenario: %w", err)
+	}
 	return nil
 }

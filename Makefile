@@ -73,7 +73,7 @@ vet:
 
 lint:
 	golangci-lint run ./...
-	golangci-lint run ./e2e
+	golangci-lint run ./tests/e2e
 
 check:
 	@echo "Running checks..."

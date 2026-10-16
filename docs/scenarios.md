@@ -558,4 +558,137 @@ scenarios:
     data: '{"error": "Gateway timeout"}'
 ```
 
-Scenarios provide powerful control over your mock responses, enabling comprehensive testing of both happy paths and edge cases.
+Scenarios control the mock response, so you can test both happy paths and edge cases.
+
+## Webhook responses
+
+A scenario can also fire an outbound HTTP request when it matches. The mock response still goes back to the caller immediately. Unimock then delivers the webhook request to a real URL in the background, so you can test code that reacts to events instead of polling.
+
+```yaml
+scenarios:
+  - uuid: "order-created-hook"
+    method: "POST"
+    path: "/api/orders"
+    status_code: 201
+    content_type: "application/json"
+    data: |
+      {"id":"order-1","status":"created"}
+    webhook:
+      url: "http://localhost:9090/hooks/orders"
+      method: "POST"
+      headers:
+        X-Source: "unimock"
+      body: '{"event":"order.created","delivery":"{{uuid}}"}'
+      secret_env: UNIMOCK_WEBHOOK_SECRET
+      max_attempts: 3
+      base_ms: 500
+      max_ms: 30000
+```
+
+When a `POST /api/orders` request matches the scenario, the caller gets the `201` response right away. In the background, unimock sends `POST http://localhost:9090/hooks/orders` with the configured headers and body, where `{{uuid}}` becomes a fresh UUID on every attempt. When you leave `body` out, the matched request's own body is forwarded instead.
+
+| Field | What it does |
+|---|---|
+| `url` | Required. The absolute target URL the webhook is delivered to. |
+| `method` | HTTP method used for delivery. Defaults to `POST`; only `POST`, `PUT`, and `PATCH` are allowed. |
+| `headers` | Extra HTTP headers sent with each delivery attempt. |
+| `body` | Request body sent to the target URL. `{{uuid}}` is replaced with a fresh UUID per attempt. When empty, the matched request's body is forwarded. |
+| `secret_env` | Name of the environment variable holding the HMAC secret. The secret value itself is never stored in the config. A value prefixed `whsec_` is base64-decoded before use as the HMAC key; otherwise the raw value is the key. When unset, deliveries are sent unsigned. |
+| `max_attempts` | Total delivery attempts including the first. Defaults to 3. |
+| `base_ms` | Base backoff delay in milliseconds. Defaults to 500. |
+| `max_ms` | Upper bound on the backoff delay in milliseconds. Defaults to 30000. |
+
+Delivery is asynchronous and best-effort. If the target URL fails or times out, unimock retries with exponential backoff and full jitter: each wait is random between 0 and a cap that starts at `base_ms` and doubles up to `max_ms`, until `max_attempts` is reached. Each attempt's `{{uuid}}` placeholder is re-rendered, so retries never reuse the same delivery ID.
+
+When `secret_env` names a set environment variable, unimock signs every attempt per the Standard Webhooks spec. It adds three headers to the delivery: `webhook-id`, `webhook-timestamp`, and `webhook-signature`. The signature is `v1,<base64 HMAC>` computed over `id.timestamp.payload`, so your receiver can verify the delivery came from unimock.
+
+Validation rules, enforced at startup:
+
+- `url` is required and must be an absolute, syntactically valid URL with a scheme and host.
+- `method` must be `POST`, `PUT`, or `PATCH` if set; anything else fails config load.
+- Inline secrets are never accepted; pass only the environment variable name in `secret_env`.
+- A scenario can carry `webhook` together with `data` (as in the example above), but not together with a `stream` block.
+
+## Streaming responses
+
+A scenario normally returns one static body. With a `stream` block, the server instead renders the same template many times, with fresh placeholder values per frame, and sends each frame as soon as it is written. Two formats are supported: SSE and NDJSON.
+
+SSE stands for Server-Sent Events, a standard way for a server to keep an HTTP response open and push text frames to the client. Each SSE frame is a line starting with `data: `, frames are separated by blank lines, and browsers can consume them with the built-in EventSource API, though any plain HTTP client works too. NDJSON stands for Newline-Delimited JSON: each line is one JSON object and the newline is the only framing, which makes it a common choice for log tailing and bulk APIs.
+
+```yaml
+scenarios:
+  # SSE: send 5 frames, one every 100 ms, then close
+  - uuid: "events-feed"
+    method: "GET"
+    path: "/api/events"
+    status_code: 200
+    stream:
+      format: "sse"
+      interval_ms: 100
+      event_count: 5
+      template: |
+        {"i":{{index}},"t":"{{timestamp}}"}
+
+  # NDJSON: send frames forever, until the client disconnects
+  - uuid: "logs-feed"
+    method: "GET"
+    path: "/api/logs"
+    status_code: 200
+    stream:
+      format: "ndjson"
+      interval_ms: 250
+      hold_open: true
+      template: '{"i":{{index}},"t":"{{timestamp}}"}'
+```
+
+What the client receives:
+
+A `GET /api/events` (the SSE scenario) returns these response headers:
+
+```
+Content-Type: text/event-stream
+Cache-Control: no-cache
+X-Accel-Buffering: no
+```
+
+followed by this body, one frame every 100 ms:
+
+```
+data: {"i":0,"t":"2026-10-06T12:00:00.123456789Z"}
+
+data: {"i":1,"t":"2026-10-06T12:00:00.223456789Z"}
+
+data: {"i":2,"t":"2026-10-06T12:00:00.323456789Z"}
+
+data: {"i":3,"t":"2026-10-06T12:00:00.423456789Z"}
+
+data: {"i":4,"t":"2026-10-06T12:00:00.523456789Z"}
+
+```
+
+The YAML template has no `data: ` prefix. The server adds `data: ` and a blank line after each SSE frame, so each frame looks like `data: <rendered template>` followed by an empty line. `Cache-Control: no-cache` and `X-Accel-Buffering: no` are added automatically so proxies do not buffer the frames.
+
+A `GET /api/logs` (the NDJSON scenario) returns `Content-Type: application/x-ndjson` and one rendered template per line:
+
+```
+{"i":0,"t":"2026-10-06T12:00:00.123456789Z"}
+{"i":1,"t":"2026-10-06T12:00:00.373456789Z"}
+{"i":2,"t":"2026-10-06T12:00:00.623456789Z"}
+```
+
+NDJSON frames have no prefix. Each frame is the rendered template followed by a newline. The example shows the first three frames; `hold_open: true` keeps the stream going until the client disconnects.
+
+### stream fields
+
+| Field | What it does |
+|---|---|
+| `format` | `sse` or `ndjson`. The server sets `Content-Type` from it (`text/event-stream` or `application/x-ndjson`). The scenario's `content_type` is ignored when `stream` is set. |
+| `status_code` | The scenario's `status_code` is the streamed response's status (default `200` when unset). |
+| `template` | Body of one frame. The server replaces `{{index}}` with the frame number, starting at 0, and `{{timestamp}}` with the send time in RFC3339Nano format. Everything else is written verbatim. The template must be non-empty and must not contain a newline or carriage return. |
+| `interval_ms` | Milliseconds the server waits between frames. `0` with `event_count` sends all frames back-to-back. Must be greater than `0` with `hold_open`. |
+| `event_count` | The server sends exactly this many frames, then closes the connection. Cannot be combined with `hold_open`. |
+| `hold_open` | `true` keeps sending frames until the client disconnects. Cannot be combined with `event_count`. |
+
+A scenario can carry `stream` or `data`, never both. It also cannot carry `stream` together with `webhook` — a scenario answers either with a server-generated stream or by firing an outbound webhook, never both. Loading a scenario that violates either rule fails validation at startup.
+
+For the full design notes (stdlib flushing, anti-buffering headers, hold-open context handling, why WebSocket and HTTP/2 push are out of scope for v1), see [HTTP Streaming & Outbound Webhooks for unimock deep research report](webhooks-streaming-research-2026.md).

@@ -11,6 +11,7 @@ import (
 	"github.com/bmcszk/unimock/internal/router"
 	"github.com/bmcszk/unimock/internal/service"
 	"github.com/bmcszk/unimock/internal/storage"
+	"github.com/bmcszk/unimock/internal/webhooks"
 	"github.com/bmcszk/unimock/pkg/config"
 	"github.com/bmcszk/unimock/pkg/model"
 )
@@ -151,44 +152,42 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 		serverConfig = config.NewDefaultServerConfig()
 	}
 
-	// Setup logger based on the log level from server config
 	logger := setupLogger(serverConfig.LogLevel)
 
 	logger.Info("initializing server",
 		"port", serverConfig.Port,
 		"log_level", serverConfig.LogLevel)
 
-	// Validate uni configuration
 	if err := validateConfiguration(uniConfig, logger); err != nil {
 		return nil, err
 	}
 
-	// Create a new storage
 	store := storage.NewUniStorage()
-
-	// Create a new scenario storage
 	scenarioStore := storage.NewScenarioStorage()
 
-	// Create services
 	uniService := service.NewUniService(store, uniConfig)
 	scenarioService := service.NewScenarioService(scenarioStore)
 	techService := service.NewTechService(time.Now())
 
-	// Load scenarios from uni config directly
 	loadScenariosFromUniConfig(uniConfig, scenarioService, logger)
 
-	// Create handlers with services
+	// Webhook delivery infrastructure: shared ring buffer + dispatcher.
+	webhookRing := webhooks.NewRing(0) // 0 → default cap 100
+	webhookDispatcher := webhooks.NewDispatcher(logger, webhookRing)
+
 	uniHandler := handler.NewUniHandler(uniService, scenarioService, logger, uniConfig)
 	scenarioHandler := handler.NewScenarioHandler(scenarioService, logger)
-	techHandler := handler.NewTechHandler(techService, logger)
+	techHandler := handler.NewTechHandler(techService, logger, webhookRing)
 
-	// Create a router
 	appRouter := router.NewRouter(
 		uniHandler, techHandler, scenarioHandler,
 		scenarioService, techService, logger, uniConfig,
+		router.Deps{
+			WebhookDispatcher: webhookDispatcher,
+			StreamWriter:      handler.NewStreamWriter(logger),
+		},
 	)
 
-	// Create server
 	srv := &http.Server{
 		Addr:         ":" + serverConfig.Port,
 		Handler:      appRouter,
@@ -197,7 +196,6 @@ func NewServer(serverConfig *config.ServerConfig, uniConfig *config.UniConfig) (
 		IdleTimeout:  idleTimeout,
 	}
 
-	// Return the created server
 	logger.Info("server initialization complete, ready to start")
 	return srv, nil
 }
@@ -208,37 +206,45 @@ func loadScenariosFromUniConfig(
 	scenarioService *service.ScenarioService,
 	logger *slog.Logger,
 ) {
-	// Check if uni config has scenarios
 	if len(uniConfig.Scenarios) == 0 {
 		logger.Debug("no scenarios found in uni config")
 		return
 	}
-
 	logger.Info("loading scenarios from uni config", "count", len(uniConfig.Scenarios))
 
-	// Convert to model scenarios and load them
+	modelScenarios := toModelScenarios(uniConfig)
+	loaded := createScenarios(modelScenarios, scenarioService, logger)
+	logger.Info("scenarios loaded from uni config",
+		"total_scenarios", len(modelScenarios),
+		"loaded_scenarios", loaded,
+		"failed_scenarios", len(modelScenarios)-loaded)
+}
+
+// toModelScenarios converts every config scenario into its runtime model form.
+func toModelScenarios(uniConfig *config.UniConfig) []model.Scenario {
 	modelScenarios := make([]model.Scenario, 0, len(uniConfig.Scenarios))
 	for _, sf := range uniConfig.Scenarios {
 		modelScenarios = append(modelScenarios, sf.ToModelScenario(uniConfig.GetFixtureResolver()))
 	}
-	ctx := context.Background()
-	loadedCount := 0
+	return modelScenarios
+}
 
-	for _, scenario := range modelScenarios {
-		_, err := scenarioService.CreateScenario(ctx, scenario)
-		if err != nil {
+// createScenarios persists each scenario, logging and skipping failures.
+func createScenarios(
+	scenarios []model.Scenario,
+	scenarioService *service.ScenarioService,
+	logger *slog.Logger,
+) int {
+	loadedCount := 0
+	for _, scenario := range scenarios {
+		if _, err := scenarioService.CreateScenario(context.Background(), scenario); err != nil {
 			logger.Warn("failed to load scenario from uni config",
 				"scenario_path", scenario.RequestPath,
 				"scenario_uuid", scenario.UUID,
 				"error", err)
-			// Continue loading other scenarios even if one fails
 			continue
 		}
 		loadedCount++
 	}
-
-	logger.Info("scenarios loaded from uni config",
-		"total_scenarios", len(modelScenarios),
-		"loaded_scenarios", loadedCount,
-		"failed_scenarios", len(modelScenarios)-loadedCount)
+	return loadedCount
 }

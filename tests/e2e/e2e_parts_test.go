@@ -6,9 +6,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,6 +38,26 @@ type parts struct {
 	server           *http.Server
 	responses        []any
 	configFile       string
+
+	// Webhook E2E state. webhookMu guards webhookRequests and webhookFailCount.
+	webhookMu        sync.Mutex
+	webhookReceiver  *httptest.Server
+	webhookRequests  []receivedWebhook
+	webhookFailCount int
+
+	// Streaming E2E state. streamingResponse/body stay open until the test
+	// finishes reading or cancels via streamingCancel.
+	streamingResponse      *http.Response
+	streamingCancel        context.CancelFunc
+	streamingCT            string
+	streamingBody          string
+	streamingElapsed       time.Duration
+	streamingErr           error
+	streamingFrameArrivals []time.Time
+
+	// Dual-box E2E state.
+	// second is box B in dual-box tests; nil until a_second_unimock_instance_is_started_with.
+	second *parts
 }
 
 func newParts(t *testing.T) (given *parts, when *parts, then *parts) {
@@ -398,6 +420,43 @@ func (p *parts) the_file_scenario_still_works() *parts {
 	p.require.Equal(http.StatusOK, resp.StatusCode)
 	resp.Body.Close()
 	return p
+}
+
+func (p *parts) a_runtime_scenario_create_request_is_made_with(body string) {
+	p.Helper()
+	resp, err := http.Post(p.baseURL+"/_uni/scenarios", "application/json", strings.NewReader(body))
+	p.require.NoError(err, "POST /_uni/scenarios")
+	responseBody, err := io.ReadAll(resp.Body)
+	p.require.NoError(err, "read runtime scenario create response body")
+	resp.Body.Close()
+	p.responses = []any{&ResponseWithBody{Response: resp, BodyContent: responseBody}}
+}
+
+func (p *parts) the_runtime_scenario_was_accepted() *parts {
+	p.Helper()
+	responseWithBody, ok := p.responses[0].(*ResponseWithBody)
+	p.require.True(ok, "response is not of expected type with body content")
+	p.require.GreaterOrEqual(responseWithBody.StatusCode, http.StatusOK, "runtime scenario create status")
+	p.require.Less(responseWithBody.StatusCode, http.StatusMultipleChoices, "runtime scenario create status")
+	return p
+}
+
+func (p *parts) the_runtime_scenario_was_rejected_with(message string) {
+	p.Helper()
+	responseWithBody, ok := p.responses[0].(*ResponseWithBody)
+	p.require.True(ok, "response is not of expected type with body content")
+	p.require.Equal(http.StatusBadRequest, responseWithBody.StatusCode, "runtime scenario create status")
+	p.require.Contains(string(responseWithBody.BodyContent), message, "runtime scenario create error body")
+}
+
+func (p *parts) runtimeAPIUnifiedConfigFile() *parts {
+	p.Helper()
+	return p.configFileFromContent(`
+sections:
+  runtime_api:
+    path_pattern: "/runtime-api/**"
+    return_body: true
+`)
 }
 
 // Config file creation helper

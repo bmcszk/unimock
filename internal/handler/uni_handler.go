@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"strings"
 
@@ -52,24 +53,20 @@ func NewUniHandler(
 func (h *UniHandler) HandlePOST(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting POST request processing", "path", req.URL.Path)
 
-	// Step 1: Find matching configuration section
 	section, sectionName, err := h.findSection(req.URL.Path)
 	if err != nil {
 		h.logger.Warn("no matching section for POST", "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusNotFound, err.Error()), nil
 	}
 
-	// Step 2: Prepare POST data with ID extraction
 	_, mockData, errResp := h.preparePostData(ctx, req, section, sectionName)
 	if errResp != nil {
 		return errResp, nil
 	}
-	// Step 3: Apply transformations and store resource
 	transformedData, errResp := h.processPostRequest(ctx, req, mockData, section, sectionName)
 	if errResp != nil {
 		return errResp, nil
 	}
-	// Step 4: Build and return response
 	return h.buildPOSTResponse(transformedData, section, sectionName)
 }
 
@@ -80,7 +77,6 @@ func (h *UniHandler) preparePostData(
 	section *config.Section,
 	sectionName string,
 ) ([]string, model.UniData, *http.Response) {
-	// Extract IDs from request
 	ids, err := h.extractIDs(ctx, req, section, sectionName)
 	if err != nil {
 		h.logger.Error("failed to extract IDs for POST", "path", req.URL.Path, "error", err)
@@ -91,14 +87,12 @@ func (h *UniHandler) preparePostData(
 		return nil, model.UniData{}, h.errorResponse(http.StatusBadRequest, "failed to extract IDs")
 	}
 
-	// Generate UUID if no IDs found
 	if len(ids) == 0 {
 		generatedID := uuid.New().String()
 		ids = []string{generatedID}
 		h.logger.Debug("generated UUID for POST", "uuid", generatedID)
 	}
 
-	// Build UniData from request
 	mockData, err := h.buildUniDataFromRequest(req, ids)
 	if err != nil {
 		h.logger.Error("failed to build UniData for POST", "error", err)
@@ -116,14 +110,12 @@ func (h *UniHandler) processPostRequest(
 	section *config.Section,
 	sectionName string,
 ) (model.UniData, *http.Response) {
-	// Apply request transformations
 	transformedData, err := h.applyRequestTransformations(mockData, section, sectionName)
 	if err != nil {
 		h.logger.Error("request transformation failed for POST", "error", err)
 		return model.UniData{}, h.errorResponse(http.StatusInternalServerError, "request transformation failed")
 	}
 
-	// Store the resource
 	err = h.service.CreateResource(ctx, sectionName, section.StrictPath, transformedData.IDs, transformedData)
 	if err != nil {
 		h.logger.Error("failed to create resource", "error", err)
@@ -150,20 +142,17 @@ func (h *UniHandler) HandleHEAD(ctx context.Context, req *http.Request) (*http.R
 func (h *UniHandler) handleGetRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting GET request processing", "path", req.URL.Path)
 
-	// Step 1: Find matching configuration section
 	section, sectionName, err := h.findSection(req.URL.Path)
 	if err != nil {
 		h.logger.Warn("no matching section for GET", "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusNotFound, err.Error()), nil
 	}
 
-	// Step 2: Try to get individual resource first
 	individualResp := h.tryGetIndividualResource(ctx, req, section, sectionName)
 	if individualResp != nil {
 		return individualResp, nil
 	}
 
-	// Step 3: Get collection of resources
 	return h.getResourceCollection(ctx, req, section, sectionName), nil
 }
 
@@ -171,20 +160,17 @@ func (h *UniHandler) handleGetRequest(ctx context.Context, req *http.Request) (*
 func (h *UniHandler) handleHEADRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting HEAD request processing", "path", req.URL.Path)
 
-	// Step 1: Find matching configuration section
 	section, sectionName, err := h.findSection(req.URL.Path)
 	if err != nil {
 		h.logger.Warn("no matching section for HEAD", "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusNotFound, err.Error()), nil
 	}
 
-	// Step 2: Try to get individual resource first
 	individualResp := h.tryGetIndividualResource(ctx, req, section, sectionName)
 	if individualResp != nil {
 		return h.suppressResponseBody(individualResp), nil
 	}
 
-	// Step 3: Get collection of resources
 	resp := h.getResourceCollection(ctx, req, section, sectionName)
 	return h.suppressResponseBody(resp), nil
 }
@@ -206,7 +192,6 @@ func (h *UniHandler) tryGetIndividualResource(
 		return h.errorResponse(http.StatusNotFound, "resource not found")
 	}
 
-	// Apply strict path validation if enabled
 	if section.StrictPath {
 		if err := h.validateStrictPathAccess(req.URL.Path, resource.Path, section.PathPattern); err != nil {
 			h.logger.Debug("strict path validation failed for GET",
@@ -294,7 +279,6 @@ func (h *UniHandler) transformResourceCollection(
 func (h *UniHandler) HandlePUT(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting PUT request processing", "path", req.URL.Path)
 
-	// Step 1: Find matching configuration section
 	section, sectionName, err := h.findSection(req.URL.Path)
 	if err != nil {
 		h.logger.Warn("no matching section for PUT", "path", req.URL.Path, "error", err)
@@ -308,35 +292,45 @@ func (h *UniHandler) HandlePUT(ctx context.Context, req *http.Request) (*http.Re
 func (h *UniHandler) processPUTRequest(
 	ctx context.Context, req *http.Request, section *config.Section, sectionName string,
 ) (*http.Response, error) {
-	// Extract ID from path
 	ids, err := h.extractIDs(ctx, req, section, sectionName)
 	if err != nil || len(ids) == 0 {
 		h.logger.Error("failed to extract ID for PUT", "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusBadRequest, "ID required for PUT"), nil
 	}
 
-	// Build and transform data
-	mockData, err := h.buildUniDataFromRequest(req, ids)
-	if err != nil {
-		h.logger.Error("failed to build UniData for PUT", "error", err)
-		return h.errorResponse(http.StatusBadRequest, "failed to process request data"), nil
-	}
-
-	transformedData, err := h.applyRequestTransformations(mockData, section, sectionName)
-	if err != nil {
-		h.logger.Error("request transformation failed for PUT", "error", err)
-		return h.errorResponse(http.StatusInternalServerError, "request transformation failed"), nil
-	}
-
-	// Validate strict path if enabled
 	if section.StrictPath {
-		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
-			section.PathPattern, "PUT", sectionName, section.StrictPath); resp != nil {
+		resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
+			section.PathPattern, "PUT", sectionName, section.StrictPath)
+		if resp != nil {
 			return resp, nil
 		}
 	}
 
+	transformedData, errResp := h.buildAndTransformRequestData(req, ids, section, sectionName, "PUT")
+	if errResp != nil {
+		return errResp, nil
+	}
+
 	return h.executeResourceUpdate(ctx, ids[0], transformedData, section, sectionName)
+}
+
+// buildAndTransformRequestData reads the request body and applies the configured
+// request transformations, mapping failures to 400/500 responses.
+func (h *UniHandler) buildAndTransformRequestData(
+	req *http.Request, ids []string, section *config.Section, sectionName, method string,
+) (model.UniData, *http.Response) {
+	mockData, err := h.buildUniDataFromRequest(req, ids)
+	if err != nil {
+		h.logger.Error("failed to build UniData for "+method, "error", err)
+		return model.UniData{}, h.errorResponse(http.StatusBadRequest, "failed to process request data")
+	}
+
+	transformedData, err := h.applyRequestTransformations(mockData, section, sectionName)
+	if err != nil {
+		h.logger.Error("request transformation failed for "+method, "error", err)
+		return model.UniData{}, h.errorResponse(http.StatusInternalServerError, "request transformation failed")
+	}
+	return transformedData, nil
 }
 
 // validateResourceExists checks if a resource exists for operations requiring existing resources
@@ -375,7 +369,6 @@ func (h *UniHandler) executeResourceUpdate(
 func (h *UniHandler) HandleDELETE(ctx context.Context, req *http.Request) (*http.Response, error) {
 	h.logger.Debug("starting DELETE request processing", "path", req.URL.Path)
 
-	// Step 1: Find matching configuration section
 	section, sectionName, err := h.findSection(req.URL.Path)
 	if err != nil {
 		h.logger.Warn("no matching section for DELETE", "path", req.URL.Path, "error", err)
@@ -389,17 +382,16 @@ func (h *UniHandler) HandleDELETE(ctx context.Context, req *http.Request) (*http
 func (h *UniHandler) processDELETERequest(
 	ctx context.Context, req *http.Request, section *config.Section, sectionName string,
 ) (*http.Response, error) {
-	// Extract ID from path
 	ids, err := h.extractIDs(ctx, req, section, sectionName)
 	if err != nil || len(ids) == 0 {
 		h.logger.Error("failed to extract ID for DELETE", "path", req.URL.Path, "error", err)
 		return h.errorResponse(http.StatusNotFound, "resource not found"), nil
 	}
 
-	// Validate strict path if enabled
 	if section.StrictPath {
-		if resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
-			section.PathPattern, "DELETE", sectionName, section.StrictPath); resp != nil {
+		resp := h.validateStrictPathForOperation(ctx, req.URL.Path, ids[0],
+			section.PathPattern, "DELETE", sectionName, section.StrictPath)
+		if resp != nil {
 			return resp, nil
 		}
 	}
@@ -423,8 +415,6 @@ func (h *UniHandler) executeResourceDeletion(
 	return h.buildDELETEResponse(section), nil
 }
 
-// Helper methods for the simplified handlers
-
 // findSection finds the matching configuration section for a request path
 func (h *UniHandler) findSection(reqPath string) (*config.Section, string, error) {
 	if h.uniCfg == nil {
@@ -445,16 +435,13 @@ func (h *UniHandler) findSection(reqPath string) (*config.Section, string, error
 
 // buildUniDataFromRequest creates UniData from HTTP request
 func (*UniHandler) buildUniDataFromRequest(req *http.Request, ids []string) (model.UniData, error) {
-	// Read request body
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		return model.UniData{}, fmt.Errorf("failed to read request body: %w", err)
 	}
 
-	// Restore body for potential re-reading
 	req.Body = io.NopCloser(bytes.NewBuffer(body))
 
-	// Build UniData
 	mockData := model.UniData{
 		Path:        strings.TrimSuffix(req.URL.Path, "/"),
 		IDs:         ids,
@@ -462,7 +449,6 @@ func (*UniHandler) buildUniDataFromRequest(req *http.Request, ids []string) (mod
 		Body:        body,
 	}
 
-	// Set location for the resource
 	if len(ids) > 0 {
 		mockData.Location = mockData.Path + "/" + ids[0]
 	}
@@ -561,18 +547,15 @@ func (*UniHandler) shouldExtractFromPath(pathSegments, patternSegments []string)
 
 	lastPattern := patternSegments[len(patternSegments)-1]
 
-	// Handle recursive wildcard **
 	if lastPattern == "**" {
-		// For pattern /users/**, any path like /users/123 should extract 123
+		// /users/** also matches /users/123/deep — any deeper path extracts its last segment
 		return len(pathSegments) > len(patternSegments)-1
 	}
 
-	// Handle single wildcard *
 	if lastPattern == "*" {
 		return len(pathSegments) == len(patternSegments)
 	}
 
-	// For exact patterns, only extract if path is longer
 	return len(pathSegments) > len(patternSegments)
 }
 
@@ -605,10 +588,8 @@ func (h *UniHandler) extractPostIDs(
 ) ([]string, error) {
 	var collectedIDs []string
 
-	// Try header ID extraction
 	collectedIDs = h.tryExtractHeaderID(section, req, addID, collectedIDs)
 
-	// Try body ID extraction
 	bodyIDs, err := h.extractBodyIDs(ctx, req, section)
 	if err != nil {
 		return nil, err
@@ -618,7 +599,6 @@ func (h *UniHandler) extractPostIDs(
 	}
 	collectedIDs = append(collectedIDs, bodyIDs...)
 
-	// Try path ID extraction as fallback
 	if len(collectedIDs) == 0 {
 		collectedIDs = h.tryExtractPathIDFallback(req, section, addID, collectedIDs)
 	}
@@ -796,7 +776,6 @@ func (*UniHandler) extractXMLIDsFromPath(doc *xmlquery.Node, path string, seenID
 func (h *UniHandler) HandleRequest(ctx context.Context, req *http.Request) (*http.Response, error) {
 	req.URL.Path = strings.TrimSuffix(req.URL.Path, "/")
 
-	// Process the request using the appropriate handler
 	var resp *http.Response
 	var err error
 
@@ -845,9 +824,7 @@ func (h *UniHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // copyHeaders copies response headers to the writer
 func (*UniHandler) copyHeaders(w http.ResponseWriter, resp *http.Response) {
-	for k, v := range resp.Header {
-		w.Header()[k] = v
-	}
+	maps.Copy(w.Header(), resp.Header)
 }
 
 // writeResponse writes the response body and status code
@@ -887,7 +864,6 @@ func (*UniHandler) suppressResponseBody(resp *http.Response) *http.Response {
 		return resp
 	}
 
-	// Create new response with same headers and status but empty body
 	newResp := &http.Response{
 		StatusCode: resp.StatusCode,
 		Header:     make(http.Header),
@@ -897,16 +873,11 @@ func (*UniHandler) suppressResponseBody(resp *http.Response) *http.Response {
 		ProtoMinor: resp.ProtoMinor,
 	}
 
-	// Copy all headers
-	for k, v := range resp.Header {
-		newResp.Header[k] = v
-	}
+	maps.Copy(newResp.Header, resp.Header)
 
-	// Close original body if it exists
 	if resp.Body != nil {
 		_ = resp.Body.Close()
 	}
 
 	return newResp
 }
-
