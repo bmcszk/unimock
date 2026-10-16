@@ -12,14 +12,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// newTestStreamWriter builds a StreamWriter via the exported constructor.
-// The default wait seam is ctx-aware and no-op at interval_ms<=0, so
-// event_count tests emit frames instantly.
+// newTestStreamWriter: the default wait seam no-ops at interval_ms<=0, so event_count tests emit instantly.
 func newTestStreamWriter() *handler.StreamWriter {
 	return handler.NewStreamWriter(nil)
 }
 
 func TestStreamWriter_SSEFrameBytes(t *testing.T) {
+	// given
 	rec := httptest.NewRecorder()
 	w := newTestStreamWriter()
 
@@ -29,8 +28,11 @@ func TestStreamWriter_SSEFrameBytes(t *testing.T) {
 		EventCount: 2,
 		Template:   `{"n":{{index}}}`,
 	}
+
+	// when
 	w.WriteStream(context.Background(), rec, sc, 0)
 
+	// then
 	body := rec.Body.String()
 	assert.Equal(t, "data: {\"n\":0}\n\ndata: {\"n\":1}\n\n", body)
 	assert.Equal(t, "text/event-stream", rec.Header().Get("Content-Type"))
@@ -40,6 +42,7 @@ func TestStreamWriter_SSEFrameBytes(t *testing.T) {
 }
 
 func TestStreamWriter_NDJSONFrameBytes(t *testing.T) {
+	// given
 	rec := httptest.NewRecorder()
 	w := newTestStreamWriter()
 
@@ -49,13 +52,17 @@ func TestStreamWriter_NDJSONFrameBytes(t *testing.T) {
 		EventCount: 2,
 		Template:   `{"n":{{index}}}`,
 	}
+
+	// when
 	w.WriteStream(context.Background(), rec, sc, 0)
 
+	// then
 	assert.Equal(t, "{\"n\":0}\n{\"n\":1}\n", rec.Body.String())
 	assert.Equal(t, "application/x-ndjson", rec.Header().Get("Content-Type"))
 }
 
 func TestStreamWriter_TimestampPlaceholder(t *testing.T) {
+	// given
 	rec := httptest.NewRecorder()
 	w := newTestStreamWriter()
 
@@ -65,8 +72,11 @@ func TestStreamWriter_TimestampPlaceholder(t *testing.T) {
 		EventCount: 1,
 		Template:   `{"t":"{{timestamp}}"}`,
 	}
+
+	// when
 	w.WriteStream(context.Background(), rec, sc, 0)
 
+	// then
 	// {{timestamp}} renders RFC3339 of the wall clock (the exact instant is
 	// not injectable through the exported API) — assert the RFC3339 shape.
 	assert.Contains(t, rec.Body.String(), `{"t":"`)
@@ -74,9 +84,8 @@ func TestStreamWriter_TimestampPlaceholder(t *testing.T) {
 }
 
 func TestStreamWriter_HoldOpenEndsOnContextCancel(t *testing.T) {
+	// given
 	rec := httptest.NewRecorder()
-	// Exported constructor: default wait seam is already ctx-aware, so the
-	// loop returns promptly when the context is canceled.
 	w := handler.NewStreamWriter(nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -86,6 +95,8 @@ func TestStreamWriter_HoldOpenEndsOnContextCancel(t *testing.T) {
 		HoldOpen:   true,
 		Template:   "x",
 	}
+
+	// when
 	go func() {
 		time.Sleep(20 * time.Millisecond)
 		cancel()
@@ -97,6 +108,7 @@ func TestStreamWriter_HoldOpenEndsOnContextCancel(t *testing.T) {
 		close(done)
 	}()
 
+	// then
 	select {
 	case <-done:
 		// loop returned promptly after cancel — no goroutine leak
@@ -106,6 +118,7 @@ func TestStreamWriter_HoldOpenEndsOnContextCancel(t *testing.T) {
 }
 
 func TestStreamWriter_SetWriteDeadlineRefreshedPerFrame(t *testing.T) {
+	// given
 	base := httptest.NewRecorder()
 	rec := &deadlineRecordingResponseWriter{ResponseWriter: base}
 	w := newTestStreamWriter()
@@ -116,8 +129,11 @@ func TestStreamWriter_SetWriteDeadlineRefreshedPerFrame(t *testing.T) {
 		EventCount: 3,
 		Template:   `{"n":{{index}}}`,
 	}
+
+	// when
 	w.WriteStream(context.Background(), rec, sc, 0)
 
+	// then
 	assert.Equal(t, "data: {\"n\":0}\n\ndata: {\"n\":1}\n\ndata: {\"n\":2}\n\n",
 		base.Body.String(), "stream frames unchanged by deadline bookkeeping")
 	assert.GreaterOrEqual(t, rec.setWriteDeadlineCalls, 3,
@@ -129,6 +145,7 @@ func TestStreamWriter_SetWriteDeadlineRefreshedPerFrame(t *testing.T) {
 }
 
 func TestStreamWriter_HoldOpenAlsoRefreshesWriteDeadline(t *testing.T) {
+	// given
 	base := httptest.NewRecorder()
 	rec := &deadlineRecordingResponseWriter{ResponseWriter: base}
 	w := handler.NewStreamWriter(nil)
@@ -140,6 +157,8 @@ func TestStreamWriter_HoldOpenAlsoRefreshesWriteDeadline(t *testing.T) {
 		HoldOpen:   true,
 		Template:   "x",
 	}
+
+	// when
 	go func() {
 		time.Sleep(20 * time.Millisecond)
 		cancel()
@@ -151,6 +170,7 @@ func TestStreamWriter_HoldOpenAlsoRefreshesWriteDeadline(t *testing.T) {
 		close(done)
 	}()
 
+	// then
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
@@ -188,6 +208,7 @@ func (w *deadlineRecordingResponseWriter) Flush() {
 }
 
 func TestStreamWriter_UnsupportedFormat500(t *testing.T) {
+	// given
 	rec := httptest.NewRecorder()
 	w := newTestStreamWriter()
 
@@ -197,13 +218,17 @@ func TestStreamWriter_UnsupportedFormat500(t *testing.T) {
 		EventCount: 1,
 		Template:   "x",
 	}
+
+	// when
 	w.WriteStream(context.Background(), rec, sc, 0)
 
+	// then
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.NotContains(t, rec.Body.String(), "data: ", "no SSE frames written on unsupported format")
 }
 
 func TestStreamWriter_NonFlusherWriter500(t *testing.T) {
+	// given
 	// httptest.NewRecorder implements Flusher, so use a plain wrapper that
 	// drops Flush to exercise the non-Flusher error path.
 	rec := httptest.NewRecorder()
@@ -216,8 +241,11 @@ func TestStreamWriter_NonFlusherWriter500(t *testing.T) {
 		EventCount: 1,
 		Template:   "x",
 	}
+
+	// when
 	w.WriteStream(context.Background(), plain, sc, 0)
 
+	// then
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
@@ -228,6 +256,7 @@ type plainResponseWriter struct {
 }
 
 func TestStreamWriter_EventCountTermination(t *testing.T) {
+	// given
 	rec := httptest.NewRecorder()
 	w := newTestStreamWriter()
 
@@ -237,32 +266,45 @@ func TestStreamWriter_EventCountTermination(t *testing.T) {
 		EventCount: 5,
 		Template:   "f",
 	}
+
+	// when
 	w.WriteStream(context.Background(), rec, sc, 0)
 
+	// then
 	assert.Equal(t, "f\nf\nf\nf\nf\n", rec.Body.String(), "exactly EventCount frames")
 }
 
 func TestWriteStream_HonorsScenarioStatusCode(t *testing.T) {
+	// given
 	w := handler.NewStreamWriter(nil)
 	rec := httptest.NewRecorder()
+
+	// when
 	w.WriteStream(context.Background(), rec, &model.StreamConfig{
 		Format:     "sse",
 		EventCount: 1,
 		IntervalMS: 0,
 		Template:   `{"i":{{index}}}`,
 	}, http.StatusTeapot)
+
+	// then
 	assert.Equal(t, http.StatusTeapot, rec.Code)
 	assert.Contains(t, rec.Body.String(), "data: {\"i\":0}")
 }
 
 func TestWriteStream_ZeroStatusCodeDefaultsOK(t *testing.T) {
+	// given
 	w := handler.NewStreamWriter(nil)
 	rec := httptest.NewRecorder()
+
+	// when
 	w.WriteStream(context.Background(), rec, &model.StreamConfig{
 		Format:     "ndjson",
 		EventCount: 1,
 		IntervalMS: 0,
 		Template:   `{"i":{{index}}}`,
 	}, 0)
+
+	// then
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
