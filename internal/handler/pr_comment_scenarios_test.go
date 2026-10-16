@@ -21,6 +21,9 @@ import (
 )
 
 // TestPRCommentScenario1_FlexiblePathMatching tests the scenario from PR feedback:
+// Given: pattern "/users/**", POST /users/subpath body: {"id": 1}, strict_path=false
+// When: GET/PUT/DELETE /users/1
+// Then: Operations succeed (resource accessible via extracted ID)
 func TestPRCommentScenario1_FlexiblePathMatching(t *testing.T) {
 	// Setup
 	cfg := &config.UniConfig{
@@ -96,6 +99,9 @@ func TestPRCommentScenario1_FlexiblePathMatching(t *testing.T) {
 }
 
 // TestPRCommentScenario2_StrictPathMatching tests the scenario from PR feedback:
+// Given: pattern "/users/**", POST /users/subpath body: {"id": 1}, strict_path=true
+// When: GET/PUT/DELETE /users/1
+// Then: 404 Not Found (strict path validation enforced)
 func TestPRCommentScenario2_StrictPathMatching(t *testing.T) {
 	// Setup
 	cfg := &config.UniConfig{

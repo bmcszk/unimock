@@ -12,6 +12,7 @@ import (
 func TestWebhook_FiresOnScenarioMatch(t *testing.T) {
 	given, when, then := newParts(t)
 
+	// given
 	given.
 		a_webhook_receiver_is_started().and().
 		configFileFromContent(fmt.Sprintf(`
@@ -32,9 +33,11 @@ scenarios:
       max_ms: 50
 `, when.webhookReceiver.URL))
 
+	// when
 	when.
 		a_post_request_with_open_body_is_made_to("/orders")
 
+	// then
 	then.
 		the_response_body_contains_fixtures_data(`"order-1"`).and().
 		wait_for_webhook_delivery().and().
@@ -50,6 +53,7 @@ scenarios:
 func TestWebhook_RetriesUntilSuccess(t *testing.T) {
 	given, when, then := newParts(t)
 
+	// given
 	given.
 		a_webhook_receiver_is_started().and().
 		the_webhook_receiver_fails_first_attempt().and().
@@ -71,9 +75,11 @@ scenarios:
       max_ms: 50
 `, when.webhookReceiver.URL))
 
+	// when
 	when.
 		a_post_request_with_open_body_is_made_to("/notify")
 
+	// then
 	then.
 		the_response_body_contains_fixtures_data(`"queued":true`).and().
 		wait_for_n_webhook_deliveries(2).and().
@@ -90,6 +96,7 @@ func TestWebhook_SignatureHeaderHasV1Prefix(t *testing.T) {
 
 	given, when, then := newParts(t)
 
+	// given
 	given.
 		a_webhook_receiver_is_started().and().
 		configFileFromContent(fmt.Sprintf(`
@@ -111,9 +118,11 @@ scenarios:
       max_ms: 50
 `, when.webhookReceiver.URL))
 
+	// when
 	when.
 		a_post_request_with_open_body_is_made_to("/signed")
 
+	// then
 	then.
 		the_response_body_contains_fixtures_data(`"ok":true`).and().
 		wait_for_webhook_delivery().and().
@@ -126,6 +135,7 @@ scenarios:
 func TestWebhook_DeliveriesEndpointReflectsFiredWebhook(t *testing.T) {
 	given, when, then := newParts(t)
 
+	// given
 	given.
 		a_webhook_receiver_is_started().and().
 		configFileFromContent(fmt.Sprintf(`
@@ -146,9 +156,11 @@ scenarios:
       max_ms: 50
 `, when.webhookReceiver.URL))
 
+	// when
 	when.
 		a_post_request_with_open_body_is_made_to("/audit")
 
+	// then
 	then.
 		the_response_body_contains_fixtures_data(`"audit":"logged"`).and().
 		wait_for_webhook_delivery().and().

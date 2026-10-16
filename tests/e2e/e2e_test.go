@@ -10,11 +10,14 @@ import (
 func TestE2E_SCEN_RM_MULTI_ID_001(t *testing.T) {
 	_, when, then := newParts(t)
 
+	// given
 	// No setup needed for this test
 
+	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rm_multi_id_001.http")
 
+	// then
 	then.
 		the_resource_can_be_retrieved_by_either_id("testdata/http/scen_rm_multi_id_001.hresp")
 }
@@ -22,11 +25,14 @@ func TestE2E_SCEN_RM_MULTI_ID_001(t *testing.T) {
 func TestE2E_SCEN_RM_MULTI_ID_002(t *testing.T) {
 	_, when, then := newParts(t)
 
+	// given
 	// No setup needed for this test
 
+	// when
 	when.
 		a_resource_is_updated_and_verified("testdata/http/scen_rm_multi_id_002.http")
 
+	// then
 	then.
 		the_update_is_successful("testdata/http/scen_rm_multi_id_002.hresp")
 }
@@ -34,11 +40,14 @@ func TestE2E_SCEN_RM_MULTI_ID_002(t *testing.T) {
 func TestE2E_SCEN_RM_MULTI_ID_003(t *testing.T) {
 	_, when, then := newParts(t)
 
+	// given
 	// No setup needed for this test
 
+	// when
 	when.
 		a_resource_is_deleted_and_verified("testdata/http/scen_rm_multi_id_003.http")
 
+	// then
 	then.
 		the_deletion_is_successful("testdata/http/scen_rm_multi_id_003.hresp")
 }
@@ -46,11 +55,14 @@ func TestE2E_SCEN_RM_MULTI_ID_003(t *testing.T) {
 func TestE2E_SCEN_RM_MULTI_ID_004(t *testing.T) {
 	_, when, then := newParts(t)
 
+	// given
 	// No setup needed for this test
 
+	// when
 	when.
 		a_resource_is_created_with_conflicting_ids("testdata/http/scen_rm_multi_id_004.http")
 
+	// then
 	then.
 		a_conflict_error_is_returned("testdata/http/scen_rm_multi_id_004.hresp")
 }
@@ -58,11 +70,14 @@ func TestE2E_SCEN_RM_MULTI_ID_004(t *testing.T) {
 func TestE2E_SCEN_RM_MULTI_ID_005(t *testing.T) {
 	_, when, then := newParts(t)
 
+	// given
 	// No setup needed for this test
 
+	// when
 	when.
 		an_http_request_is_made_from_file("testdata/http/scen_rm_multi_id_005.http")
 
+	// then
 	then.
 		the_resource_can_be_retrieved_by_either_id("testdata/http/scen_rm_multi_id_005.hresp")
 }
