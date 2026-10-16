@@ -314,9 +314,7 @@ func (r *Router) failMissingStreamWriter(w http.ResponseWriter, scenario model.S
 	http.Error(w, "streaming responses are not enabled", http.StatusInternalServerError)
 }
 
-// applyScenarioHeaders writes Content-Type, Location, and the scenario-supplied
-// extra headers onto w. Centralised so static and stream branches share the
-// same header semantics.
+// Shared by static and stream branches so header semantics cannot diverge.
 func applyScenarioHeaders(w http.ResponseWriter, scenario model.Scenario) {
 	w.Header().Set("Content-Type", scenario.ContentType)
 	if scenario.Location != "" {

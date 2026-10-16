@@ -158,7 +158,6 @@ func shouldContinue(ctx context.Context, sc *model.StreamConfig, currentIndex in
 	return currentIndex < sc.EventCount
 }
 
-// writeFrame encodes frame per the format's wire protocol.
 func (*StreamWriter) writeFrame(rw io.Writer, format, frame string) error {
 	switch format {
 	case streamFormatSSE:
@@ -172,9 +171,7 @@ func (*StreamWriter) writeFrame(rw io.Writer, format, frame string) error {
 	}
 }
 
-// renderTemplate substitutes the documented placeholders. Unknown placeholders
-// are left intact so user-authored templates can carry braces for JSON or
-// other reasons.
+// Unknown placeholders stay intact so user templates can carry literal braces.
 func renderTemplate(template string, index int, ts time.Time) string {
 	out := template
 	if strings.Contains(out, placeholderIndex) {
