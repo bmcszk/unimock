@@ -15,6 +15,10 @@ mock HTTP dependencies.
   forbidden shapes). Name the field for its role: `second *parts`, `parent *node`.
 - **Tests first** for logic changes (TDD). E2E tests use the fluent style in
   [`docs/fluent-testing.md`](docs/fluent-testing.md).
+- **Test style authority:** repo docs win over agent defaults — unit tests carry
+  `// given` / `// when` / `// then` markers and fluent E2E keeps its section markers
+  (docs/testing-guidelines.md, docs/fluent-testing.md "Proper section comments").
+  Read both before writing or changing ANY test.
 - **Branch + PR.** Never push to master. One logical change per PR.
 - Config code lives in `pkg/config/`, HTTP handling in `internal/handler/`,
   storage in `internal/storage/`. Docs in `docs/`, PRDs in `docs/prds/`.
